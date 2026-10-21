@@ -1,0 +1,10 @@
+{
+    "db_type": "sqlite",
+    "sqlite_path": "siget.db",
+    "host": "localhost",
+    "port": 3306,
+    "database": "siget_db",
+    "user": "root",
+    "password": "",
+    "max_weekly_hours_default": 30
+}
