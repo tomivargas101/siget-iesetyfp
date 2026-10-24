@@ -283,11 +283,11 @@ class StudentsView(ctk.CTkFrame):
 
         header_row = ctk.CTkFrame(
             self.table_container,
-            fg_color=Theme.BG_CARD_ALT,
+            fg_color=Theme.EXCEL_HEADER_BG,
             height=38,
             corner_radius=6,
             border_width=1,
-            border_color=Theme.BORDER_CARD
+            border_color=Theme.EXCEL_BORDER
         )
         header_row.pack(fill="x", pady=(0, 6))
 
@@ -306,7 +306,7 @@ class StudentsView(ctk.CTkFrame):
                 header_row,
                 text=text,
                 font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=Theme.TEXT_SECONDARY,
+                text_color=Theme.EXCEL_HEADER_TEXT,
                 width=width,
                 anchor="w"
             )

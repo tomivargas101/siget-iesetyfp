@@ -52,7 +52,9 @@ class DesignationService:
                     "teacher_id": d.teacher_id,
                     "teacher_name": d.teacher.full_name if d.teacher else "-",
                     "teacher_dni": d.teacher.dni if d.teacher else "-",
-                    "teacher_revista": d.teacher.revista if d.teacher else "-",
+                    "teacher_revista": d.effective_revista,
+                    "cargo": d.effective_cargo,
+                    "revista": d.effective_revista,
                     "day_of_week": d.day_of_week,
                     "start_time": d.start_time,
                     "end_time": d.end_time,
@@ -67,10 +69,74 @@ class DesignationService:
             session.close()
 
     @staticmethod
+    def get_by_teacher_dni(dni: str, only_active: bool = False):
+        """
+        Recupera todas las designaciones de una persona a partir de su DNI (RN-01 y RN-02).
+        Permite consultar cargos múltiples y situaciones de revista diferenciadas (TIT, INT, SUP).
+        """
+        from models.normative import NormativeClassifier
+        clean_dni = NormativeClassifier.normalize_dni(dni)
+        session = get_db_session()
+        try:
+            query = session.query(Designation).join(Teacher).filter(Teacher.dni == clean_dni)
+            if only_active:
+                query = query.filter(Designation.is_active == True)
+            designations = query.all()
+            return [
+                {
+                    "id": d.id,
+                    "subject_name": d.subject.name if d.subject else "-",
+                    "cargo": d.effective_cargo,
+                    "revista": d.effective_revista,
+                    "hours_count": d.hours_count,
+                    "day_of_week": d.day_of_week,
+                    "time": f"{d.start_time} - {d.end_time}",
+                    "is_active": d.is_active,
+                    "academic_year": d.academic_year
+                }
+                for d in designations
+            ]
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_history(teacher_id: int = None, subject_id: int = None):
+        """
+        Recupera el historial completo de designaciones (activas y dadas de baja lógica - RN-03).
+        """
+        session = get_db_session()
+        try:
+            query = session.query(Designation).join(Subject).join(Teacher)
+            if teacher_id:
+                query = query.filter(Designation.teacher_id == teacher_id)
+            if subject_id:
+                query = query.filter(Designation.subject_id == subject_id)
+            designations = query.order_by(Designation.academic_year.desc(), Designation.id.desc()).all()
+            return [
+                {
+                    "id": d.id,
+                    "teacher_dni": d.teacher.dni if d.teacher else "-",
+                    "teacher_name": d.teacher.full_name if d.teacher else "-",
+                    "subject_name": d.subject.name if d.subject else "-",
+                    "cargo": d.effective_cargo,
+                    "revista": d.effective_revista,
+                    "hours_count": d.hours_count,
+                    "is_active": d.is_active,
+                    "academic_year": d.academic_year,
+                    "resolution_number": d.resolution_number or "-"
+                }
+                for d in designations
+            ]
+        finally:
+            session.close()
+
+    @staticmethod
     def save_designation(data: dict) -> tuple[bool, str]:
         """
         Guarda o actualiza una designación validando previamente el tope de horas y compatibilidad horaria.
+        Soporta cargos y situación de revista por designación (RN-02).
         """
+        from models.normative import NormativeClassifier
         session = get_db_session()
         try:
             desig_id = data.get("id")
@@ -79,6 +145,8 @@ class DesignationService:
             day = data["day_of_week"]
             start = data["start_time"]
             end = data["end_time"]
+            cargo = data.get("cargo")
+            revista = NormativeClassifier.normalize_revista(data.get("revista")) if data.get("revista") else None
 
             # 1. Validación de tope de horas cátedra
             is_cap_valid, curr_hs, max_hs, cap_msg = BusinessValidationService.validate_hours_cap(
@@ -113,6 +181,9 @@ class DesignationService:
                 desig.start_time = start
                 desig.end_time = end
                 desig.hours_count = hours
+                desig.cargo = cargo
+                if revista:
+                    desig.revista = revista
                 desig.resolution_number = data.get("resolution_number")
                 desig.notes = data.get("notes")
                 desig.is_active = data.get("is_active", True)
@@ -125,6 +196,8 @@ class DesignationService:
                     start_time=start,
                     end_time=end,
                     hours_count=hours,
+                    cargo=cargo,
+                    revista=revista,
                     resolution_number=data.get("resolution_number"),
                     notes=data.get("notes"),
                     is_active=data.get("is_active", True)
@@ -133,7 +206,8 @@ class DesignationService:
                 action = "CREAR_DESIGNACION"
 
             session.commit()
-            AuthService.log_action(action, f"Designación ID {desig.id} - Docente {desig.teacher.full_name} ({hours} hs)")
+            rev_label = desig.effective_revista
+            AuthService.log_action(action, f"Designación ID {desig.id} - Docente {desig.teacher.full_name} ({hours} hs - {rev_label})")
             return True, "Designación guardada exitosamente y validada conforme a normativa."
         except Exception as e:
             session.rollback()
@@ -143,6 +217,9 @@ class DesignationService:
 
     @staticmethod
     def toggle_active(desig_id: int) -> tuple[bool, str]:
+        """
+        Baja lógica de designación: preserva el historial íntegro de la designación y de asistencias (RN-03).
+        """
         session = get_db_session()
         try:
             d = session.query(Designation).filter(Designation.id == desig_id).first()
@@ -150,8 +227,8 @@ class DesignationService:
                 return False, "Designación no encontrada."
             d.is_active = not d.is_active
             session.commit()
-            txt = "activada" if d.is_active else "desactivada"
-            AuthService.log_action("CAMBIO_ESTADO_DESIGNACION", f"Designación {d.id} {txt}")
+            txt = "activada" if d.is_active else "dada de baja lógica (historial conservado)"
+            AuthService.log_action("CAMBIO_ESTADO_DESIGNACION", f"Designación {d.id} {txt} (RN-03)")
             return True, f"Designación {txt} correctamente."
         except Exception as e:
             session.rollback()

@@ -6,6 +6,7 @@ from database.schema import Subject, Teacher, Career, Designation
 from models.designation import DesignationService, DAYS_OF_WEEK
 from models.validation import BusinessValidationService
 from views.theme import Theme, apply_window_icon
+from views.excel_table import ExcelTableFrame
 
 class DesignationModal(ctk.CTkToplevel):
     def __init__(self, parent, designation_data=None, on_saved=None):
@@ -610,106 +611,180 @@ class DesignationsView(ctk.CTkFrame):
         )
         self.btn_new_desig.pack(side="right", padx=15, pady=12)
 
-        self.desig_container = ctk.CTkScrollableFrame(self.tab_desig, fg_color="transparent")
-        self.desig_container.pack(fill="both", expand=True)
+        # Tabla estilo Excel con scroll bidireccional (evita desborde y cortes)
+        self.desig_table = ExcelTableFrame(self.tab_desig, min_width=1120)
+        self.desig_table.pack(fill="both", expand=True, pady=5)
 
     def _build_subst_tab(self):
-        self.subst_container = ctk.CTkScrollableFrame(self.tab_subst, fg_color="transparent")
-        self.subst_container.pack(fill="both", expand=True, pady=5)
+        toolbar = ctk.CTkFrame(
+            self.tab_subst,
+            fg_color=Theme.BG_CARD,
+            corner_radius=10,
+            border_width=1,
+            border_color=Theme.BORDER_CARD
+        )
+        toolbar.pack(fill="x", pady=(0, 15))
+
+        info_box = ctk.CTkFrame(toolbar, fg_color="transparent")
+        info_box.pack(side="left", padx=15, pady=12)
+
+        ctk.CTkLabel(
+            info_box,
+            text="Planilla Oficial de Reemplazos y Suplencias por Licencia",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=Theme.TEXT_PRIMARY
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            info_box,
+            text="Registro histórico y vigente de vinculaciones titular-suplente con números de resolución y vigencias de ley.",
+            font=ctk.CTkFont(size=11),
+            text_color=Theme.TEXT_SECONDARY
+        ).pack(anchor="w")
+
+        # Tabla estilo Excel con scroll bidireccional que asegura visualización total de columnas
+        self.subst_table = ExcelTableFrame(self.tab_subst, min_width=1180)
+        self.subst_table.pack(fill="both", expand=True, pady=5)
 
     def refresh(self):
         self._refresh_designations()
         self._refresh_substitutions()
 
     def _refresh_designations(self):
-        for widget in self.desig_container.winfo_children():
-            widget.destroy()
+        self.desig_table.clear_all()
 
         c_id = self.career_map.get(self.var_filter_career.get(), 0)
         designations = DesignationService.get_all(career_id=c_id)
 
-        header_row = ctk.CTkFrame(
-            self.desig_container,
-            fg_color=Theme.BG_CARD_ALT,
-            height=38,
-            corner_radius=6,
-            border_width=1,
-            border_color=Theme.BORDER_CARD
-        )
-        header_row.pack(fill="x", pady=(0, 6))
-
         cols = [
-            ("CÁTEDRA / CARRERA", 280),
-            ("DOCENTE TITULAR", 220),
-            ("DÍA Y HORARIO", 160),
-            ("HS CÁT.", 80),
-            ("ESTADO / CONDICIÓN", 200),
-            ("ACCIONES", 160)
+            ("Cátedra / Carrera", 3, 260, "w"),
+            ("Docente Titular", 2, 200, "w"),
+            ("Día y Horario", 2, 160, "w"),
+            ("Hs Cát.", 1, 90, "center"),
+            ("Estado / Condición", 2, 210, "w"),
+            ("Acciones", 2, 170, "center")
         ]
-
-        for text, width in cols:
-            lbl = ctk.CTkLabel(
-                header_row,
-                text=text,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=Theme.TEXT_SECONDARY,
-                width=width,
-                anchor="w"
-            )
-            lbl.pack(side="left", padx=8, pady=8)
+        self.desig_table.set_columns(cols)
+        self.desig_table.render_header()
 
         if not designations:
-            ctk.CTkLabel(
-                self.desig_container,
-                text="No hay cátedras designadas en esta carrera.",
-                font=ctk.CTkFont(size=13),
-                text_color=Theme.TEXT_MUTED
-            ).pack(pady=40)
+            self.desig_table.show_empty_message("No hay cátedras designadas en la carrera seleccionada.")
             return
 
-        for d in designations:
-            row = ctk.CTkFrame(
-                self.desig_container,
-                fg_color=Theme.BG_CARD,
-                corner_radius=6,
-                border_width=1,
-                border_color=Theme.BORDER_SUB
-            )
-            row.pack(fill="x", pady=3)
+        for idx, d in enumerate(designations):
+            row = self.desig_table.create_row(idx)
 
             # Cátedra
-            c_box = ctk.CTkFrame(row, fg_color="transparent", width=280)
-            c_box.pack(side="left", padx=8, pady=8)
-            ctk.CTkLabel(c_box, text=d["subject_name"], font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY, anchor="w").pack(anchor="w")
-            ctk.CTkLabel(c_box, text=f"{d['career_name']} ({d['subject_code']})", font=ctk.CTkFont(size=10), text_color=Theme.TEXT_MUTED, anchor="w").pack(anchor="w")
+            c_box = self.desig_table.add_cell(row, 0)
+            ctk.CTkLabel(
+                c_box,
+                text=d["subject_name"],
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=Theme.TEXT_PRIMARY,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                c_box,
+                text=f"{d['career_name']} ({d['subject_code']})",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.TEXT_MUTED,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
 
             # Docente
-            t_box = ctk.CTkFrame(row, fg_color="transparent", width=220)
-            t_box.pack(side="left", padx=8)
-            ctk.CTkLabel(t_box, text=d["teacher_name"], font=ctk.CTkFont(size=12), text_color=Theme.INFO_TEXT, anchor="w").pack(anchor="w")
-            ctk.CTkLabel(t_box, text=f"DNI: {d['teacher_dni']} • {d['teacher_revista']}", font=ctk.CTkFont(size=10), text_color=Theme.TEXT_MUTED, anchor="w").pack(anchor="w")
+            t_box = self.desig_table.add_cell(row, 1)
+            ctk.CTkLabel(
+                t_box,
+                text=d["teacher_name"],
+                font=ctk.CTkFont(size=12),
+                text_color=Theme.INFO_TEXT,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                t_box,
+                text=f"DNI: {d['teacher_dni']} • {d['teacher_revista']}",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.TEXT_MUTED,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
 
             # Día y Horario
-            ctk.CTkLabel(row, text=f"{d['day_of_week']}\n{d['start_time']} - {d['end_time']}", font=ctk.CTkFont(size=11), text_color=Theme.TEXT_SECONDARY, width=160, anchor="w").pack(side="left", padx=8)
+            h_box = self.desig_table.add_cell(row, 2)
+            ctk.CTkLabel(
+                h_box,
+                text=d["day_of_week"],
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color=Theme.TEXT_SECONDARY,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                h_box,
+                text=f"{d['start_time']} a {d['end_time']}",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.TEXT_MUTED,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
 
-            # Horas
-            ctk.CTkLabel(row, text=f"{d['hours_count']} hs", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.SUCCESS_TEXT, width=80, anchor="w").pack(side="left", padx=8)
+            # Hs Cátedra (Badge centrado tipo Excel)
+            hs_box = self.desig_table.add_cell(row, 3)
+            hs_badge = ctk.CTkFrame(
+                hs_box,
+                fg_color=Theme.SUCCESS_BG,
+                corner_radius=4,
+                border_width=1,
+                border_color=Theme.SUCCESS_HOVER
+            )
+            hs_badge.pack(anchor="center", pady=2)
+            ctk.CTkLabel(
+                hs_badge,
+                text=f" {d['hours_count']} hs ",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color=Theme.SUCCESS_TEXT
+            ).pack(padx=6, pady=2)
 
             # Condición (Titular o Suplencia)
-            cond_box = ctk.CTkFrame(row, fg_color="transparent", width=200)
-            cond_box.pack(side="left", padx=8)
-
+            cond_box = self.desig_table.add_cell(row, 4)
             if d["active_substitution"]:
                 sub = d["active_substitution"]
-                ctk.CTkLabel(cond_box, text=f"Suplente: {sub['suplente_name']}", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.WARNING_TEXT, anchor="w").pack(anchor="w")
-                ctk.CTkLabel(cond_box, text=f"Res. {sub['resolution']} (hasta {sub['end_date']})", font=ctk.CTkFont(size=10), text_color=Theme.WARNING_TEXT, anchor="w").pack(anchor="w")
+                cond_badge = ctk.CTkFrame(
+                    cond_box,
+                    fg_color=Theme.WARNING_BG,
+                    corner_radius=4,
+                    border_width=1,
+                    border_color=Theme.WARNING_HOVER
+                )
+                cond_badge.pack(anchor="w", pady=(0, 2))
+                ctk.CTkLabel(
+                    cond_badge,
+                    text=f" Suplente: {sub['suplente_name']} ",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    text_color=Theme.WARNING_TEXT
+                ).pack(padx=4, pady=2)
+                ctk.CTkLabel(
+                    cond_box,
+                    text=f"Res. {sub['resolution']} (hasta {sub['end_date']})",
+                    font=ctk.CTkFont(size=10),
+                    text_color=Theme.WARNING_TEXT,
+                    anchor="w"
+                ).pack(fill="x", anchor="w")
             else:
-                ctk.CTkLabel(cond_box, text="Titular en Ejercicio", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.SUCCESS_TEXT, anchor="w").pack(anchor="w")
+                tit_badge = ctk.CTkFrame(
+                    cond_box,
+                    fg_color=Theme.SUCCESS_BG,
+                    corner_radius=4,
+                    border_width=1,
+                    border_color=Theme.SUCCESS_HOVER
+                )
+                tit_badge.pack(anchor="w", pady=2)
+                ctk.CTkLabel(
+                    tit_badge,
+                    text=" Titular en Ejercicio ",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    text_color=Theme.SUCCESS_TEXT
+                ).pack(padx=6, pady=2)
 
             # Acciones
-            actions = ctk.CTkFrame(row, fg_color="transparent", width=160)
-            actions.pack(side="left", padx=8)
-
+            actions = self.desig_table.add_cell(row, 5)
             btn_subst = ctk.CTkButton(
                 actions,
                 text="Suplencia",
@@ -737,66 +812,124 @@ class DesignationsView(ctk.CTkFrame):
             btn_edit.pack(side="left", padx=3)
 
     def _refresh_substitutions(self):
-        for widget in self.subst_container.winfo_children():
-            widget.destroy()
+        self.subst_table.clear_all()
 
         substitutions = DesignationService.get_all_substitutions()
 
-        header_row = ctk.CTkFrame(
-            self.subst_container,
-            fg_color=Theme.BG_CARD_ALT,
-            height=38,
-            corner_radius=6,
-            border_width=1,
-            border_color=Theme.BORDER_CARD
-        )
-        header_row.pack(fill="x", pady=(0, 6))
-
         cols = [
-            ("CÁTEDRA ASOCIADA", 240),
-            ("DOCENTE TITULAR", 200),
-            ("DOCENTE SUPLENTE", 200),
-            ("MOTIVO DE LICENCIA", 240),
-            ("VIGENCIA (INICIO - FIN)", 170),
-            ("N° RESOLUCIÓN", 140)
+            ("Cátedra Asociada", 3, 230, "w"),
+            ("Docente Titular", 2, 190, "w"),
+            ("Docente Suplente", 2, 190, "w"),
+            ("Motivo de Licencia", 3, 240, "w"),
+            ("Vigencia (Inicio - Fin)", 2, 170, "center"),
+            ("N° Resolución", 2, 150, "center")
         ]
-
-        for text, width in cols:
-            lbl = ctk.CTkLabel(
-                header_row,
-                text=text,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=Theme.TEXT_SECONDARY,
-                width=width,
-                anchor="w"
-            )
-            lbl.pack(side="left", padx=8, pady=8)
+        self.subst_table.set_columns(cols)
+        self.subst_table.render_header()
 
         if not substitutions:
-            ctk.CTkLabel(
-                self.subst_container,
-                text="No hay registros históricos de suplencias.",
-                font=ctk.CTkFont(size=13),
-                text_color=Theme.TEXT_MUTED
-            ).pack(pady=40)
+            self.subst_table.show_empty_message("No hay registros históricos ni vigentes de suplencias.")
             return
 
-        for s in substitutions:
-            row = ctk.CTkFrame(
-                self.subst_container,
-                fg_color=Theme.BG_CARD,
-                corner_radius=6,
-                border_width=1,
-                border_color=Theme.BORDER_SUB
-            )
-            row.pack(fill="x", pady=3)
+        for idx, s in enumerate(substitutions):
+            row = self.subst_table.create_row(idx)
 
-            ctk.CTkLabel(row, text=s["subject_name"], font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY, width=240, anchor="w").pack(side="left", padx=8, pady=10)
-            ctk.CTkLabel(row, text=s["titular_name"], font=ctk.CTkFont(size=12), text_color=Theme.TEXT_MUTED, width=200, anchor="w").pack(side="left", padx=8)
-            ctk.CTkLabel(row, text=s["suplente_name"], font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.INFO_TEXT, width=200, anchor="w").pack(side="left", padx=8)
-            ctk.CTkLabel(row, text=s["license_reason"], font=ctk.CTkFont(size=11), text_color=Theme.TEXT_SECONDARY, width=240, anchor="w").pack(side="left", padx=8)
-            ctk.CTkLabel(row, text=f"{s['start_date']} al {s['end_date']}", font=ctk.CTkFont(size=11), text_color=Theme.WARNING_TEXT, width=170, anchor="w").pack(side="left", padx=8)
-            ctk.CTkLabel(row, text=s["resolution_number"], font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.SUCCESS_TEXT, width=140, anchor="w").pack(side="left", padx=8)
+            # Cátedra Asociada
+            c_box = self.subst_table.add_cell(row, 0)
+            ctk.CTkLabel(
+                c_box,
+                text=s["subject_name"],
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=Theme.TEXT_PRIMARY,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                c_box,
+                text="Espacio Curricular Oficial",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.TEXT_MUTED,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+
+            # Docente Titular
+            t_box = self.subst_table.add_cell(row, 1)
+            ctk.CTkLabel(
+                t_box,
+                text=s["titular_name"],
+                font=ctk.CTkFont(size=12),
+                text_color=Theme.TEXT_SECONDARY,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                t_box,
+                text="Titular Licenciado",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.TEXT_MUTED,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+
+            # Docente Suplente
+            sup_box = self.subst_table.add_cell(row, 2)
+            ctk.CTkLabel(
+                sup_box,
+                text=s["suplente_name"],
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=Theme.INFO_TEXT,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                sup_box,
+                text="Suplente en Ejercicio",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.GOLD_TEXT,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+
+            # Motivo de Licencia
+            m_box = self.subst_table.add_cell(row, 3)
+            ctk.CTkLabel(
+                m_box,
+                text=s["license_reason"],
+                font=ctk.CTkFont(size=11),
+                text_color=Theme.TEXT_PRIMARY,
+                anchor="w",
+                wraplength=240,
+                justify="left"
+            ).pack(fill="x", anchor="w")
+
+            # Vigencia (Inicio - Fin)
+            v_box = self.subst_table.add_cell(row, 4)
+            v_badge = ctk.CTkFrame(
+                v_box,
+                fg_color=Theme.WARNING_BG,
+                corner_radius=4,
+                border_width=1,
+                border_color=Theme.WARNING_HOVER
+            )
+            v_badge.pack(anchor="center", pady=2)
+            ctk.CTkLabel(
+                v_badge,
+                text=f" {s['start_date']} al {s['end_date']} ",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=Theme.WARNING_TEXT
+            ).pack(padx=6, pady=3)
+
+            # N° Resolución
+            r_box = self.subst_table.add_cell(row, 5)
+            r_badge = ctk.CTkFrame(
+                r_box,
+                fg_color=Theme.EXCEL_BADGE_BG,
+                corner_radius=4,
+                border_width=1,
+                border_color=Theme.BORDER_CARD
+            )
+            r_badge.pack(anchor="center", pady=2)
+            ctk.CTkLabel(
+                r_badge,
+                text=f" {s['resolution_number']} ",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=Theme.EXCEL_BADGE_TEXT
+            ).pack(padx=8, pady=3)
 
     def _open_new_desig_modal(self):
         DesignationModal(self, on_saved=self.refresh)

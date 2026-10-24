@@ -227,14 +227,14 @@ class AttendanceView(ctk.CTkFrame):
             child.destroy()
         self.row_widgets.clear()
 
-        # Encabezados de Columna
+        # Encabezados de Columna estilo Excel elegante
         headers_frame = ctk.CTkFrame(
             self.scroll_table,
-            fg_color=Theme.BG_CARD_ALT,
+            fg_color=Theme.EXCEL_HEADER_BG,
             height=38,
             corner_radius=6,
             border_width=1,
-            border_color=Theme.BORDER_CARD
+            border_color=Theme.EXCEL_BORDER
         )
         headers_frame.pack(fill="x", pady=(0, 6))
 
@@ -251,13 +251,13 @@ class AttendanceView(ctk.CTkFrame):
         for text, width, anchor in cols:
             lbl = ctk.CTkLabel(
                 headers_frame,
-                text=text,
+                text=text.upper(),
                 font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=Theme.TEXT_SECONDARY,
+                text_color=Theme.EXCEL_HEADER_TEXT,
                 width=width,
                 anchor=anchor
             )
-            lbl.pack(side="left", padx=6)
+            lbl.pack(side="left", padx=6, pady=8)
 
         # Filtrar registros
         query = self.entry_search.get().strip().lower()

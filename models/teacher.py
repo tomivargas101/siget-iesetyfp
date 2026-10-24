@@ -55,48 +55,68 @@ class TeacherService:
             session.close()
 
     @staticmethod
+    def get_by_dni(dni: str):
+        """
+        Recupera un docente por su DNI almacenado como texto unívoco (RN-01).
+        """
+        from models.normative import NormativeClassifier
+        clean_dni = NormativeClassifier.normalize_dni(dni)
+        session = get_db_session()
+        try:
+            return session.query(Teacher).filter(Teacher.dni == clean_dni).first()
+        finally:
+            session.close()
+
+    @staticmethod
     def save(data: dict) -> tuple[bool, str]:
+        """
+        Guarda o actualiza los datos personales comunes de un docente (RN-01).
+        Los datos personales se almacenan una sola vez independientemente de sus designaciones.
+        """
+        from models.normative import NormativeClassifier
         session = get_db_session()
         try:
             t_id = data.get("id")
+            clean_dni = NormativeClassifier.normalize_dni(data["dni"])
+            clean_legajo = str(data["legajo"]).strip()
             
-            # Validar unicidad DNI y Legajo
-            dni_check = session.query(Teacher).filter(Teacher.dni == data["dni"])
+            # Validar unicidad DNI y Legajo (RN-01)
+            dni_check = session.query(Teacher).filter(Teacher.dni == clean_dni)
             if t_id:
                 dni_check = dni_check.filter(Teacher.id != t_id)
             if dni_check.first():
-                return False, f"Ya existe un docente con el DNI {data['dni']}."
+                return False, f"Ya existe un docente registrado con el DNI {clean_dni} (RN-01: datos comunes únicos)."
 
-            legajo_check = session.query(Teacher).filter(Teacher.legajo == data["legajo"])
+            legajo_check = session.query(Teacher).filter(Teacher.legajo == clean_legajo)
             if t_id:
                 legajo_check = legajo_check.filter(Teacher.id != t_id)
             if legajo_check.first():
-                return False, f"Ya existe un docente con el Legajo {data['legajo']}."
+                return False, f"Ya existe un docente con el Legajo {clean_legajo}."
 
             if t_id:
                 teacher = session.query(Teacher).filter(Teacher.id == t_id).first()
                 if not teacher:
                     return False, "Docente no encontrado para actualizar."
-                teacher.legajo = data["legajo"]
-                teacher.dni = data["dni"]
-                teacher.cuil = data.get("cuil")
-                teacher.first_name = data["first_name"]
-                teacher.last_name = data["last_name"]
-                teacher.email = data.get("email")
-                teacher.phone = data.get("phone")
+                teacher.legajo = clean_legajo
+                teacher.dni = clean_dni
+                teacher.cuil = str(data.get("cuil")).strip() if data.get("cuil") else None
+                teacher.first_name = str(data["first_name"]).strip()
+                teacher.last_name = str(data["last_name"]).strip()
+                teacher.email = str(data.get("email")).strip() if data.get("email") else None
+                teacher.phone = str(data.get("phone")).strip() if data.get("phone") else None
                 teacher.revista = data.get("revista", "Titular")
                 teacher.max_weekly_hours = int(data.get("max_weekly_hours", 30))
                 teacher.is_active = data.get("is_active", True)
                 action = "ACTUALIZAR_DOCENTE"
             else:
                 teacher = Teacher(
-                    legajo=data["legajo"],
-                    dni=data["dni"],
-                    cuil=data.get("cuil"),
-                    first_name=data["first_name"],
-                    last_name=data["last_name"],
-                    email=data.get("email"),
-                    phone=data.get("phone"),
+                    legajo=clean_legajo,
+                    dni=clean_dni,
+                    cuil=str(data.get("cuil")).strip() if data.get("cuil") else None,
+                    first_name=str(data["first_name"]).strip(),
+                    last_name=str(data["last_name"]).strip(),
+                    email=str(data.get("email")).strip() if data.get("email") else None,
+                    phone=str(data.get("phone")).strip() if data.get("phone") else None,
                     revista=data.get("revista", "Titular"),
                     max_weekly_hours=int(data.get("max_weekly_hours", 30)),
                     is_active=data.get("is_active", True)
@@ -105,8 +125,8 @@ class TeacherService:
                 action = "CREAR_DOCENTE"
 
             session.commit()
-            AuthService.log_action(action, f"Docente {teacher.legajo} - {teacher.full_name}")
-            return True, "Docente guardado correctamente."
+            AuthService.log_action(action, f"Docente {teacher.legajo} - {teacher.full_name} (DNI: {clean_dni})")
+            return True, "Docente guardado correctamente conforme a RN-01."
         except Exception as e:
             session.rollback()
             return False, f"Error al guardar docente: {str(e)}"
@@ -115,6 +135,10 @@ class TeacherService:
 
     @staticmethod
     def toggle_active(teacher_id: int) -> tuple[bool, str]:
+        """
+        Aplica baja lógica o reactivación preservando el historial íntegro (RN-03).
+        Nunca elimina antecedentes históricos ni registros de asistencia vinculados.
+        """
         session = get_db_session()
         try:
             t = session.query(Teacher).filter(Teacher.id == teacher_id).first()
@@ -122,11 +146,70 @@ class TeacherService:
                 return False, "Docente no encontrado."
             t.is_active = not t.is_active
             session.commit()
-            status_text = "activado" if t.is_active else "desactivado"
-            AuthService.log_action("CAMBIO_ESTADO_DOCENTE", f"Docente {t.legajo} {status_text}")
+            status_text = "activado" if t.is_active else "dado de baja lógica (antecedentes conservados)"
+            AuthService.log_action("CAMBIO_ESTADO_DOCENTE", f"Docente {t.legajo} {status_text} (RN-03)")
             return True, f"Docente {status_text} exitosamente."
         except Exception as e:
             session.rollback()
             return False, str(e)
         finally:
             session.close()
+
+    @staticmethod
+    def get_full_history(teacher_id: int) -> dict:
+        """
+        Recupera el historial completo de un docente (RN-01 a RN-03):
+        - Datos personales comunes (RN-01).
+        - Todas sus designaciones históricas y activas con situación de revista (RN-02).
+        - Suplencias vinculadas y registros de asistencia acumulados sin borrado lógico (RN-03).
+        """
+        from database.schema import Designation, Substitution, Attendance
+        session = get_db_session()
+        try:
+            t = session.query(Teacher).filter(Teacher.id == teacher_id).first()
+            if not t:
+                return {}
+
+            designations = session.query(Designation).filter(Designation.teacher_id == teacher_id).all()
+            attendances = session.query(Attendance).filter(Attendance.teacher_id == teacher_id).order_by(Attendance.date.desc()).all()
+            substitutions = session.query(Substitution).filter(
+                (Substitution.titular_teacher_id == teacher_id) | (Substitution.suplente_teacher_id == teacher_id)
+            ).all()
+
+            return {
+                "teacher_id": t.id,
+                "dni": t.dni,
+                "legajo": t.legajo,
+                "full_name": t.full_name,
+                "is_active": t.is_active,
+                "designations_count": len(designations),
+                "designations": [
+                    {
+                        "id": d.id,
+                        "subject_name": d.subject.name if d.subject else "-",
+                        "cargo": d.effective_cargo,
+                        "revista": d.effective_revista,
+                        "hours": d.hours_count,
+                        "day": d.day_of_week,
+                        "time": f"{d.start_time} - {d.end_time}",
+                        "is_active": d.is_active,
+                        "academic_year": d.academic_year
+                    }
+                    for d in designations
+                ],
+                "attendances_count": len(attendances),
+                "attendances": [
+                    {
+                        "id": a.id,
+                        "date": a.date.strftime("%d/%m/%Y"),
+                        "status": a.status,
+                        "observations": a.observations or "",
+                        "hours": a.hours
+                    }
+                    for a in attendances
+                ],
+                "substitutions_count": len(substitutions)
+            }
+        finally:
+            session.close()
+

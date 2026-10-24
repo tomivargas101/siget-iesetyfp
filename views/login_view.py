@@ -6,6 +6,7 @@ from database.config import load_config, save_config
 from database.connection import init_db
 from models.auth import AuthService
 from views.theme import Theme, apply_window_icon, get_asset_path
+from views.register_view import RegisterDialog
 
 class DatabaseConfigDialog(ctk.CTkToplevel):
     def __init__(self, parent, on_saved=None):
@@ -169,6 +170,7 @@ class LoginWindow(ctk.CTk):
         self._center_window()
         self._build_ui()
         self._check_db_status()
+        self.after(250, self._check_first_run_on_startup)
 
     def _windows_set_titlebar_color(self, color_mode: str):
         try:
@@ -401,7 +403,20 @@ class LoginWindow(ctk.CTk):
             text_color=Theme.PRIMARY_TEXT,
             command=self._handle_login
         )
-        self.btn_login.pack(fill="x", padx=45, pady=(4, 12))
+        self.btn_login.pack(fill="x", padx=45, pady=(4, 6))
+
+        # Enlace sutil para Registro / Creación de Cuenta
+        self.btn_register_link = ctk.CTkButton(
+            self.right_panel,
+            text="¿No tienes cuenta? Registrarse / Crear Cuenta",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="transparent",
+            hover_color=Theme.BG_INPUT,
+            text_color=Theme.GOLD_ACCENT,
+            height=26,
+            command=self._open_register
+        )
+        self.btn_register_link.pack(fill="x", padx=45, pady=(0, 8))
 
         # Accesos Rápidos de Prueba (Rector / Bedel)
         demo_frame = ctk.CTkFrame(
@@ -546,6 +561,28 @@ class LoginWindow(ctk.CTk):
         self.destroy()
         if self.on_login_success:
             self.on_login_success(user)
+
+    def _check_first_run_on_startup(self):
+        """Si la base de datos de usuarios está vacía, activa obligatoriamente la Configuración Inicial de Rector."""
+        try:
+            status = AuthService.check_first_run()
+            if status.get("is_first_run"):
+                self._open_register(is_first_run=True)
+        except Exception as e:
+            print(f"[SIGET] Advertencia al comprobar first-run: {e}")
+
+    def _open_register(self, is_first_run=False):
+        """Abre la ventana modal de registro institucional."""
+        def on_reg_success(username):
+            self.entry_username.delete(0, "end")
+            self.entry_username.insert(0, username)
+            self.entry_password.delete(0, "end")
+            self.entry_password.focus()
+            self.lbl_status.configure(
+                text=f"¡Cuenta '{username}' registrada! Ingrese su contraseña.",
+                text_color=Theme.SUCCESS_TEXT
+            )
+        RegisterDialog(self, on_register_success=on_reg_success, is_first_run=is_first_run)
 
     def _on_close(self):
         self.authenticated_user = None

@@ -1,0 +1,753 @@
+/* ==========================================================================
+   ESTILOS INSTITUCIONALES SIGET (Electron Desktop)
+   Paleta Oficial Institucional:
+   - Dorado Oficial Logotipo: #E0C45D, Hover: #C2A532, Texto: #8A6F0E, Fondo: #FEF9E7
+   - Carbón y Grafito: #1E1E1E (Fondo ventana), #282828 (Tarjetas), #242424 (Sidebar/Top), #3D3D3D (Bordes)
+   - Cabeceras Excel: #E5E7EB (#2D333B en Dark Mode) con bordes de celda tipo Excel
+   - Tipografía Corporativa: Segoe UI
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700;800;900&display=swap');
+
+/* ==========================================================================
+   1. VARIABLES CSS (TEMA CLARO Y MODO OSCURO)
+   ========================================================================== */
+:root {
+    --color-gold: #E0C45D;
+    --color-gold-hover: #C2A532;
+    --color-gold-text: #8A6F0E;
+    --color-gold-bg: #FEF9E7;
+    --color-graphite-dark: #2B2B2B;
+    --color-graphite-mid: #4A4A4A;
+    --color-excel-header: #E5E7EB;
+    --color-excel-header-dark: #2D333B;
+    --color-excel-text: #1F2937;
+    --color-excel-border: #E5E7EB;
+    --bg-window: #F8FAFC;
+    --bg-main: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --bg-card-sub: #F1F5F9;
+    --border-card: #E2E8F0;
+    --text-primary: #1F2937;
+    --text-secondary: #4B5563;
+    --text-muted: #6B7280;
+}
+
+html.dark,
+body.dark-mode,
+.dark {
+    --bg-window: #18181B;
+    --bg-main: #1E1E1E;
+    --bg-card: #282828;
+    --bg-card-sub: #222222;
+    --border-card: #3D3D3D;
+    --text-primary: #F8FAFC;
+    --text-secondary: #D1D5DB;
+    --text-muted: #9CA3AF;
+    --color-excel-header: #2D333B;
+    --color-excel-text: #F9FAFB;
+    --color-excel-border: #3D3D3D;
+    --color-gold-bg: #2D2818;
+    --color-gold-text: #E0C45D;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    user-select: none;
+}
+
+input, select, textarea {
+    user-select: text;
+}
+
+/* ==========================================================================
+   2. TRANSICIONES SUAVES GLOBALES
+   ========================================================================== */
+body, main, aside, header, .kpi-card, .bg-white, .excel-table-container, input, select {
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.15s ease;
+}
+
+.transition-fast {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbars modernos estilo desktop */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+html.dark ::-webkit-scrollbar-thumb,
+body.dark-mode ::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb {
+    background: #4B5563;
+}
+html.dark ::-webkit-scrollbar-thumb:hover,
+body.dark-mode ::-webkit-scrollbar-thumb:hover,
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #6B7280;
+}
+
+/* ==========================================================================
+   3. ADAPTACIÓN INTEGRAL DE MODO OSCURO (CONTENEDORES Y ESTRUCTURA)
+   ========================================================================== */
+html.dark body,
+body.dark-mode,
+body.dark,
+[data-theme="dark"] body {
+    background-color: #18181B !important;
+    color: #F8FAFC !important;
+}
+
+html.dark #app-container,
+body.dark-mode #app-container,
+body.dark #app-container,
+.dark #app-container,
+[data-theme="dark"] #app-container {
+    background-color: #1E1E1E !important;
+}
+
+html.dark main,
+body.dark-mode main,
+body.dark main,
+.dark main,
+[data-theme="dark"] main {
+    background-color: #1E1E1E !important;
+    color: #F8FAFC !important;
+}
+
+html.dark aside,
+body.dark-mode aside,
+body.dark aside,
+.dark aside,
+[data-theme="dark"] aside {
+    background-color: #242424 !important;
+    border-color: #383838 !important;
+    color: #F8FAFC !important;
+}
+
+html.dark header,
+body.dark-mode header,
+body.dark header,
+.dark header,
+[data-theme="dark"] header {
+    background-color: #242424 !important;
+    border-color: #383838 !important;
+    color: #F8FAFC !important;
+}
+
+html.dark #views-container,
+body.dark-mode #views-container,
+body.dark #views-container,
+.dark #views-container,
+[data-theme="dark"] #views-container {
+    background-color: #1E1E1E !important;
+}
+
+/* ==========================================================================
+   4. TARJETAS, KPIS Y CONTENEDORES
+   ========================================================================== */
+/* Tarjetas KPI de Métricas y Estadísticas */
+.kpi-card {
+    background-color: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+html.dark .kpi-card,
+body.dark-mode .kpi-card,
+body.dark .kpi-card,
+.dark .kpi-card,
+[data-theme="dark"] .kpi-card {
+    background-color: #282828 !important;
+    border-color: #3D3D3D !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Tarjetas y Contenedores con clase bg-white */
+html.dark .bg-white,
+body.dark-mode .bg-white,
+body.dark .bg-white,
+.dark .bg-white,
+[data-theme="dark"] .bg-white {
+    background-color: #282828 !important;
+    border-color: #3D3D3D !important;
+    color: #F8FAFC !important;
+}
+
+/* Sub-paneles y filas anidadas (ej. suplencias, items de lista) */
+html.dark .bg-slate-50,
+body.dark-mode .bg-slate-50,
+body.dark .bg-slate-50,
+.dark .bg-slate-50,
+[data-theme="dark"] .bg-slate-50 {
+    background-color: #202020 !important;
+    border-color: #383838 !important;
+}
+
+html.dark .bg-slate-100,
+body.dark-mode .bg-slate-100,
+body.dark .bg-slate-100,
+.dark .bg-slate-100,
+[data-theme="dark"] .bg-slate-100 {
+    background-color: #282828 !important;
+    border-color: #383838 !important;
+}
+
+/* ==========================================================================
+   5. JERARQUÍA DE TEXTO Y TIPOGRAFÍA
+   ========================================================================== */
+html.dark .text-slate-900,
+body.dark-mode .text-slate-900,
+.dark .text-slate-900,
+html.dark .text-slate-800,
+body.dark-mode .text-slate-800,
+.dark .text-slate-800 {
+    color: #F8FAFC !important;
+}
+
+html.dark .text-slate-700,
+body.dark-mode .text-slate-700,
+.dark .text-slate-700,
+html.dark .text-slate-600,
+body.dark-mode .text-slate-600,
+.dark .text-slate-600 {
+    color: #D1D5DB !important;
+}
+
+html.dark .text-slate-500,
+body.dark-mode .text-slate-500,
+.dark .text-slate-500,
+html.dark .text-slate-400,
+body.dark-mode .text-slate-400,
+.dark .text-slate-400 {
+    color: #9CA3AF !important;
+}
+
+html.dark .text-slate-300,
+body.dark-mode .text-slate-300,
+.dark .text-slate-300 {
+    color: #4B5563 !important;
+}
+
+/* ==========================================================================
+   6. BORDES Y SEPARADORES
+   ========================================================================== */
+html.dark .border-slate-100,
+body.dark-mode .border-slate-100,
+.dark .border-slate-100,
+html.dark .border-slate-200,
+body.dark-mode .border-slate-200,
+.dark .border-slate-200,
+html.dark .border-slate-300,
+body.dark-mode .border-slate-300,
+.dark .border-slate-300 {
+    border-color: #3D3D3D !important;
+}
+
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+body.dark-mode .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+body.dark-mode .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #383838 !important;
+}
+
+/* ==========================================================================
+   7. TABLAS ESTILO PLANILLA EXCEL (DESPLAZAMIENTO Y CABECERAS)
+   ========================================================================== */
+.excel-table-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    background: transparent;
+    border-radius: 6px;
+    border: 1px solid var(--color-excel-border);
+}
+
+html.dark .excel-table-container,
+body.dark-mode .excel-table-container,
+.dark .excel-table-container {
+    background-color: #242424 !important;
+    border-color: #3D3D3D !important;
+}
+
+.excel-header {
+    background-color: var(--color-excel-header);
+    color: var(--color-excel-text);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--color-excel-border);
+}
+
+.excel-header th {
+    padding: 10px 14px;
+    border-right: 1px solid #D1D5DB;
+}
+
+html.dark .excel-header,
+body.dark-mode .excel-header,
+.dark .excel-header,
+html.dark table thead,
+body.dark-mode table thead,
+.dark table thead {
+    background-color: #2D333B !important;
+    color: #F8FAFB !important;
+    border-color: #3D3D3D !important;
+}
+
+html.dark .excel-header th,
+body.dark-mode .excel-header th,
+.dark .excel-header th,
+html.dark table thead th,
+body.dark-mode table thead th,
+.dark table thead th {
+    background-color: #2D333B !important;
+    color: #F8FAFB !important;
+    border-right: 1px solid #404752 !important;
+    border-bottom: 2px solid #404752 !important;
+}
+
+/* Filas de tabla */
+.excel-row-even {
+    background-color: var(--bg-card);
+}
+
+.excel-row-odd {
+    background-color: rgba(243, 244, 246, 0.6);
+}
+
+html.dark table tbody tr,
+body.dark-mode table tbody tr,
+.dark table tbody tr {
+    background-color: #242424;
+    border-color: #383838 !important;
+}
+
+html.dark table tbody tr:nth-child(even),
+body.dark-mode table tbody tr:nth-child(even),
+.dark table tbody tr:nth-child(even) {
+    background-color: #282828 !important;
+}
+
+html.dark table tbody tr:hover,
+body.dark-mode table tbody tr:hover,
+.dark table tbody tr:hover,
+html.dark .excel-row:hover,
+body.dark-mode .excel-row:hover,
+.dark .excel-row:hover {
+    background-color: #323842 !important;
+}
+
+html.dark table td,
+body.dark-mode table td,
+.dark table td {
+    border-color: #383838 !important;
+}
+
+/* ==========================================================================
+   8. CAMPOS DE ENTRADA, CONTROLES Y COMBOS
+   ========================================================================== */
+html.dark input,
+body.dark-mode input,
+.dark input,
+html.dark select,
+body.dark-mode select,
+.dark select,
+html.dark textarea,
+body.dark-mode textarea,
+.dark textarea {
+    background-color: #202020 !important;
+    border-color: #444444 !important;
+    color: #F8FAFC !important;
+}
+
+html.dark input:focus,
+body.dark-mode input:focus,
+.dark input:focus,
+html.dark select:focus,
+body.dark-mode select:focus,
+.dark select:focus {
+    border-color: #E0C45D !important;
+    box-shadow: 0 0 0 2px rgba(224, 196, 93, 0.2) !important;
+}
+
+html.dark input::placeholder,
+body.dark-mode input::placeholder,
+.dark input::placeholder {
+    color: #6B7280 !important;
+}
+
+/* ==========================================================================
+   8.1 MENÚS DESPLEGABLES Y OPCIONES (<select> y <option>)
+   Garantiza contraste óptimo y elimina texto rosado o desvanecido en desplegables
+   ========================================================================== */
+select {
+    cursor: pointer;
+}
+
+/* Opciones en modo claro: Fondo blanco y texto oscuro (#0F172A) con excelente contraste */
+select option {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    font-weight: 500 !important;
+    font-size: 12px;
+    padding: 6px 10px;
+}
+
+select option:checked {
+    background-color: #E2E8F0 !important;
+    color: #0F172A !important;
+    font-weight: 700 !important;
+}
+
+/* Opciones en modo oscuro: Fondo grafito oscuro (#242424) y texto blanco de alto contraste */
+html.dark select option,
+body.dark-mode select option,
+.dark select option,
+[data-theme="dark"] select option {
+    background-color: #242424 !important;
+    color: #F8FAFC !important;
+    font-weight: 500 !important;
+}
+
+html.dark select option:checked,
+body.dark-mode select option:checked,
+.dark select option:checked,
+[data-theme="dark"] select option:checked {
+    background-color: #383838 !important;
+    color: #E0C45D !important;
+    font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   8.2 SELECTORES DE ESTADOS DE ASISTENCIA DIARIA (.att-status-select)
+   Diseño de badges interactivos y contraste verificado en todas las opciones
+   ========================================================================== */
+.att-status-select {
+    cursor: pointer;
+    font-weight: 700 !important;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    transition: all 0.15s ease;
+    outline: none;
+    text-align: center;
+}
+
+.att-status-select:focus {
+    box-shadow: 0 0 0 2px rgba(224, 196, 93, 0.35) !important;
+    border-color: #E0C45D !important;
+}
+
+/* Variantes de Estado en Modo Claro */
+.att-status-select.status-select-pr {
+    background-color: #ECFDF5 !important;
+    color: #065F46 !important;
+    border: 1px solid #6EE7B7 !important;
+}
+
+.att-status-select.status-select-i {
+    background-color: #FFF1F2 !important;
+    color: #9F1239 !important;
+    border: 1px solid #FDA4AF !important;
+}
+
+.att-status-select.status-select-p {
+    background-color: #EFF6FF !important;
+    color: #1E40AF !important;
+    border: 1px solid #93C5FD !important;
+}
+
+.att-status-select.status-select-lic {
+    background-color: #FFFBEB !important;
+    color: #92400E !important;
+    border: 1px solid #FCD34D !important;
+}
+
+.att-status-select.status-select-lt {
+    background-color: #FAF5FF !important;
+    color: #6B21A8 !important;
+    border: 1px solid #D8B4FE !important;
+}
+
+.att-status-select.status-select-default {
+    background-color: #F8FAFC !important;
+    color: #334155 !important;
+    border: 1px solid #CBD5E1 !important;
+}
+
+/* Variantes de Estado en Modo Oscuro */
+html.dark .att-status-select.status-select-pr,
+body.dark-mode .att-status-select.status-select-pr,
+.dark .att-status-select.status-select-pr,
+[data-theme="dark"] .att-status-select.status-select-pr {
+    background-color: rgba(6, 78, 59, 0.45) !important;
+    color: #34D399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.5) !important;
+}
+
+html.dark .att-status-select.status-select-i,
+body.dark-mode .att-status-select.status-select-i,
+.dark .att-status-select.status-select-i,
+[data-theme="dark"] .att-status-select.status-select-i {
+    background-color: rgba(136, 19, 55, 0.45) !important;
+    color: #FB7185 !important;
+    border: 1px solid rgba(244, 63, 94, 0.5) !important;
+}
+
+html.dark .att-status-select.status-select-p,
+body.dark-mode .att-status-select.status-select-p,
+.dark .att-status-select.status-select-p,
+[data-theme="dark"] .att-status-select.status-select-p {
+    background-color: rgba(30, 58, 138, 0.45) !important;
+    color: #60A5FA !important;
+    border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+html.dark .att-status-select.status-select-lic,
+body.dark-mode .att-status-select.status-select-lic,
+.dark .att-status-select.status-select-lic,
+[data-theme="dark"] .att-status-select.status-select-lic {
+    background-color: rgba(120, 53, 15, 0.45) !important;
+    color: #FBBF24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.5) !important;
+}
+
+html.dark .att-status-select.status-select-lt,
+body.dark-mode .att-status-select.status-select-lt,
+.dark .att-status-select.status-select-lt,
+[data-theme="dark"] .att-status-select.status-select-lt {
+    background-color: rgba(88, 28, 135, 0.45) !important;
+    color: #C084FC !important;
+    border: 1px solid rgba(168, 85, 247, 0.5) !important;
+}
+
+html.dark .att-status-select.status-select-default,
+body.dark-mode .att-status-select.status-select-default,
+.dark .att-status-select.status-select-default,
+[data-theme="dark"] .att-status-select.status-select-default {
+    background-color: #202020 !important;
+    color: #F8FAFC !important;
+    border: 1px solid #444444 !important;
+}
+
+/* Opciones dentro del selector de asistencia diaria (.att-status-select option):
+   Se asegura contraste estricto en cada opción sin texto rosado o desvanecido */
+.att-status-select option {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    font-weight: 600 !important;
+}
+
+.att-status-select option[value="PR"] {
+    color: #047857 !important; /* Esmeralda oscuro (8.2:1) */
+    background-color: #FFFFFF !important;
+}
+
+.att-status-select option[value="I"] {
+    color: #9F1239 !important; /* Borgoña oscuro de alta legibilidad (8.5:1), NUNCA rosado */
+    background-color: #FFFFFF !important;
+}
+
+.att-status-select option[value="P"] {
+    color: #1D4ED8 !important; /* Azul cobalto (8.6:1) */
+    background-color: #FFFFFF !important;
+}
+
+.att-status-select option[value="LIC"] {
+    color: #B45309 !important; /* Ámbar oscuro (8.1:1) */
+    background-color: #FFFFFF !important;
+}
+
+.att-status-select option[value="LT"] {
+    color: #7E22CE !important; /* Púrpura oscuro (8.9:1) */
+    background-color: #FFFFFF !important;
+}
+
+/* Opciones en modo oscuro para .att-status-select option */
+html.dark .att-status-select option,
+body.dark-mode .att-status-select option,
+.dark .att-status-select option,
+[data-theme="dark"] .att-status-select option {
+    background-color: #242424 !important;
+    color: #F8FAFC !important;
+    font-weight: 600 !important;
+}
+
+html.dark .att-status-select option[value="PR"],
+body.dark-mode .att-status-select option[value="PR"],
+.dark .att-status-select option[value="PR"],
+[data-theme="dark"] .att-status-select option[value="PR"] {
+    color: #34D399 !important; /* Emerald 400 */
+    background-color: #242424 !important;
+}
+
+html.dark .att-status-select option[value="I"],
+body.dark-mode .att-status-select option[value="I"],
+.dark .att-status-select option[value="I"],
+[data-theme="dark"] .att-status-select option[value="I"] {
+    color: #FB7185 !important; /* Rose 400 nítido */
+    background-color: #242424 !important;
+}
+
+html.dark .att-status-select option[value="P"],
+body.dark-mode .att-status-select option[value="P"],
+.dark .att-status-select option[value="P"],
+[data-theme="dark"] .att-status-select option[value="P"] {
+    color: #60A5FA !important; /* Blue 400 nítido */
+    background-color: #242424 !important;
+}
+
+html.dark .att-status-select option[value="LIC"],
+body.dark-mode .att-status-select option[value="LIC"],
+.dark .att-status-select option[value="LIC"],
+[data-theme="dark"] .att-status-select option[value="LIC"] {
+    color: #FBBF24 !important; /* Amber 400 nítido */
+    background-color: #242424 !important;
+}
+
+html.dark .att-status-select option[value="LT"],
+body.dark-mode .att-status-select option[value="LT"],
+.dark .att-status-select option[value="LT"],
+[data-theme="dark"] .att-status-select option[value="LT"] {
+    color: #C084FC !important; /* Purple 400 nítido */
+    background-color: #242424 !important;
+}
+
+/* ==========================================================================
+   9. ELEMENTOS DE NAVEGACIÓN LATERAL
+   ========================================================================== */
+html.dark .nav-item,
+body.dark-mode .nav-item,
+.dark .nav-item {
+    color: #D1D5DB !important;
+}
+
+html.dark .nav-item:hover,
+body.dark-mode .nav-item:hover,
+.dark .nav-item:hover {
+    background-color: #333333 !important;
+    color: #F8FAFC !important;
+}
+
+html.dark .nav-item.active,
+body.dark-mode .nav-item.active,
+.dark .nav-item.active {
+    background-color: #E0C45D !important;
+    color: #1A1A1A !important;
+}
+
+/* ==========================================================================
+   10. MODALES INSTITUCIONALES Y OVERLAYS
+   ========================================================================== */
+html.dark #modal-content,
+body.dark-mode #modal-content,
+.dark #modal-content,
+html.dark #modal-content > div,
+body.dark-mode #modal-content > div,
+.dark #modal-content > div,
+html.dark #login-overlay > div,
+body.dark-mode #login-overlay > div,
+.dark #login-overlay > div,
+html.dark #first-run-overlay > div,
+body.dark-mode #first-run-overlay > div,
+.dark #first-run-overlay > div,
+html.dark #recovery-overlay > div,
+body.dark-mode #recovery-overlay > div,
+.dark #recovery-overlay > div {
+    background-color: #282828 !important;
+    border-color: #3D3D3D !important;
+    color: #F8FAFC !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ==========================================================================
+   11. BADGES Y ETIQUETAS DE ESTADO
+   ========================================================================== */
+.btn-gold {
+    background-color: var(--color-gold);
+    color: #1A1A1A;
+    font-weight: 600;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+}
+.btn-gold:hover {
+    background-color: var(--color-gold-hover);
+}
+
+.badge-gold {
+    background-color: #FEF9E7;
+    color: #8A6F0E;
+    border: 1px solid #E0C45D;
+}
+html.dark .badge-gold,
+body.dark-mode .badge-gold,
+.dark .badge-gold {
+    background-color: #2D2818 !important;
+    color: #E0C45D !important;
+    border-color: #5A4E1B !important;
+}
+
+/* Adaptación de badges informativos / estados */
+html.dark .bg-emerald-50,
+body.dark-mode .bg-emerald-50,
+.dark .bg-emerald-50 {
+    background-color: rgba(6, 78, 59, 0.4) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    color: #6EE7B7 !important;
+}
+
+html.dark .bg-amber-50,
+body.dark-mode .bg-amber-50,
+.dark .bg-amber-50 {
+    background-color: rgba(120, 53, 15, 0.4) !important;
+    border-color: rgba(245, 158, 11, 0.4) !important;
+    color: #FCD34D !important;
+}
+
+html.dark .bg-rose-50,
+body.dark-mode .bg-rose-50,
+.dark .bg-rose-50,
+html.dark .bg-red-50,
+body.dark-mode .bg-red-50,
+.dark .bg-red-50 {
+    background-color: rgba(127, 29, 29, 0.4) !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+    color: #FCA5A5 !important;
+}
+
+html.dark .bg-blue-50,
+body.dark-mode .bg-blue-50,
+.dark .bg-blue-50 {
+    background-color: rgba(8, 47, 73, 0.4) !important;
+    border-color: rgba(56, 189, 248, 0.4) !important;
+    color: #7DD3FC !important;
+}
+
+html.dark .bg-indigo-50,
+body.dark-mode .bg-indigo-50,
+.dark .bg-indigo-50 {
+    background-color: rgba(49, 46, 129, 0.4) !important;
+    border-color: rgba(129, 140, 248, 0.4) !important;
+    color: #A5B4FC !important;
+}

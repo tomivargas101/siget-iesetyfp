@@ -69,7 +69,7 @@ class Theme:
     # =========================================================================
     BG_CARD = ("#FFFFFF", "#333333")          # Tarjetas y paneles principales
     BG_CARD_SUB = ("#F8FAFC", "#2B2B2B")      # Filas, ítems y subpaneles anidados
-    BG_CARD_ALT = ("#F1F5F9", "#3D3D3D")      # Encabezados de tabla y badges
+    BG_CARD_ALT = ("#E5E7EB", "#2D333B")      # Encabezados de tabla y badges en gris claro elegante
     
     # =========================================================================
     # CAMPOS DE ENTRADA, CONTROLES Y COMBOS
@@ -142,3 +142,17 @@ class Theme:
     PURPLE_HOVER = ("#6D28D9", "#7C3AED")
     PURPLE_BG = ("#EDE9FE", "#3B0764")
     PURPLE_TEXT = ("#5B21B6", "#C084FC")
+
+    # =========================================================================
+    # ESTILO PLANILLA DE EXCEL PROFESIONAL / TABLAS INSTITUCIONALES
+    # =========================================================================
+    EXCEL_HEADER_BG = ("#E5E7EB", "#2D333B")       # Gris claro corporativo elegante (#E5E7EB) / Pizarra sobria en Dark
+    EXCEL_HEADER_TEXT = ("#1F2937", "#F9FAFB")     # Texto oscuro nítido (#1F2937) en Light / Blanco suave en Dark
+    EXCEL_HEADER_DIVIDER = ("#D1D5DB", "#404752")  # Separador sutil de columnas de cabecera
+    EXCEL_ROW_EVEN = ("#FFFFFF", "#242830")        # Fila par: Fondo blanco / Grafito limpio
+    EXCEL_ROW_ODD = ("#F9FAFB", "#2B303A")         # Fila impar: Fondo gris muy tenue (#F9FAFB)
+    EXCEL_ROW_HOVER = ("#F3F4F6", "#323B47")       # Resaltado sutil al pasar el cursor (hover)
+    EXCEL_BORDER = ("#E5E7EB", "#374151")          # Líneas divisorias de celdas tipo Excel
+    EXCEL_CELL_DIVIDER = ("#E5E7EB", "#2D333D")    # Divisor vertical entre celdas
+    EXCEL_BADGE_BG = ("#F3F4F6", "#2A3240")        # Fondo para identificadores y resoluciones
+    EXCEL_BADGE_TEXT = ("#1F2937", "#93C5FD")      # Texto para resoluciones institucionales

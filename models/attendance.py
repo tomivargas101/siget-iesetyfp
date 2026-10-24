@@ -1,4 +1,5 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from typing import Optional, Union
 from database.connection import get_db_session
 from database.schema import Teacher, Attendance
 from models.auth import CurrentSession, AuthService
@@ -148,3 +149,111 @@ class AttendanceService:
             "licencias": licencias,
             "sin_registrar": sin_registrar
         }
+
+    @staticmethod
+    def register_range(
+        teacher_id: int,
+        start_date: date,
+        end_date: date,
+        status: str = "Licencia",
+        hours: int = 4,
+        observations: str = "",
+        designation_id: Optional[int] = None,
+        registered_by: Optional[str] = None
+    ) -> tuple[bool, str, int]:
+        """
+        Registra un rango de días continuos de asistencia/licencia para un docente.
+        Garantiza la trazabilidad día por día para el posterior procesamiento con Pandas.
+        """
+        if end_date < start_date:
+            return False, "La fecha de fin no puede ser anterior a la de inicio.", 0
+
+        session = get_db_session()
+        try:
+            if not registered_by:
+                registered_by = CurrentSession.user.username if CurrentSession.user else "Bedel"
+
+            current_d = start_date
+            count = 0
+            while current_d <= end_date:
+                att = session.query(Attendance).filter(
+                    Attendance.teacher_id == teacher_id,
+                    Attendance.date == current_d
+                ).first()
+
+                if not att:
+                    att = Attendance(
+                        teacher_id=teacher_id,
+                        designation_id=designation_id,
+                        date=current_d,
+                        status=status,
+                        hours=hours,
+                        observations=observations,
+                        registered_by=registered_by,
+                        is_active=True
+                    )
+                    session.add(att)
+                else:
+                    att.status = status
+                    att.hours = hours
+                    att.observations = observations
+                    att.designation_id = designation_id or att.designation_id
+                    att.registered_by = registered_by
+                    att.is_active = True
+                count += 1
+                current_d += timedelta(days=1)
+
+            session.commit()
+            AuthService.log_action(
+                action="REGISTRO_ASISTENCIA_RANGO",
+                details=f"Docente ID {teacher_id} - Rango {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')} ({count} días - {status})"
+            )
+            return True, f"Se registraron {count} días de {status} correctamente.", count
+        except Exception as e:
+            session.rollback()
+            return False, f"Error al registrar rango: {str(e)}", 0
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_history(teacher_id: Optional[int] = None, start_date: Optional[date] = None, end_date: Optional[date] = None) -> list[dict]:
+        """
+        Recupera el historial de registros de asistencia respetando RN-03 (sin borrado físico).
+        """
+        session = get_db_session()
+        try:
+            query = session.query(Attendance).join(Teacher)
+            if teacher_id:
+                query = query.filter(Attendance.teacher_id == teacher_id)
+            if start_date:
+                query = query.filter(Attendance.date >= start_date)
+            if end_date:
+                query = query.filter(Attendance.date <= end_date)
+
+            records = query.order_by(Attendance.date.desc(), Teacher.last_name).all()
+            return [
+                {
+                    "id": a.id,
+                    "teacher_id": a.teacher_id,
+                    "teacher_dni": a.teacher.dni if a.teacher else "-",
+                    "teacher_name": a.teacher.full_name if a.teacher else "-",
+                    "date": a.date.strftime("%d/%m/%Y"),
+                    "status": a.status,
+                    "hours": a.hours,
+                    "observations": a.observations or "",
+                    "registered_by": a.registered_by or "-",
+                    "is_active": a.is_active
+                }
+                for a in records
+            ]
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_processed_monthly(month: int, year: Optional[int] = None, career_id: Optional[int] = None):
+        """
+        Acceso directo al procesamiento de DataFrames DL-01 y DL-02 para el mes analizado.
+        """
+        from models.attendance_processor import AttendanceProcessor
+        return AttendanceProcessor.process_monthly_attendance(month=month, year=year, career_id=career_id)
+

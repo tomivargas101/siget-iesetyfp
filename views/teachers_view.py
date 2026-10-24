@@ -3,6 +3,8 @@ from tkinter import messagebox
 from models.teacher import TeacherService, REVISTAS
 from models.auth import CurrentSession
 from views.theme import Theme, apply_window_icon
+from views.excel_table import ExcelTableFrame
+from views.attendance_view import AttendanceView
 
 class TeacherModal(ctk.CTkToplevel):
     def __init__(self, parent, teacher_data=None, on_saved=None):
@@ -185,24 +187,61 @@ class TeacherModal(ctk.CTkToplevel):
             messagebox.showerror("Error", msg)
 
 class TeachersView(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, default_tab=None):
         super().__init__(parent, fg_color="transparent")
+        self.default_tab = default_tab
         self._build_ui()
         self.refresh()
 
     def _build_ui(self):
-        # 1. Barra de Herramientas Superior
-        toolbar = ctk.CTkFrame(
+        # Tabs de Navegación del Módulo Unificado de Docentes
+        self.tabview = ctk.CTkTabview(
             self,
+            fg_color="transparent",
+            segmented_button_fg_color=Theme.BG_CARD_ALT,
+            segmented_button_selected_color=Theme.PRIMARY,
+            segmented_button_selected_hover_color=Theme.PRIMARY_HOVER,
+            text_color=Theme.TEXT_PRIMARY,
+            command=self._on_tab_change
+        )
+        self.tabview.pack(fill="both", expand=True, padx=5, pady=0)
+
+        self.tab_teachers = self.tabview.add("Planta Funcional y Legajos")
+        self.tab_attendance = self.tabview.add("Control Diario de Asistencias")
+
+        # ---------------------------------------------------------
+        # TAB 1: PLANTA FUNCIONAL Y LEGAJOS DOCENTES
+        # ---------------------------------------------------------
+        self._build_teachers_tab()
+
+        # ---------------------------------------------------------
+        # TAB 2: CONTROL DIARIO DE ASISTENCIAS
+        # ---------------------------------------------------------
+        self._build_attendance_tab()
+
+        # Selección de solapa inicial si se solicitó expresamente
+        if self.default_tab == "attendance":
+            self.tabview.set("Control Diario de Asistencias")
+
+    def _build_teachers_tab(self):
+        # Barra de herramientas superior
+        toolbar = ctk.CTkFrame(
+            self.tab_teachers,
             fg_color=Theme.BG_CARD,
             corner_radius=10,
             border_width=1,
             border_color=Theme.BORDER_CARD
         )
-        toolbar.pack(fill="x", pady=(0, 15), padx=5)
+        toolbar.pack(fill="x", pady=(0, 15))
 
         # Buscador
-        ctk.CTkLabel(toolbar, text="Buscar:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(side="left", padx=(15, 5), pady=12)
+        ctk.CTkLabel(
+            toolbar,
+            text="Buscar:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=Theme.TEXT_SECONDARY
+        ).pack(side="left", padx=(15, 5), pady=12)
+
         self.entry_search = ctk.CTkEntry(
             toolbar,
             placeholder_text="Buscar por Apellido, Nombre, DNI o Legajo...",
@@ -216,7 +255,13 @@ class TeachersView(ctk.CTkFrame):
         self.entry_search.bind("<KeyRelease>", lambda e: self.refresh())
 
         # Filtro Revista
-        ctk.CTkLabel(toolbar, text="Revista:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(
+            toolbar,
+            text="Revista:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=Theme.TEXT_SECONDARY
+        ).pack(side="left", padx=(20, 5))
+
         self.var_filter_revista = ctk.StringVar(value="Todos")
         self.combo_filter = ctk.CTkComboBox(
             toolbar,
@@ -245,81 +290,86 @@ class TeachersView(ctk.CTkFrame):
         )
         self.btn_new.pack(side="right", padx=15, pady=12)
 
-        # 2. Contenedor de Listado / Tabla
-        self.table_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.table_container.pack(fill="both", expand=True, padx=5)
+        # Tabla estilo Excel con scroll bidireccional
+        self.teachers_table = ExcelTableFrame(self.tab_teachers, min_width=1080)
+        self.teachers_table.pack(fill="both", expand=True, pady=5)
+
+    def _build_attendance_tab(self):
+        self.attendance_view = AttendanceView(self.tab_attendance)
+        self.attendance_view.pack(fill="both", expand=True)
+
+    def _on_tab_change(self):
+        tab = self.tabview.get()
+        if tab == "Control Diario de Asistencias" and hasattr(self, "attendance_view"):
+            self.attendance_view.refresh()
+        elif tab == "Planta Funcional y Legajos":
+            self.refresh()
 
     def refresh(self):
-        # Limpiar tabla
-        for widget in self.table_container.winfo_children():
-            widget.destroy()
+        self.teachers_table.clear_all()
 
         search = self.entry_search.get()
         rev = self.var_filter_revista.get()
         teachers = TeacherService.get_all(search_term=search, revista_filter=rev)
 
-        # Cabecera de la tabla
-        header_row = ctk.CTkFrame(
-            self.table_container,
-            fg_color=Theme.BG_CARD_ALT,
-            height=38,
-            corner_radius=6,
-            border_width=1,
-            border_color=Theme.BORDER_CARD
-        )
-        header_row.pack(fill="x", pady=(0, 6))
-
         cols = [
-            ("LEGAJO", 110),
-            ("DOCENTE (APELLIDO Y NOMBRES)", 240),
-            ("DNI", 110),
-            ("SITUACIÓN REVISTA", 140),
-            ("CARGA HORARIA (ACTIVA / TOPE)", 190),
-            ("ESTADO", 90),
-            ("ACCIONES", 130)
+            ("Legajo", 1, 95, "center"),
+            ("Docente (Apellido y Nombres)", 3, 240, "w"),
+            ("DNI", 1, 105, "center"),
+            ("Situación Revista", 2, 140, "center"),
+            ("Carga Horaria (Activa / Tope)", 2, 190, "w"),
+            ("Estado", 1, 90, "center"),
+            ("Acciones", 2, 130, "center")
         ]
-
-        for text, width in cols:
-            lbl = ctk.CTkLabel(
-                header_row,
-                text=text,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=Theme.TEXT_SECONDARY,
-                width=width,
-                anchor="w"
-            )
-            lbl.pack(side="left", padx=8, pady=8)
+        self.teachers_table.set_columns(cols)
+        self.teachers_table.render_header()
 
         if not teachers:
-            empty_lbl = ctk.CTkLabel(
-                self.table_container,
-                text="No se encontraron docentes registrados con los filtros aplicados.",
-                font=ctk.CTkFont(size=13),
-                text_color=Theme.TEXT_MUTED
-            )
-            empty_lbl.pack(pady=40)
+            self.teachers_table.show_empty_message("No se encontraron docentes registrados con los filtros aplicados.")
             return
 
-        for t in teachers:
-            row = ctk.CTkFrame(
-                self.table_container,
-                fg_color=Theme.BG_CARD,
-                corner_radius=6,
-                border_width=1,
-                border_color=Theme.BORDER_SUB
-            )
-            row.pack(fill="x", pady=3)
+        for idx, t in enumerate(teachers):
+            row = self.teachers_table.create_row(idx)
 
             # Legajo
-            ctk.CTkLabel(row, text=t["legajo"], font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.INFO_TEXT, width=110, anchor="w").pack(side="left", padx=8, pady=10)
+            l_box = self.teachers_table.add_cell(row, 0)
+            ctk.CTkLabel(
+                l_box,
+                text=t["legajo"],
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=Theme.INFO_TEXT,
+                anchor="center"
+            ).pack(fill="x", anchor="center")
 
             # Docente
-            ctk.CTkLabel(row, text=t["full_name"], font=ctk.CTkFont(size=12), text_color=Theme.TEXT_PRIMARY, width=240, anchor="w").pack(side="left", padx=8)
+            d_box = self.teachers_table.add_cell(row, 1)
+            ctk.CTkLabel(
+                d_box,
+                text=t["full_name"],
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=Theme.TEXT_PRIMARY,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
+            ctk.CTkLabel(
+                d_box,
+                text=f"{t['email'] or 'Sin correo'} • {t['phone'] or 'Sin teléfono'}",
+                font=ctk.CTkFont(size=10),
+                text_color=Theme.TEXT_MUTED,
+                anchor="w"
+            ).pack(fill="x", anchor="w")
 
             # DNI
-            ctk.CTkLabel(row, text=t["dni"], font=ctk.CTkFont(size=12), text_color=Theme.TEXT_SECONDARY, width=110, anchor="w").pack(side="left", padx=8)
+            dni_box = self.teachers_table.add_cell(row, 2)
+            ctk.CTkLabel(
+                dni_box,
+                text=t["dni"],
+                font=ctk.CTkFont(size=12),
+                text_color=Theme.TEXT_SECONDARY,
+                anchor="center"
+            ).pack(fill="x", anchor="center")
 
             # Revista Badge
+            rev_box = self.teachers_table.add_cell(row, 3)
             rev_colors = {
                 "Titular": ("#DCFCE7", "#065F46"),
                 "Provisional": ("#DBEAFE", "#1E40AF"),
@@ -327,42 +377,57 @@ class TeachersView(ctk.CTkFrame):
                 "Suplente": ("#FEE2E2", "#991B1B")
             }
             bg_col, txt_col = rev_colors.get(t["revista"], ("#F1F5F9", "#334155"))
-            rev_badge = ctk.CTkLabel(
-                row,
-                text=t["revista"],
-                font=ctk.CTkFont(size=11, weight="bold"),
+            rev_badge = ctk.CTkFrame(
+                rev_box,
                 fg_color=bg_col,
-                text_color=txt_col,
-                corner_radius=6,
-                width=110,
-                height=22
+                corner_radius=4,
+                border_width=1,
+                border_color=txt_col
             )
-            rev_badge.pack(side="left", padx=15)
+            rev_badge.pack(anchor="center", pady=2)
+            ctk.CTkLabel(
+                rev_badge,
+                text=f" {t['revista']} ",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=txt_col
+            ).pack(padx=8, pady=2)
 
-            # Horas (Activa / Tope) con aviso visual
+            # Carga Horaria (Activa / Tope)
+            h_box = self.teachers_table.add_cell(row, 4)
             act_h = t["active_hours"]
             max_h = t["max_hours"]
             h_color = Theme.DANGER_TEXT if act_h >= max_h else (Theme.WARNING_TEXT if act_h >= 24 else Theme.SUCCESS_TEXT)
 
-            h_box = ctk.CTkFrame(row, fg_color="transparent", width=190)
-            h_box.pack(side="left", padx=8)
             ctk.CTkLabel(
                 h_box,
                 text=f"{act_h} / {max_h} hs semanales",
                 font=ctk.CTkFont(size=12, weight="bold"),
                 text_color=h_color,
                 anchor="w"
-            ).pack(anchor="w")
+            ).pack(fill="x", anchor="w")
 
             # Estado
+            st_box = self.teachers_table.add_cell(row, 5)
             status_txt = "Activo" if t["is_active"] else "Inactivo"
+            status_bg = Theme.SUCCESS_BG if t["is_active"] else Theme.DANGER_BG
             status_col = Theme.SUCCESS_TEXT if t["is_active"] else Theme.DANGER_TEXT
-            ctk.CTkLabel(row, text=status_txt, font=ctk.CTkFont(size=11, weight="bold"), text_color=status_col, width=90, anchor="w").pack(side="left", padx=8)
+            st_badge = ctk.CTkFrame(
+                st_box,
+                fg_color=status_bg,
+                corner_radius=4,
+                border_width=1,
+                border_color=status_col
+            )
+            st_badge.pack(anchor="center", pady=2)
+            ctk.CTkLabel(
+                st_badge,
+                text=f" {status_txt} ",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=status_col
+            ).pack(padx=6, pady=2)
 
             # Acciones
-            actions_box = ctk.CTkFrame(row, fg_color="transparent", width=140)
-            actions_box.pack(side="left", padx=8)
-
+            actions_box = self.teachers_table.add_cell(row, 6)
             btn_edit = ctk.CTkButton(
                 actions_box,
                 text="Editar",
@@ -391,14 +456,22 @@ class TeachersView(ctk.CTkFrame):
             btn_toggle.pack(side="left", padx=3)
 
     def _open_new_modal(self):
-        TeacherModal(self, on_saved=self.refresh)
+        TeacherModal(self, on_saved=self._on_teacher_saved)
 
     def _open_edit_modal(self, teacher_data):
-        TeacherModal(self, teacher_data=teacher_data, on_saved=self.refresh)
+        TeacherModal(self, teacher_data=teacher_data, on_saved=self._on_teacher_saved)
+
+    def _on_teacher_saved(self):
+        self.refresh()
+        if hasattr(self, "attendance_view"):
+            try:
+                self.attendance_view.refresh()
+            except Exception:
+                pass
 
     def _toggle_status(self, teacher_id):
         success, msg = TeacherService.toggle_active(teacher_id)
         if success:
-            self.refresh()
+            self._on_teacher_saved()
         else:
             messagebox.showerror("Error", msg)

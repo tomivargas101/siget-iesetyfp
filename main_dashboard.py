@@ -190,20 +190,18 @@ class MainDashboardWindow(ctk.CTk):
         if is_rector:
             nav_items = [
                 ("dashboard", "Dashboard General", True),
-                ("teachers", "Planta Docente y Legajos", True),
+                ("teachers", "Docentes", True),
                 ("designations", "Cátedras y Suplencias", True),
                 ("reports", "Reportes y Planillas Excel", True),
                 ("students", "Matrícula de Alumnos", True),
-                ("attendance", "Registro de Asistencias", True),
                 ("config", "Configuración de BD", True),
             ]
         else:
             nav_items = [
                 ("dashboard", "Dashboard Operativo", True),
-                ("attendance", "Control de Asistencias", True),
-                ("students", "Inscripciones y Alumnos", True),
+                ("teachers", "Docentes", True),
                 ("designations", "Consulta de Cátedras", True),
-                ("teachers", "Consulta de Docentes", True),
+                ("students", "Inscripciones y Alumnos", True),
             ]
 
         for key, text, allowed in nav_items:
@@ -224,16 +222,18 @@ class MainDashboardWindow(ctk.CTk):
             btn.pack(fill="x", pady=2)
             self.nav_buttons[key] = btn
 
+        # =====================================================
         # Pie del Sidebar: Switch Tema y Cerrar Sesión
+        # =====================================================
         bottom_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         bottom_box.pack(side="bottom", fill="x", padx=16, pady=20)
 
-        # Switch interactivo de Modo Claro / Modo Oscuro (Modo Claro por defecto)
+        # Switch interactivo de Modo Oscuro ubicado exactamente arriba del botón rojo de Cerrar Sesión
         current_mode = ctk.get_appearance_mode()
         self.switch_theme = ctk.CTkSwitch(
             bottom_box,
             text="Modo Oscuro",
-            font=ctk.CTkFont(size=11, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             text_color=Theme.TEXT_SECONDARY,
             progress_color=Theme.GOLD,
             command=self._toggle_theme,
@@ -244,16 +244,18 @@ class MainDashboardWindow(ctk.CTk):
             self.switch_theme.select()
         else:
             self.switch_theme.deselect()
-        self.switch_theme.pack(anchor="w", pady=(0, 15))
+        self.switch_theme.pack(anchor="w", padx=2, pady=(0, 12))
 
+        # Botón rojo institucional de Cerrar Sesión
         btn_logout = ctk.CTkButton(
             bottom_box,
             text="Cerrar Sesión",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=Theme.SECONDARY,
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            fg_color=Theme.DANGER,
             hover_color=Theme.DANGER_HOVER,
-            text_color=Theme.SECONDARY_TEXT,
-            height=36,
+            text_color=("#FFFFFF", "#FFFFFF"),
+            height=38,
+            corner_radius=8,
             command=self._confirm_logout
         )
         btn_logout.pack(fill="x")
@@ -313,9 +315,12 @@ class MainDashboardWindow(ctk.CTk):
             DatabaseConfigDialog(self, on_saved=self._on_db_config_saved)
             return
 
+        # Mapeo de botón activo (si se solicita attendance desde accesos directos, resalta Docentes)
+        active_key = "teachers" if view_name == "attendance" else view_name
+
         # Actualizar resaltado de botón activo en la barra lateral con paleta institucional
         for key, btn in self.nav_buttons.items():
-            if key == view_name:
+            if key == active_key:
                 btn.configure(fg_color=Theme.NAV_ACTIVE_BG, text_color=Theme.NAV_ACTIVE_TEXT)
             else:
                 btn.configure(fg_color="transparent", text_color=Theme.NAV_TEXT)
@@ -331,11 +336,11 @@ class MainDashboardWindow(ctk.CTk):
         # Título dinámico sin emojis
         titles = {
             "dashboard": "Panel de Control y Estadísticas Globales" if CurrentSession.is_rector() else "Panel Operativo de Bedelía",
-            "teachers": "Planta Funcional y Legajos Docentes",
+            "teachers": "Gestión Integral de Docentes: Planta Funcional y Asistencias",
             "students": "Matrícula y Legajos de Alumnos",
             "designations": "Designaciones de Cátedras y Registro de Suplencias",
             "reports": "Reportes Oficiales y Planilla de Estadísticas (Excel)",
-            "attendance": "Control Diario de Asistencias Docentes"
+            "attendance": "Gestión Integral de Docentes: Planta Funcional y Asistencias"
         }
         self.lbl_view_title.configure(text=titles.get(view_name, "SIGET"))
 
@@ -344,14 +349,15 @@ class MainDashboardWindow(ctk.CTk):
             self.current_view = DashboardView(self.view_container, on_navigate=self.show_view)
         elif view_name == "teachers":
             self.current_view = TeachersView(self.view_container)
+        elif view_name == "attendance":
+            # Abre el módulo de docentes directamente posicionado en Asistencias
+            self.current_view = TeachersView(self.view_container, default_tab="attendance")
         elif view_name == "students":
             self.current_view = StudentsView(self.view_container)
         elif view_name == "designations":
             self.current_view = DesignationsView(self.view_container)
         elif view_name == "reports":
             self.current_view = ReportsView(self.view_container)
-        elif view_name == "attendance":
-            self.current_view = AttendanceView(self.view_container)
 
         if self.current_view:
             self.current_view.pack(fill="both", expand=True)

@@ -64,12 +64,55 @@ def check_password(plain_password: str, hashed_password: str) -> bool:
     except Exception:
         return False
 
+def _ensure_schema_columns(engine):
+    """
+    Verifica y aplica migraciones automáticas no destructivas para SQLite y otros motores,
+    garantizando que existan las nuevas columnas de RN-01, RN-02 y RN-03 sin pérdida de datos.
+    """
+    try:
+        with engine.connect() as conn:
+            dialect = engine.dialect.name
+            if dialect == "sqlite":
+                # Tabla designations
+                res = conn.exec_driver_sql("PRAGMA table_info(designations)").fetchall()
+                desig_cols = {r[1] for r in res}
+                if desig_cols:
+                    if "cargo" not in desig_cols:
+                        conn.exec_driver_sql("ALTER TABLE designations ADD COLUMN cargo VARCHAR(150)")
+                    if "revista" not in desig_cols:
+                        conn.exec_driver_sql("ALTER TABLE designations ADD COLUMN revista VARCHAR(20)")
+
+                # Tabla attendances
+                res = conn.exec_driver_sql("PRAGMA table_info(attendances)").fetchall()
+                att_cols = {r[1] for r in res}
+                if att_cols:
+                    if "designation_id" not in att_cols:
+                        conn.exec_driver_sql("ALTER TABLE attendances ADD COLUMN designation_id INTEGER")
+                    if "is_active" not in att_cols:
+                        conn.exec_driver_sql("ALTER TABLE attendances ADD COLUMN is_active BOOLEAN DEFAULT 1")
+
+                # Ajuste de registros históricos preexistentes guardados con desfase UTC (+3 hs)
+                from database.schema import get_argentina_now
+                now_local_str = get_argentina_now().strftime("%Y-%m-%d %H:%M:%S")
+                future_check = conn.exec_driver_sql(
+                    "SELECT COUNT(*) FROM audit_logs WHERE timestamp > :now_str",
+                    {"now_str": now_local_str}
+                ).fetchone()
+                if future_check and future_check[0] > 0:
+                    conn.exec_driver_sql("UPDATE audit_logs SET timestamp = datetime(timestamp, '-3 hours')")
+                    conn.exec_driver_sql("UPDATE users SET last_login = datetime(last_login, '-3 hours') WHERE last_login IS NOT NULL")
+
+            conn.commit()
+    except Exception:
+        pass
+
 def init_db(cfg: dict = None):
     """
     Inicializa las tablas y carga datos de demostración si la base está vacía.
     """
     engine = get_engine(cfg, force_reconnect=True)
     Base.metadata.create_all(bind=engine)
+    _ensure_schema_columns(engine)
 
     session = get_db_session()
     try:
@@ -86,20 +129,20 @@ def init_db(cfg: dict = None):
             bedel_user = User(
                 username="bedel",
                 password_hash=hash_password("bedel123"),
-                full_name="María Eugenia Giménez (Bedel)",
+                full_name="María Eugenia Giménez (Bedelía)",
                 role="BEDEL",
                 email="bedelia@siget-edu.ar",
                 is_active=True
             )
-            admin_user = User(
-                username="admin",
-                password_hash=hash_password("admin123"),
-                full_name="Secretaría Académica",
-                role="RECTOR",
+            secretaria_user = User(
+                username="secretaria",
+                password_hash=hash_password("secretaria123"),
+                full_name="Prof. María Eva Duarte (Secretaría)",
+                role="SECRETARIA",
                 email="secretaria@siget-edu.ar",
                 is_active=True
             )
-            session.add_all([rector_user, bedel_user, admin_user])
+            session.add_all([rector_user, secretaria_user, bedel_user])
             session.commit()
 
         # 2. Cargar carreras de ejemplo

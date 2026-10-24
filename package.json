@@ -1,0 +1,28 @@
+{
+  "name": "siget",
+  "version": "1.0.0",
+  "description": "SIGET es una aplicación de escritorio corporativa y robusta desarrollada en **Python 3.10+** y **CustomTkinter**, diseñada específicamente para la gestión académica y administrativa de institutos de educación superior terciaria (Rectores, Secretarios y Bedeles).",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test:backend": "node test_backend.js",
+    "test:electron": "electron . --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomivargas101/siget-iesetyfp.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tomivargas101/siget-iesetyfp/issues"
+  },
+  "homepage": "https://github.com/tomivargas101/siget-iesetyfp#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "electron": "^35.7.5"
+  }
+}

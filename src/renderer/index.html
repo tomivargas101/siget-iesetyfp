@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGET - Sistema Integral de Gestión Educativa Terciaria</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            DEFAULT: '#E0C45D',
+                            hover: '#C2A532',
+                            text: '#8A6F0E',
+                            bg: '#FEF9E7'
+                        },
+                        graphite: {
+                            dark: '#2B2B2B',
+                            mid: '#4A4A4A',
+                            light: '#A6A6A5'
+                        },
+                        excel: {
+                            header: '#E5E7EB',
+                            text: '#1F2937',
+                            border: '#D1D5DB'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Estilos de la aplicación -->
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-slate-50 dark:bg-[#18181B] text-slate-800 dark:text-zinc-100 antialiased h-screen overflow-hidden flex flex-col">
+
+    <!-- ==================================================================== -->
+    <!-- 1. PANTALLA DE INICIO DE SESIÓN (LOGIN MODAL / OVERLAY) -->
+    <!-- ==================================================================== -->
+    <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 p-8 w-full max-w-md mx-4">
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center border-2 border-gold p-1 shadow">
+                    <img src="../../assets/logo_transparent.png" alt="SIGET" class="w-full h-full object-contain">
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-900">SIGET</h1>
+                    <p class="text-xs text-slate-500 font-medium">Gestión Educativa Terciaria</p>
+                </div>
+            </div>
+
+            <h2 class="text-lg font-semibold text-slate-800 mb-1">Acceso Institucional</h2>
+            <p class="text-xs text-slate-500 mb-4">Ingrese sus credenciales de Rector, Secretaría o Bedelía para continuar.</p>
+
+            <form id="login-form" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Usuario</label>
+                    <input type="text" id="login-username" required placeholder="rector, secretaria o bedel"
+                        class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent">
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-bold text-slate-700 uppercase">Contraseña</label>
+                        <button type="button" id="btn-forgot-password" class="text-xs font-semibold text-gold-text hover:underline focus:outline-none">
+                            ¿Olvidaste tu contraseña?
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <input type="password" id="login-password" required placeholder="••••••••"
+                            class="w-full pl-3 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent">
+                        <button type="button" id="btn-toggle-login-password" title="Mostrar u ocultar contraseña"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 focus:outline-none rounded transition">
+                            <i data-lucide="eye" id="icon-toggle-login-password" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Roles Oficiales del Sistema (Acceso Rápido) -->
+                <div class="pt-1">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 text-center">Roles Oficiales del Sistema</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="btn-demo-rector" title="Completar credenciales de Rector"
+                            class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-gold text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
+                            <span class="text-slate-900 font-extrabold">Rector</span>
+                            <span class="text-[9px] text-slate-400 font-mono">rector123</span>
+                        </button>
+                        <button type="button" id="btn-demo-secretaria" title="Completar credenciales de Secretaría"
+                            class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-purple-300 text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
+                            <span class="text-purple-700 font-extrabold">Secretaría</span>
+                            <span class="text-[9px] text-slate-400 font-mono">secretaria123</span>
+                        </button>
+                        <button type="button" id="btn-demo-bedel" title="Completar credenciales de Bedelía"
+                            class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-blue-300 text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
+                            <span class="text-blue-700 font-extrabold">Bedelía</span>
+                            <span class="text-[9px] text-slate-400 font-mono">bedel123</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="login-error" class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium border border-red-200">
+                </div>
+
+                <button type="submit" id="btn-login-submit"
+                    class="w-full py-2.5 px-4 bg-gold hover:bg-gold-hover text-slate-900 font-bold rounded-lg shadow transition flex items-center justify-center space-x-2 text-sm">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    <span>Iniciar Sesión</span>
+                </button>
+
+                <div class="pt-2 text-center">
+                    <button type="button" id="btn-open-register"
+                        class="text-xs font-semibold text-slate-600 hover:text-gold-text transition focus:outline-none inline-flex items-center space-x-1 py-1 px-2.5 rounded hover:bg-slate-50">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5 text-gold-text"></i>
+                        <span>¿No tienes cuenta? <strong class="text-gold-text underline">Registrarse / Crear Cuenta</strong></span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-400">
+                <span>Versión Electron 1.0.0</span>
+                <span>IESETyFP</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- 1.1 CONFIGURACIÓN INICIAL (FIRST-RUN SETUP WIZARD) -->
+    <!-- ==================================================================== -->
+    <div id="first-run-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 w-full max-w-xl mx-auto my-8">
+            
+            <!-- Encabezado Institucional -->
+            <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+                <div class="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center border-2 border-gold p-1 shadow">
+                    <img src="../../assets/logo_transparent.png" alt="SIGET" class="w-full h-full object-contain">
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-xl font-black text-slate-900 tracking-tight">SIGET</h1>
+                        <span class="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-gold/20 text-gold-text border border-gold/40">
+                            Configuración Inicial
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium">Alta Obligatoria de Cuenta Maestra Institucional</p>
+                </div>
+            </div>
+
+            <!-- PASO 1: Formulario de Creación de Rector -->
+            <div id="first-run-step-form" class="mt-6 space-y-4">
+                <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
+                    <strong>Bienvenido/a a SIGET.</strong> Se ha detectado la primera ejecución del sistema. Por normativa de seguridad institucional, debe crear la cuenta maestra de <strong>Rector</strong> con una pregunta de seguridad y una Clave Maestra de Rescate.
+                </div>
+
+                <form id="first-run-form" class="space-y-3.5">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre Completo *</label>
+                            <input type="text" id="first-run-fullname" required placeholder="Lic. Roberto Valenzuela"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Usuario Rector *</label>
+                            <input type="text" id="first-run-username" required value="rector"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Correo Electrónico Institucional</label>
+                        <input type="email" id="first-run-email" placeholder="rectoria@instituto.edu.ar"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Contraseña Maestra *</label>
+                            <input type="password" id="first-run-password" required minlength="6" placeholder="Mínimo 6 caracteres"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Confirmar Contraseña *</label>
+                            <input type="password" id="first-run-confirm-password" required minlength="6" placeholder="Repita la contraseña"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100 space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Pregunta de Seguridad *</label>
+                            <select id="first-run-question-select" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold font-medium">
+                                <option value="¿Cuál fue el nombre de tu primera escuela?">¿Cuál fue el nombre de tu primera escuela?</option>
+                                <option value="¿Cuál es el nombre de tu primera mascota?">¿Cuál es el nombre de tu primera mascota?</option>
+                                <option value="¿En qué ciudad nació tu madre?">¿En qué ciudad nació tu madre?</option>
+                                <option value="¿Cuál es tu libro o autor preferido?">¿Cuál es tu libro o autor preferido?</option>
+                                <option value="¿Cuál fue tu primer empleo docente?">¿Cuál fue tu primer empleo docente?</option>
+                                <option value="custom">Escribir una pregunta personalizada...</option>
+                            </select>
+                            <input type="text" id="first-run-question-custom" placeholder="Escriba su pregunta secreta personalizada..."
+                                class="hidden mt-2 w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Respuesta Secreta Confidencial *</label>
+                            <input type="text" id="first-run-answer" required placeholder="Respuesta que recordará con facilidad"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                    </div>
+
+                    <div id="first-run-error" class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium border border-red-200">
+                    </div>
+
+                    <button type="submit" id="btn-first-run-submit"
+                        class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-gold font-bold rounded-lg shadow-md transition flex items-center justify-center space-x-2 text-xs border border-gold/40">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-gold"></i>
+                        <span>Crear Cuenta Maestra y Generar Llave de Rescate</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- PASO 2: Presentación de la Master Recovery Key -->
+            <div id="first-run-step-key" class="hidden mt-6 space-y-4 text-center">
+                <div class="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <i data-lucide="check" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-900">¡Cuenta de Rector Configurada Exitosamente!</h3>
+                <p class="text-xs text-slate-500 max-w-md mx-auto">
+                    El sistema ha generado automáticamente su <strong>Clave Maestra de Rescate (Master Recovery Key)</strong>. Esta clave es única y le permitirá restablecer el acceso institucional si alguna vez olvida su contraseña.
+                </p>
+
+                <div class="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-2 text-left">
+                    <div class="text-[11px] font-black text-amber-900 uppercase tracking-wider flex items-center space-x-1.5">
+                        <i data-lucide="key" class="w-4 h-4 text-amber-700"></i>
+                        <span>Clave Maestra de Rescate Oficial</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-white border border-amber-200 p-2.5 rounded-lg">
+                        <span id="first-run-key-display" class="font-mono text-sm font-black text-slate-900 tracking-wider select-all">
+                            SIGET-XXXX-XXXX-XXXX-XXXX
+                        </span>
+                        <button type="button" id="btn-copy-first-run-key" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded flex items-center space-x-1 transition">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span id="copy-first-run-text">Copiar</span>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-amber-800 leading-normal">
+                        ⚠️ <strong>GUARDADO OBLIGATORIO:</strong> Copie y guarde esta clave en un archivo seguro o libreta institucional offline.
+                    </p>
+                </div>
+
+                <button type="button" id="btn-first-run-finish"
+                    class="w-full py-2.5 px-4 bg-gold hover:bg-gold-hover text-slate-900 font-bold rounded-lg shadow transition flex items-center justify-center space-x-2 text-xs">
+                    <span>Ingresar al Sistema SIGET</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- 1.1.5 REGISTRO INSTITUCIONAL DE CUENTAS (REGISTER OVERLAY) -->
+    <!-- ==================================================================== -->
+    <div id="register-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-7 w-full max-w-xl mx-auto my-6">
+            
+            <!-- Encabezado Institucional -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-11 h-11 rounded-xl bg-slate-900 flex items-center justify-center border-2 border-gold p-1 shadow">
+                        <img src="../../assets/logo_transparent.png" alt="SIGET" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-lg font-black text-slate-900 tracking-tight">SIGET</h2>
+                            <span class="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded bg-gold/20 text-gold-text border border-gold/40">
+                                Registro Institucional
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 font-medium">Creación de perfil de acceso al sistema educativo</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-register" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1">✕</button>
+            </div>
+
+            <!-- Formulario de Registro -->
+            <form id="register-form" class="mt-5 space-y-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre y Apellido *</label>
+                        <input type="text" id="register-fullname" required placeholder="Ej. Prof. María Gómez"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Rol Institucional *</label>
+                        <select id="register-role" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold font-medium">
+                            <option value="RECTOR">Rector</option>
+                            <option value="SECRETARIA">Secretaría</option>
+                            <option value="BEDEL">Bedelía</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Usuario / Identificador *</label>
+                        <input type="text" id="register-username" required placeholder="Ej. mgomez o bedel_tarde"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Correo Institucional (Opcional)</label>
+                        <input type="email" id="register-email" placeholder="mgomez@instituto.edu.ar"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Contraseña *</label>
+                        <input type="password" id="register-password" required minlength="6" placeholder="Mínimo 6 caracteres"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Confirmar Contraseña *</label>
+                        <input type="password" id="register-confirm-password" required minlength="6" placeholder="Repita la contraseña"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-100 space-y-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Pregunta Secreta de Recuperación *</label>
+                        <select id="register-question-select" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold font-medium">
+                            <option value="¿Cuál fue el nombre de tu primera escuela?">¿Cuál fue el nombre de tu primera escuela?</option>
+                            <option value="¿En qué ciudad naciste?">¿En qué ciudad naciste?</option>
+                            <option value="¿Cuál es el segundo nombre de tu madre?">¿Cuál es el segundo nombre de tu madre?</option>
+                            <option value="¿Cuál fue tu primer número de legajo o DNI inicial?">¿Cuál fue tu primer número de legajo o DNI inicial?</option>
+                            <option value="custom">Personalizada (Escribir mi propia pregunta)...</option>
+                        </select>
+                        <input type="text" id="register-question-custom" placeholder="Escriba su pregunta secreta aquí..."
+                            class="hidden mt-2 w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Respuesta Secreta *</label>
+                        <input type="text" id="register-answer" required placeholder="Respuesta confidencial para recuperar su cuenta offline"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                </div>
+
+                <!-- Aviso dinámico si es Rector -->
+                <div id="register-rector-hint" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
+                    <div class="font-bold flex items-center space-x-1.5">
+                        <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
+                        <span>Privilegios de Rector:</span>
+                    </div>
+                    <p class="text-[11px] text-amber-800 mt-1">
+                        Al registrar el perfil con rol <strong>Rector</strong>, el sistema generará automáticamente una <strong>Master Recovery Key</strong> única para emergencias offline definitivas.
+                    </p>
+                </div>
+
+                <div id="register-error" class="hidden p-2.5 rounded-lg bg-red-50 text-red-700 text-xs font-medium border border-red-200">
+                </div>
+
+                <div class="pt-3 flex space-x-2">
+                    <button type="button" id="btn-cancel-register"
+                        class="w-1/3 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">
+                        Volver al Login
+                    </button>
+                    <button type="submit" id="btn-submit-register"
+                        class="w-2/3 py-2.5 px-4 bg-gold hover:bg-gold-hover text-slate-900 text-xs font-bold rounded-lg shadow transition flex items-center justify-center space-x-2">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Crear Cuenta</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Banner de éxito cuando un Rector se registra y se le emite la Master Recovery Key -->
+            <div id="register-rector-key-result" class="hidden mt-5 space-y-4">
+                <div class="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-2 text-left">
+                    <div class="text-[11px] font-black text-amber-900 uppercase tracking-wider flex items-center space-x-1.5">
+                        <i data-lucide="key" class="w-4 h-4 text-amber-700"></i>
+                        <span>Cuenta Creada • Clave Maestra de Rescate Generada</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-white border border-amber-200 p-2.5 rounded-lg">
+                        <span id="register-rector-key-display" class="font-mono text-sm font-black text-slate-900 tracking-wider select-all">
+                        </span>
+                        <button type="button" id="btn-copy-register-rector-key" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold rounded flex items-center space-x-1 transition">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span id="copy-register-rector-text">Copiar</span>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-amber-800 leading-normal">
+                        ⚠️ <strong>GUARDADO RECOMENDADO:</strong> Conserve esta clave en un lugar seguro offline para poder restaurar el acceso al sistema en caso de extraviar su contraseña.
+                    </p>
+                </div>
+
+                <button type="button" id="btn-finish-register-rector"
+                    class="w-full py-2.5 px-4 bg-gold hover:bg-gold-hover text-slate-900 font-bold rounded-lg shadow transition flex items-center justify-center space-x-2 text-xs">
+                    <span>Ir a Iniciar Sesión</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- 1.2 RECUPERACIÓN DE ACCESO OFFLINE -->
+    <!-- ==================================================================== -->
+    <div id="recovery-overlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-7 w-full max-w-md mx-auto">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-gold border border-gold/40">
+                        <i data-lucide="life-buoy" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Recuperación de Acceso Offline</h2>
+                        <p class="text-[11px] text-slate-400">Restablezca su clave sin conexión a internet</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-recovery" class="text-slate-400 hover:text-slate-700 text-base font-bold">✕</button>
+            </div>
+
+            <!-- Selector de Métodos (Solapas) -->
+            <div class="flex rounded-lg bg-slate-100 p-1 my-4 text-xs font-bold">
+                <button type="button" id="tab-btn-recov-q" class="flex-1 py-1.5 rounded-md transition text-slate-900 bg-white shadow-xs">
+                    Pregunta de Seguridad
+                </button>
+                <button type="button" id="tab-btn-recov-k" class="flex-1 py-1.5 rounded-md transition text-slate-500 hover:text-slate-800">
+                    Master Recovery Key
+                </button>
+            </div>
+
+            <!-- MÉTODO A: PREGUNTA DE SEGURIDAD -->
+            <div id="recov-panel-question" class="space-y-3.5">
+                <!-- Paso 1: Identificación de Usuario -->
+                <div id="recov-q-step-1" class="space-y-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre de Usuario</label>
+                        <input type="text" id="recov-q-username" placeholder="rector, bedel, etc."
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+                    <button type="button" id="btn-recov-q-search"
+                        class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-gold text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5">
+                        <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                        <span>Buscar Pregunta de Seguridad</span>
+                    </button>
+                </div>
+
+                <!-- Paso 2: Respuesta y Nueva Contraseña -->
+                <form id="recov-q-step-2" class="hidden space-y-3">
+                    <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Pregunta Registrada:</div>
+                        <div id="recov-q-display-text" class="text-xs font-bold text-slate-800 mt-0.5"></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Su Respuesta Secreta *</label>
+                        <input type="text" id="recov-q-answer" required placeholder="Respuesta confidencial"
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nueva Clave *</label>
+                            <input type="password" id="recov-q-newpass" required minlength="6" placeholder="Mínimo 6 caract."
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Confirmar *</label>
+                            <input type="password" id="recov-q-confirmpass" required minlength="6" placeholder="Repetir clave"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-recov-q-submit"
+                        class="w-full py-2.5 bg-gold hover:bg-gold-hover text-slate-900 text-xs font-bold rounded-lg shadow transition">
+                        Restablecer Contraseña
+                    </button>
+                </form>
+            </div>
+
+            <!-- MÉTODO B: MASTER RECOVERY KEY -->
+            <div id="recov-panel-key" class="hidden space-y-3.5">
+                <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900">
+                    Use la Clave Maestra de Rescate generada durante la instalación para restablecer la cuenta de Rector de forma inmediata.
+                </div>
+
+                <form id="recov-key-form" class="space-y-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Usuario</label>
+                        <input type="text" id="recov-k-username" value="rector" required
+                            class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Clave Maestra de Rescate *</label>
+                        <input type="text" id="recov-k-key" required placeholder="SIGET-XXXX-XXXX-XXXX-XXXX"
+                            class="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold uppercase">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nueva Clave *</label>
+                            <input type="password" id="recov-k-newpass" required minlength="6" placeholder="Mínimo 6 caract."
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Confirmar *</label>
+                            <input type="password" id="recov-k-confirmpass" required minlength="6" placeholder="Repetir clave"
+                                class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-recov-k-submit"
+                        class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-gold text-xs font-bold rounded-lg shadow transition border border-gold/40">
+                        Restablecer Acceso Maestro
+                    </button>
+                </form>
+
+                <!-- Rotación de nueva Master Key -->
+                <div id="recov-k-new-key-box" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs">
+                    <div class="font-bold text-emerald-800 flex items-center space-x-1">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+                        <span>¡Acceso restablecido! Nueva Clave Maestra Emitida:</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-white border border-emerald-200 p-2 rounded font-mono text-xs font-bold text-slate-900">
+                        <span id="recov-k-new-key-text"></span>
+                        <button type="button" id="btn-copy-new-recov-key" class="text-emerald-700 hover:text-emerald-900 text-[11px] font-bold">Copiar</button>
+                    </div>
+                    <p class="text-[10px] text-emerald-700">Por seguridad, la clave anterior ha sido invalidada. Guarde esta nueva clave.</p>
+                </div>
+            </div>
+
+            <div id="recov-error" class="hidden mt-3 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs font-medium border border-red-200">
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 flex justify-center">
+                <button type="button" id="btn-cancel-recovery" class="text-xs font-bold text-slate-500 hover:text-slate-800">
+                    Volver a Pantalla de Inicio de Sesión
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- 2. CONTENEDOR PRINCIPAL DE LA APLICACIÓN (SIDEBAR + MAIN CONTENT) -->
+    <!-- ==================================================================== -->
+    <div id="app-container" class="flex-1 flex overflow-hidden">
+        
+        <!-- SIDEBAR DE NAVEGACIÓN -->
+        <aside class="w-64 bg-white dark:bg-[#242424] border-r border-slate-200 dark:border-zinc-800 flex flex-col justify-between select-none shadow-sm z-10">
+            <div>
+                <!-- Branding Institucional -->
+                <div class="p-5 flex items-center space-x-3 border-b border-slate-100">
+                    <div class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center border border-gold p-1 shadow-sm">
+                        <img src="../../assets/logo_transparent.png" alt="SIGET" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <div class="text-xl font-black text-slate-900 tracking-tight flex items-center">
+                            SIGET
+                        </div>
+                        <div class="text-[10px] text-slate-400 font-medium">Gestión Educativa Terciaria</div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta de Usuario Activo -->
+                <div class="p-4 mx-3 my-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div id="sidebar-user-name" class="text-xs font-bold text-slate-800 truncate">Cargando...</div>
+                    <div class="mt-1 inline-block">
+                        <span id="sidebar-user-role" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-gold uppercase tracking-wider">
+                            ROL
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Menú de Navegación Dinámico -->
+                <nav class="px-3 space-y-1" id="sidebar-nav">
+                    <!-- Botón Dashboard -->
+                    <button data-view="dashboard" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        <span>Dashboard</span>
+                    </button>
+
+                    <!-- Botón Docentes Unificado -->
+                    <button data-view="teachers" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                        <span>Docentes</span>
+                    </button>
+
+                    <!-- Botón Cátedras y Suplencias -->
+                    <button data-view="designations" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                        <span>Cátedras y Suplencias</span>
+                    </button>
+
+                    <!-- Botón Alumnos -->
+                    <button data-view="students" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+                        <span>Alumnos e Inscripciones</span>
+                    </button>
+
+                    <!-- Botón Reportes Excel (Solo Rector) -->
+                    <button data-view="reports" id="nav-btn-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+                        <span>Planillas Excel</span>
+                    </button>
+
+                    <!-- Botón Gestión de Usuarios (Solo Rector) -->
+                    <button data-view="users" id="nav-btn-users" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-gold"></i>
+                        <span>Gestión de Usuarios</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Footer del Sidebar: Switch Tema y Salir -->
+            <div class="p-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
+                <!-- Switch interactivo de Modo Oscuro -->
+                <div class="flex items-center justify-between px-1 py-0.5">
+                    <label for="theme-switch" class="text-xs font-bold text-slate-600 dark:text-zinc-300 flex items-center space-x-2 cursor-pointer select-none">
+                        <i data-lucide="moon" class="w-4 h-4 text-slate-400 dark:text-gold"></i>
+                        <span>Modo Oscuro</span>
+                    </label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="theme-switch" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gold"></div>
+                    </label>
+                </div>
+
+                <!-- Botón rojo institucional de Cerrar Sesión -->
+                <button id="btn-logout" class="w-full flex items-center justify-center space-x-2 py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-xs transition">
+                    <i data-lucide="power" class="w-4 h-4"></i>
+                    <span>Cerrar Sesión</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- ÁREA DE CONTENIDO PRINCIPAL -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-[#1E1E1E]">
+            
+            <!-- Barra Superior Institucional -->
+            <header class="h-14 bg-white dark:bg-[#242424] border-b border-slate-200 dark:border-zinc-800 px-6 flex items-center justify-between shadow-xs">
+                <div class="flex items-center space-x-3">
+                    <h2 id="topbar-title" class="text-sm font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
+                        Panel de Control
+                    </h2>
+                </div>
+                <div class="flex items-center space-x-4 text-xs">
+                    <div class="flex items-center space-x-1.5 text-slate-500 dark:text-zinc-400 font-medium">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500"></i>
+                        <span id="current-date-display">Cargando fecha...</span>
+                    </div>
+                    <span class="text-slate-300 dark:text-zinc-700">|</span>
+                    <span class="text-slate-400 dark:text-zinc-400 font-bold uppercase text-[11px]">Oficina 1452</span>
+                </div>
+            </header>
+
+            <!-- CONTENEDOR DE VISTAS (SPA INSTANTÁNEO) -->
+            <div class="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-[#1E1E1E]" id="views-container">
+                
+                <!-- VISTA 1: DASHBOARD -->
+                <section id="view-dashboard" class="view-panel hidden space-y-6">
+                    <!-- KPIs -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="dashboard-kpis">
+                        <!-- Generado dinámicamente -->
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Suplencias Activas -->
+                        <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
+                            <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100 mb-3 flex items-center justify-between">
+                                <span>Suplencias Oficiales en Ejercicio</span>
+                                <span class="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded font-bold border border-amber-200 dark:border-amber-800">Vigentes</span>
+                            </h3>
+                            <div id="dashboard-substitutions-list" class="space-y-2 text-xs">
+                                <!-- Filas -->
+                            </div>
+                        </div>
+
+                        <!-- Panel de Bedelía / Asistencias de Hoy -->
+                        <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
+                            <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100 mb-3 flex items-center justify-between">
+                                <span>Estado de Asistencia del Día</span>
+                                <button id="btn-quick-attendance" class="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-bold">Ir a Registro</button>
+                            </h3>
+                            <div class="grid grid-cols-2 gap-3" id="dashboard-attendance-stats">
+                                <!-- KPIs de Asistencias Hoy -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alertas de Inasistencias y Topes Anuales (v2.0) -->
+                    <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-800">
+                                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                                </div>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Alertas de Inasistencias y Topes Anuales</h3>
+                            </div>
+                            <span class="text-[10px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded font-bold">Ciclo Lectivo Oficial</span>
+                        </div>
+                        <div id="dashboard-attendance-alerts" class="space-y-2.5 text-xs">
+                            <!-- Inyectado dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Auditoría Reciente -->
+                    <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100 mb-3">Auditoría y Actividad Reciente</h3>
+                        <div id="dashboard-audit-logs" class="space-y-1.5 text-xs text-slate-600 dark:text-zinc-400 font-mono">
+                            <!-- Logs -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 2: DOCENTES UNIFICADO -->
+                <section id="view-teachers" class="view-panel hidden space-y-4">
+                    <!-- Solapas internas -->
+                    <div class="flex space-x-2 border-b border-slate-200 pb-2">
+                        <button id="tab-btn-legajos" class="tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition">
+                            Planta Funcional y Legajos
+                        </button>
+                        <button id="tab-btn-asistencias" class="tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition">
+                            Control Diario de Asistencias
+                        </button>
+                    </div>
+
+                    <!-- SUB-TAB 1: LEGAJOS -->
+                    <div id="subtab-legajos" class="space-y-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3 flex-1 min-w-[280px]">
+                                <div class="relative flex-1">
+                                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                                    <input type="text" id="teacher-search" placeholder="Buscar por Apellido, Nombre, DNI o Legajo..."
+                                        class="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                                </div>
+                                <select id="teacher-filter-revista" class="px-3 py-2 text-xs border border-slate-200 rounded-lg font-medium text-slate-700">
+                                    <option value="Todos">Todas las Revistas</option>
+                                    <option value="Titular">Titular</option>
+                                    <option value="Provisional">Provisional</option>
+                                    <option value="Interino">Interino</option>
+                                    <option value="Suplente">Suplente</option>
+                                </select>
+                            </div>
+                            <button id="btn-new-teacher" class="btn-gold px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+                                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                                <span>Nuevo Docente</span>
+                            </button>
+                        </div>
+
+                        <!-- TABLA EXCEL DE DOCENTES -->
+                        <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
+                            <table class="w-full border-collapse text-left" id="table-teachers">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-24 text-center">LEGAJO</th>
+                                        <th class="w-64">DOCENTE (APELLIDO Y NOMBRES)</th>
+                                        <th class="w-28 text-center">DNI</th>
+                                        <th class="w-32 text-center">SITUACIÓN REVISTA</th>
+                                        <th class="w-44">CARGA HORARIA</th>
+                                        <th class="w-24 text-center">ESTADO</th>
+                                        <th class="w-32 text-center">ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-teachers" class="divide-y divide-slate-100">
+                                    <!-- Renderizado -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SUB-TAB 2: CONTROL DIARIO DE ASISTENCIAS -->
+                    <div id="subtab-asistencias" class="hidden space-y-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-att-prev" class="px-3 py-1.5 border border-slate-200 rounded text-xs font-bold hover:bg-slate-50">◀ Anterior</button>
+                                <input type="date" id="att-date-input" class="px-3 py-1.5 border border-slate-200 rounded text-xs font-bold">
+                                <button id="btn-att-today" class="px-3 py-1.5 bg-slate-900 text-gold rounded text-xs font-bold">Hoy</button>
+                                <button id="btn-att-next" class="px-3 py-1.5 border border-slate-200 rounded text-xs font-bold hover:bg-slate-50">Siguiente ▶</button>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <input type="text" id="att-search" placeholder="Filtrar docente..." class="px-3 py-1.5 border border-slate-200 rounded text-xs">
+                                <button id="btn-att-save-all" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded text-xs flex items-center space-x-1.5 shadow-sm">
+                                    <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                    <span>Guardar Todo</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- TABLA DE ASISTENCIAS -->
+                        <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
+                            <table class="w-full border-collapse text-left" id="table-attendance">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-56">DOCENTE</th>
+                                        <th class="w-20 text-center">LEGAJO</th>
+                                        <th class="w-24 text-center">REVISTA</th>
+                                        <th class="w-36 text-center">ESTADO DIARIO</th>
+                                        <th class="w-16 text-center">HORAS</th>
+                                        <th>OBSERVACIONES / JUSTIFICACIÓN</th>
+                                        <th class="w-28 text-center">ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-attendance">
+                                    <!-- Filas -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 3: CÁTEDRAS Y SUPLENCIAS -->
+                <section id="view-designations" class="view-panel hidden space-y-4">
+                    <div class="flex space-x-2 border-b border-slate-200 pb-2">
+                        <button id="tab-btn-desig" class="desig-tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition">
+                            Planta de Cátedras y Designaciones
+                        </button>
+                        <button id="tab-btn-subst" class="desig-tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition">
+                            Suplencias y Reemplazos Oficiales
+                        </button>
+                    </div>
+
+                    <!-- SUBTAB 1: CÁTEDRAS -->
+                    <div id="subtab-desig" class="space-y-4">
+                        <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-2">
+                                <label class="text-xs font-bold text-slate-600 dark:text-zinc-300">Carrera:</label>
+                                <select id="desig-filter-career" class="px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-lg font-medium text-slate-700 dark:text-zinc-200 min-w-[260px]">
+                                    <option value="0">Todas las Carreras</option>
+                                </select>
+                                <button id="btn-new-career" type="button" title="Registrar Nueva Carrera Institucional (RF-05)"
+                                    class="px-2.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-lg flex items-center space-x-1.5 transition shadow-xs">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-gold-text"></i>
+                                    <span>Nueva</span>
+                                </button>
+                                <button id="btn-edit-career" type="button" title="Editar datos de la Carrera seleccionada"
+                                    class="px-2.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-lg flex items-center space-x-1.5 transition shadow-xs">
+                                    <i data-lucide="edit-3" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                                    <span>Editar</span>
+                                </button>
+                                <button id="btn-delete-career" type="button" title="Eliminar Carrera seleccionada"
+                                    class="px-2.5 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-zinc-700 rounded-lg flex items-center space-x-1.5 transition shadow-xs">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600 dark:text-rose-400"></i>
+                                    <span>Eliminar</span>
+                                </button>
+                            </div>
+                            <button id="btn-new-designation" class="btn-gold px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                <span>Nueva Designación</span>
+                            </button>
+                        </div>
+
+                        <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
+                            <table class="w-full border-collapse text-left" id="table-designations">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-64">CÁTEDRA / CARRERA</th>
+                                        <th class="w-56">DOCENTE TITULAR</th>
+                                        <th class="w-40 text-center">DÍA Y HORARIO</th>
+                                        <th class="w-24 text-center">HS CÁT.</th>
+                                        <th class="w-48">CONDICIÓN / ESTADO</th>
+                                        <th class="w-44 text-center">ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-designations">
+                                    <!-- Render -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SUBTAB 2: SUPLENCIAS -->
+                    <div id="subtab-subst" class="hidden space-y-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200">
+                            <h3 class="text-xs font-bold text-slate-800">Planilla Oficial de Reemplazos y Suplencias por Licencia</h3>
+                            <p class="text-[11px] text-slate-500">Registro histórico de suplencias vinculadas a cátedras con vigencias y resoluciones ministeriales.</p>
+                        </div>
+
+                        <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
+                            <table class="w-full border-collapse text-left" id="table-substitutions">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-60">CÁTEDRA ASOCIADA</th>
+                                        <th class="w-48">DOCENTE TITULAR</th>
+                                        <th class="w-48">DOCENTE SUPLENTE</th>
+                                        <th class="w-56">MOTIVO DE LICENCIA</th>
+                                        <th class="w-44 text-center">VIGENCIA</th>
+                                        <th class="w-36 text-center">N° RESOLUCIÓN</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-substitutions">
+                                    <!-- Render -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 4: ALUMNOS -->
+                <section id="view-students" class="view-panel hidden space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3 flex-1 min-w-[280px]">
+                            <div class="relative flex-1">
+                                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                                <input type="text" id="student-search" placeholder="Buscar por Apellido, Nombre, DNI o Legajo..."
+                                    class="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                            </div>
+                            <select id="student-filter-career" class="px-3 py-2 text-xs border border-slate-200 rounded-lg font-medium text-slate-700 min-w-[240px]">
+                                <option value="0">Todas las Carreras</option>
+                            </select>
+                        </div>
+                        <button id="btn-new-student" class="btn-gold px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            <span>Nuevo Alumno</span>
+                        </button>
+                    </div>
+
+                    <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
+                        <table class="w-full border-collapse text-left" id="table-students">
+                            <thead class="excel-header sticky top-0">
+                                <tr>
+                                    <th class="w-28 text-center">LEGAJO</th>
+                                    <th class="w-64">ALUMNO (APELLIDO Y NOMBRES)</th>
+                                    <th class="w-28 text-center">DNI</th>
+                                    <th class="w-64">CARRERA</th>
+                                    <th class="w-28 text-center">COHORTE</th>
+                                    <th class="w-24 text-center">ESTADO</th>
+                                    <th class="w-36 text-center">ACCIONES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-students">
+                                <!-- Render -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- VISTA 5: REPORTES EXCEL -->
+                <section id="view-reports" class="view-panel hidden space-y-6">
+                    <div class="bg-white dark:bg-[#282828] p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
+                                <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Generación Oficial de Planillas Mensuales y Planta Docente</h3>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400">Previsualización interactiva con procesamiento normativo (DL-01 y DL-02) y exportación final en Excel.</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-5 max-w-xl">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Año Académico</label>
+                                <input type="number" id="report-year" value="2026" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg focus:outline-none focus:border-gold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Mes de Cierre</label>
+                                <select id="report-month" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg focus:outline-none focus:border-gold">
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10" selected>Octubre</option>
+                                    <option value="11">Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button id="btn-preview-report" class="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold py-2.5 px-5 rounded-lg text-xs flex items-center space-x-2 border border-slate-200 dark:border-zinc-700 transition">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                <span>Previsualizar Planilla</span>
+                            </button>
+                            <button id="btn-generate-report" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-lg text-xs flex items-center space-x-2 shadow transition">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>Confirmar y Descargar Excel</span>
+                            </button>
+                        </div>
+
+                        <div id="report-status" class="mt-4 hidden p-3 rounded-lg text-xs font-medium"></div>
+                    </div>
+
+                    <!-- PREVISUALIZACIÓN INTERACTIVA DE PLANILLAS EXCEL -->
+                    <div id="report-preview-card" class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs p-5 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
+                                    Previsualización de Registros a Exportar (Cuadros IL-01 e IL-02)
+                                </h3>
+                                <p id="report-preview-meta" class="text-[11px] text-slate-500 dark:text-zinc-400">
+                                    Mostrando los registros procesados para el período seleccionado.
+                                </p>
+                            </div>
+                            <div class="flex items-center space-x-1.5 bg-slate-50 dark:bg-[#202020] p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
+                                <button id="btn-preview-filter-all" class="px-3 py-1 text-[11px] font-bold rounded-md bg-gold text-slate-900 transition">Todos</button>
+                                <button id="btn-preview-filter-dl01" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">IL-01 Salud</button>
+                                <button id="btn-preview-filter-dl02" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">IL-02 Novedades</button>
+                            </div>
+                        </div>
+
+                        <!-- TABLA PREVIA INTERACTIVA: OFICINA, AÑO, DISPOSICIÓN, DNI, DOCENTE, CÁTEDRA, CÓDIGO, MOTIVO, DESDE, HASTA, DÍAS, HORAS -->
+                        <div class="excel-table-container bg-white dark:bg-[#282828] shadow-xs max-h-[460px] overflow-auto border border-slate-200 dark:border-zinc-800 rounded-lg">
+                            <table class="w-full border-collapse text-left" id="table-report-preview">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-16 text-center">OFICINA</th>
+                                        <th class="w-16 text-center">AÑO</th>
+                                        <th class="w-32 text-center">DISPOSICIÓN</th>
+                                        <th class="w-24 text-center">DNI</th>
+                                        <th class="w-48">DOCENTE</th>
+                                        <th class="w-44">CÁTEDRA / CARGO</th>
+                                        <th class="w-24 text-center">CÓDIGO</th>
+                                        <th class="w-44">MOTIVO</th>
+                                        <th class="w-24 text-center">DESDE</th>
+                                        <th class="w-24 text-center">HASTA</th>
+                                        <th class="w-16 text-center">DÍAS</th>
+                                        <th class="w-16 text-center">HORAS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-report-preview-body" class="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
+                                    <tr>
+                                        <td colspan="12" class="p-8 text-center text-slate-400 dark:text-zinc-500">
+                                            Presione "Previsualizar Planilla" para procesar y ver los registros.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 6: GESTIÓN DE USUARIOS Y ROLES (SOLO RECTOR) -->
+                <section id="view-users" class="view-panel hidden space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Administración de Usuarios y Accesos Institucionales</h3>
+                            <p class="text-[11px] text-slate-500">Alta y edición de roles secundarios (Secretaría, Bedelía) y blanqueo inmediato de contraseñas.</p>
+                        </div>
+                        <button id="btn-new-user" class="btn-gold px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            <span>Nuevo Usuario</span>
+                        </button>
+                    </div>
+
+                    <!-- TABLA EXCEL DE USUARIOS -->
+                    <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
+                        <table class="w-full border-collapse text-left" id="table-users">
+                            <thead class="excel-header sticky top-0">
+                                <tr>
+                                    <th class="w-32 text-center">USUARIO</th>
+                                    <th class="w-64">NOMBRE COMPLETO</th>
+                                    <th class="w-32 text-center">ROL INSTITUCIONAL</th>
+                                    <th class="w-48">CORREO ELECTRÓNICO</th>
+                                    <th class="w-24 text-center">ESTADO</th>
+                                    <th class="w-36 text-center">ÚLTIMO ACCESO</th>
+                                    <th class="w-36 text-center">SEGURIDAD</th>
+                                    <th class="w-36 text-center">ACCIONES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-users" class="divide-y divide-slate-100">
+                                <!-- Renderizado dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL UNIVERSAL PARA ALTA/EDICIÓN -->
+    <div id="modal-container" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <!-- Inyectado dinámicamente -->
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- Scripts de la aplicación -->
+    <script src="js/app.js"></script>
+</body>
+</html>
