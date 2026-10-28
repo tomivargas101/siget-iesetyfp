@@ -1,10 +1,24 @@
+# ==============================================================================
+# SIGET - Requerimientos y Dependencias de Entorno
+# Sistema Integral de Gestión Educativa Terciaria (IESETyFP)
+# ==============================================================================
+
+# Interfaz Gráfica de Usuario (GUI Moderna)
 customtkinter>=5.2.0
-bcrypt>=4.0.0
-pandas>=2.0.0
-openpyxl>=3.1.0
-sqlalchemy>=2.0.0
 pillow>=10.0.0
-pyinstaller>=6.0.0
+darkdetect>=0.8.0
+
+# Capa de Persistencia y Base de Datos (ORM y Drivers LAN)
+sqlalchemy>=2.0.0
 pymysql>=1.1.0
 cryptography>=41.0.0
 
+# Seguridad y Hashing de Contraseñas
+bcrypt>=4.0.0
+
+# Procesamiento de Datos y Reportes Oficiales en Excel (.xlsx)
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# Empaquetado y Generación de Ejecutable Standalone
+pyinstaller>=6.0.0
