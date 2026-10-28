@@ -1,81 +1,182 @@
 # SIGET - Sistema Integral de Gestión Educativa Terciaria
 ### Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETyFP)
 
-**SIGET** es una aplicación de escritorio corporativa y de misión crítica desarrollada para la administración académica, funcional y operativa de institutos de educación superior terciaria. Diseñada con una arquitectura robusta, modular y desacoplada, SIGET centraliza el control de planta funcional, designaciones de cátedras, cobertura de suplencias, seguimiento de asistencia docente y matrícula estudiantil bajo estrictas normativas institucionales.
+[![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![GUI](https://img.shields.io/badge/GUI-CustomTkinter%20v5%2B-blueviolet.svg)](https://github.com/TomSchimansky/CustomTkinter)
+[![ORM](https://img.shields.io/badge/ORM-SQLAlchemy%202.0%2B-red.svg)](https://www.sqlalchemy.org/)
+[![Database](https://img.shields.io/badge/Database-SQLite%20%7C%20MySQL%20LAN-orange.svg)](https://www.mysql.com/)
+[![Security](https://img.shields.io/badge/Security-bcrypt%20Hashes-success.svg)](https://pypi.org/project/bcrypt/)
+
+**SIGET** es una aplicación de escritorio corporativa y de misión crítica desarrollada para la administración académica, funcional y operativa de institutos de educación superior técnica. Diseñada bajo una arquitectura cliente ligera y desacoplada (**Python + CustomTkinter**), centraliza el control de planta funcional, designaciones de cátedras, cobertura formal de suplencias, control de asistencia diaria docente y matrícula estudiantil bajo estrictas normativas institucionales.
 
 ---
 
-## 🛠️ Stack Tecnológico Real
+## 📋 Guía Rápida de Instalación y Prueba (Para la Cátedra)
 
-El sistema combina un núcleo de procesamiento en **Python** de alto rendimiento con tooling de soporte y verificación en **JavaScript / Node.js**:
+Esta sección permite poner en marcha y evaluar el sistema en **menos de 3 minutos** en cualquier puesto de trabajo con Windows, Linux o macOS.
 
-* **Lenguajes y Entornos:**
-  * **Python 3.10+**: Motor central del sistema, implementación de reglas de negocio, modelos de datos relacionales, servicios de validación y aplicación de escritorio.
-  * **JavaScript / Node.js**: Entorno de tooling, scripts de soporte y suites de prueba automatizadas para integración continua (`test_backend.js`, `test_v2_features.js`).
-* **Interfaz Gráfica de Usuario (GUI):**
-  * **CustomTkinter (>=5.2.0)**: Biblioteca moderna de interfaz basada en widgets de alta fidelidad visual, con paleta institucional corporativa, componentes reactivos, transiciones limpias y soporte para personalización de temas (oscuro/claro).
-* **Capa de Persistencia y Base de Datos:**
-  * **SQLAlchemy (>=2.0.0)**: ORM relacional agnóstico y de alto rendimiento. Soporta sin fricción entornos distribuidos:
-    * **SQLite**: Base de datos local embebida (`siget.db`) para despliegue inmediato o trabajo fuera de línea.
-    * **MySQL / MariaDB**: Conexión a servidores departamentales mediante `PyMySQL`.
-    * **PostgreSQL**: Despliegue en servidores institucionales mediante `psycopg2`.
-* **Seguridad y Criptografía:**
-  * **bcrypt (>=4.0.0)**: Algoritmo de salado y hasheo unidireccional de grado criptográfico (*cost factor 12*) para todas las credenciales de usuario, garantizando protección total frente a accesos no autorizados.
-* **Procesamiento de Reportes Oficiales:**
-  * **pandas (>=2.0.0)** & **openpyxl (>=3.1.0)**: Generación programática de planillas estadísticas y planillas de novedades en formato Microsoft Excel (`.xlsx`), incorporando estilizado corporativo, anchos de columna automáticos, formato cebra y fórmulas integradas.
-* **Empaquetado y Distribución:**
-  * **PyInstaller (>=6.0.0)** & script automatizado [`build_exe.py`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/build_exe.py): Pipeline de empaquetado en un solo paso para compilar la aplicación en un ejecutable standalone para Windows (`dist/SIGET.exe`), incluyendo icono institucional y recursos estáticos.
+### Paso 1: Clonar el Repositorio
+```bash
+git clone https://github.com/tomivargas101/siget-iesetyfp.git
+cd siget-iesetyfp
+```
+*(o ubicarse en la carpeta raíz del proyecto `siget` descargada).*
 
 ---
 
-## 👥 Roles Institucionales Autorizados
+### Paso 2: Crear y Activar el Entorno Virtual (`.venv`)
+Se recomienda usar Python 3.10 o superior:
 
-El sistema implementa un modelo estricto de Control de Acceso Basado en Roles (**RBAC**), restringido exclusivamente a las tres figuras institucionales oficiales del IESETyFP:
+* **En Windows (PowerShell):**
+  ```powershell
+  python -m venv .venv
+  .venv\Scripts\Activate.ps1
+  ```
+  *(Si PowerShell restringe la ejecución de scripts, ejecutar previamente: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`)*
 
-| Rol Oficial | Clave Interna | Alcance y Responsabilidades |
-| :--- | :---: | :--- |
-| **Rectoría** | `RECTOR` | **Acceso Total e Irrestricto:** Gestión de planta docente, definición y adjudicación de cátedras/cargos, auditoría histórica integral de operaciones (`audit_logs`), configuración de motores de base de datos y supervisión de novedades. |
-| **Secretaría** | `SECRETARIA` | **Gestión Académica y Administrativa:** Administración de legajos de profesores y estudiantes (Formulario N° 1), emisión y certificación de reportes oficiales mensuales, gestión de planes de estudio y resoluciones ministeriales. |
-| **Bedelía** | `BEDEL` | **Operativa Diaria de Aula:** Carga diaria de partes de asistencia docente, registro y tipificación de licencias e inasistencias (Cuadros DL-01 y DL-02), consulta de horarios de comisiones y padrón de estudiantes. |
+* **En Windows (Símbolo del sistema / CMD):**
+  ```cmd
+  python -m venv .venv
+  .venv\Scripts\activate.bat
+  ```
+
+* **En Linux / macOS:**
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  ```
 
 ---
 
-## 🏛️ Módulos Principales Implementados
+### Paso 3: Instalar Dependencias del Proyecto
+Con el entorno virtual activado, actualizar pip e instalar los paquetes requeridos:
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-### 1. Autenticación y Seguridad Institucional
-* **Pantalla de Acceso Moderna:** Ventana de Login en dos paneles institucionales con identidad gráfica del IESETyFP.
-* **Control Visual de Contraseña:** Botón interactivo de alternancia (*toggle eye*) para visualizar u ocultar la clave en tiempo de ingreso de forma segura.
-* **Protección Criptográfica:** Validación contra hashes `bcrypt` almacenados en base de datos.
-* **Configuración Rápida de Base de Datos:** Cuadro de diálogo modal accesible desde el login para conmutar entre motores (SQLite, MySQL, PostgreSQL) y definir parámetros de conexión sin modificar código.
-* **Auditoría Transaccional:** Registro pormenorizado en `audit_logs` con sello de tiempo en zona horaria oficial argentina (**GMT-3**).
+---
 
-### 2. Legajos Docentes y Estudiantiles (Formulario N° 1)
-* **Gestión de Planta Funcional:** Alta, baja, modificación y consulta de profesores y alumnos.
-* **Identificación Unívoca (RN-01):** Almacenamiento y normalización estricta del DNI como clave unívoca de persona en formato texto.
-* **Situación de Revista:** Tipificación reglamentaria de docentes en `Titular`, `Interino`, `Provisional` y `Suplente`.
-* **Monitor de Carga Horaria:** Indicador visual en tiempo real que compara las horas cátedra acumuladas por el docente frente a su tope reglamentario.
+### Paso 4: Configuración de Base de Datos (`config.json`)
+SIGET incluye soporte nativo tanto para trabajo autónomo fuera de línea (SQLite) como para despliegue distribuido multi-usuario en Red de Área Local (LAN).
 
-### 3. Designaciones de Cátedra y Cobertura de Suplencias (Core Rectoría)
-* **Designación de Cátedras (RN-02):** Asignación relacional de docentes a materias y carreras con especificación de cargo, día de la semana, franja horaria de dictado (`HH:MM`) y cantidad de horas cátedra semanales.
-* **Situación de Revista por Designación:** Capacidad de asignar situaciones de revista diferenciadas por cargo a un mismo agente (`TIT`, `INT`, `SUP`).
-* **Módulo de Suplencias Formales:** Cobertura de ausencias prolongadas vinculando directamente al suplente con la designación del titular:
-  * Motivo estatutario o licencia (Art. 48 Salud, Maternidad, Art. 115, etc.).
-  * Período de vigencia delimitado por fechas de inicio y culminación.
-  * Número de resolución ministerial o disposición habilitante.
-* **Preservación Histórica (RN-03):** Implementación de bajas lógicas (`is_active = False`) en designaciones, suplencias y asistencias, impidiendo el borrado físico de antecedentes administrativos.
+El archivo `config.json` se encuentra en la raíz del proyecto. Elige una de las siguientes opciones:
 
-### 4. Validaciones de Negocio Críticas en Backend
-El motor de validación centralizada ([`models/validation.py`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/models/validation.py)) actúa previo a cualquier persistencia:
-* **Control de Tope Horario Semanal:** Verifica que la suma de horas cátedra de todas las designaciones activas del docente no supere su límite legal (30 horas por defecto).
-* **Prevención de Solapamiento Horario:** Algoritmo de detección de incompatibilidad horaria que impide asignar cátedras o suplencias a un docente si los días y rangos horarios coinciden o se superponen con otra designación preexistente.
+#### Opción A: Evaluación Rápida Local con SQLite (Por Defecto - Sin Servidores Adicionales)
+No requiere instalar ningún servicio de base de datos. La base de datos `siget.db` se inicializa y crea automáticamente:
+```json
+{
+    "db_type": "sqlite",
+    "sqlite_path": "siget.db",
+    "max_weekly_hours_default": 30
+}
+```
 
-### 5. Reportes Oficiales y Cuadros de Novedades (Excel)
-* **Exportación Automatizada:** Generación de planillas estadísticas mensuales de asistencia docente en formato `.xlsx`.
-* **Clasificación Inteligente de Licencias:**
-  * **Cuadro DL-01 (RN-04):** Exclusivo para licencias médicas y de salud (Art. 48, Art. 114 a/b/c, ART).
-  * **Cuadro DL-02 (RN-05):** Inasistencias justificadas/injustificadas y permisos no médicos.
-  * **Regla de Inasistencia Diaria (RN-06):** Inasistencias computadas estrictamente por día único.
-* **Diseño Editorial Corporativo:** Cabeceras en azul marino institucional, cuadrícula legible, bandas cebra para facilitar la lectura y fórmulas de suma automáticas.
+#### Opción B: Conexión en Red LAN a Servidor Central (MySQL / MariaDB)
+Si la cátedra cuenta con un servidor central de base de datos en la red local (ej. XAMPP, MariaDB Server o MySQL Server), configura la IP del servidor en el campo `host`:
+```json
+{
+    "db_type": "mysql",
+    "host": "192.168.1.100",
+    "port": 3306,
+    "database": "siget_db",
+    "user": "siget_user",
+    "password": "tu_password_seguro",
+    "connect_timeout": 5,
+    "pool_size": 10,
+    "max_overflow": 20,
+    "pool_recycle": 1800,
+    "max_weekly_hours_default": 30
+}
+```
+
+> [!TIP]
+> **Configuración visual sin editar código ni archivos:** También puedes abrir la aplicación y hacer clic en el botón **⚙️ Base de Datos** ubicado en la esquina superior de la pantalla de inicio (*Login*). Desde allí podrás cambiar de motor, ingresar la IP del servidor LAN y probar la conexión con verificación de ping en tiempo real.
+
+---
+
+### Paso 5: Ejecutar el Sistema
+```bash
+python main.py
+```
+
+---
+
+### Paso 6: Credenciales de Acceso de Demostración
+Al iniciar, SIGET verifica la base de datos y genera automáticamente las tablas, carreras, materias y los usuarios iniciales con contraseñas seguras hasheadas con `bcrypt`:
+
+| Rol Institucional | Usuario | Contraseña | Alcance y Módulos Habilitados |
+| :--- | :--- | :--- | :--- |
+| **Rectoría** | `rector` | `rector123` | **Acceso Total:** Planta docente, designaciones, auditoría integral (`audit_logs`) y configuración. |
+| **Secretaría** | `secretaria` | `secretaria123` | **Académica y Matrícula:** Legajos docentes y alumnos (Formulario N° 1), emisión de reportes Excel. |
+| **Bedelía** | `bedel` | `bedel123` | **Gestión Diaria:** Carga de partes diarios de asistencia, licencias (DL-01 / DL-02) e inasistencias. |
+
+> [!NOTE]
+> En la pantalla de login dispones además de botones de acceso rápido de prueba (`Rector` / `Bedel`) para agilizar la navegación durante las evaluaciones.
+
+---
+
+## 🛠️ Stack Tecnológico y Arquitectura
+
+```
+                  ┌────────────────────────────────────────┐
+                  │          SIGET CLIENTE GUI             │
+                  │   CustomTkinter + Responsive Canvas    │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │       CONTROLADOR DE APLICACIÓN        │
+                  │    ApplicationController (main.py)     │
+                  └──────────────────┬─────────────────────┘
+                                     │
+           ┌─────────────────────────┴─────────────────────────┐
+           ▼                                                   ▼
+┌──────────────────────┐                           ┌──────────────────────┐
+│  SERVICIOS DOMINIO   │                           │     VALIDACIONES     │
+│ Auth, Attendance,    │                           │ Topes de Cátedra,    │
+│ Reports, Designation │                           │ Solapamiento Horario │
+└──────────┬───────────┘                           └──────────┬───────────┘
+           │                                                   │
+           └─────────────────────────┬─────────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │       CAPA DE PERSISTENCIA ORM         │
+                  │     SQLAlchemy 2.0+ (Scoped Session)   │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                    ┌────────────────┴────────────────┐
+                    ▼                                 ▼
+         ┌─────────────────────┐           ┌─────────────────────┐
+         │    SQLite Local     │           │   Servidor LAN      │
+         │  (Embebido/Offline) │           │  (MySQL / MariaDB)  │
+         └─────────────────────┘           └─────────────────────┘
+```
+
+* **Lenguaje:** **Python 3.10+** (implementación pura de reglas de negocio, modelos de datos relacionales y servicios de presentación).
+* **Capa de Presentación (GUI):** **CustomTkinter (>=5.2.0)** con tematización institucional, modo claro por defecto (*Light Mode*), layouts adaptativos y tablas estilizadas.
+* **Capa de Persistencia y ORM:** **SQLAlchemy (>=2.0.0)** agnóstico al motor:
+  * **Modo SQLite (Embebido):** Con `PRAGMA journal_mode=WAL` y `busy_timeout` para evitar bloqueos concurrentes.
+  * **Modo Red LAN (MySQL / MariaDB vía PyMySQL):** Conexiones administradas mediante *Connection Pooling* (`QueuePool`), reconexión ante caídas temporales de red y reciclado automático de sockets inactivos.
+* **Seguridad y Criptografía:** **bcrypt (>=4.0.0)** con salado dinámico (*rounds=12*) para todas las credenciales y pistas de recuperación.
+* **Generación de Reportes Oficiales:** **pandas (>=2.0.0)** y **openpyxl (>=3.1.0)** para emisión programática de planillas de asistencia y estadística mensual con formato oficial ministerial, autoajuste de columnas y colores institucionales.
+* **Empaquetado:** **PyInstaller (>=6.0.0)** con especificación corporativa [`siget.spec`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/siget.spec) y script [`build_exe.py`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/build_exe.py).
+
+---
+
+## 🏛️ Reglas de Negocio Implementadas
+
+El sistema valida de forma exhaustiva la normativa ministerial del nivel superior terciario:
+
+1. **RN-01 (Identificación Unívoca):** El DNI se normaliza como clave alfanumérica unívoca de personas físicas, impidiendo registros duplicados.
+2. **RN-02 (Designaciones por Cátedra):** Adjudicación formal de materias, cargo institucional, día de dictado, horario (`HH:MM`) y horas cátedra.
+3. **RN-03 (Trazabilidad y Baja Lógica):** Eliminación lógica (`is_active = False`) en todas las entidades clave (docentes, alumnos, asistencias y designaciones) preservando el historial administrativo.
+4. **RN-04 (Cuadro DL-01 - Salud y Licencias Médicas):** Clasificación estricta de licencias de salud (Art. 48, ART, atención familiar) en el cuadro ministerial correspondiente.
+5. **RN-05 (Cuadro DL-02 - Otras Novedades):** Clasificación de inasistencias por causas particulares, mesas de examen, donación de sangre o motivos no médicos.
+6. **RN-06 (Cómputo Diario Unificado):** Registro de inasistencia tipificado por jornada laboral única.
+7. **RN-07 (Control de Tope Horario):** Rechazo preventivo de designaciones que superen el tope reglamentario (30 horas cátedra semanales por defecto).
+8. **RN-08 (Incompatibilidad Horaria):** Algoritmo que detecta y bloquea superposiciones horarias de dictado en el mismo día para un mismo docente.
 
 ---
 
@@ -83,155 +184,78 @@ El motor de validación centralizada ([`models/validation.py`](file:///c:/Users/
 
 ```text
 siget/
-├── main.py                     # Punto de entrada y orquestador del ciclo de vida de la aplicación
-├── build_exe.py                # Script automatizado de compilación con PyInstaller
-├── siget.spec                  # Especificación de empaquetado y recursos de PyInstaller
-├── config.json                 # Configuración persistente del motor de base de datos
-├── requirements.txt            # Dependencias del entorno de producción Python
-├── package.json                # Configuración de herramientas y scripts Node.js
-├── siget.db                    # Base de datos SQLite local preconfigurada
-├── test_siget.py               # Suite de pruebas unitarias y de integración (Python)
-├── test_business_logic_dl.py   # Pruebas de reglas normativas DL-01/DL-02 y validaciones (Python)
-├── test_backend.js             # Suite de verificación de reglas de negocio en Node.js
-├── test_v2_features.js         # Pruebas de integración de funcionalidades extendidas en Node.js
+├── main.py                     # Controlador del ciclo de vida y navegación de la app
+├── main_dashboard.py           # Dashboard principal con panel lateral dinámico según rol
+├── build_exe.py                # Script de compilación automática a ejecutable standalone
+├── siget.spec                  # Especificación de recursos y empaquetado para PyInstaller
+├── config.json                 # Configuración de base de datos (SQLite / MySQL LAN)
+├── requirements.txt            # Dependencias oficiales de Python del proyecto
+├── .gitignore                  # Reglas de exclusión en codificación UTF-8
+├── test_siget.py               # Suite de pruebas de validaciones, base de datos y reportes
+├── test_business_logic_dl.py   # Pruebas de reglas normativas DL-01/DL-02 y topes horarios
 │
-├── assets/                     # Identidad gráfica, logotipos e iconos institucionales (.ico, .png)
+├── assets/                     # Identidad visual, logotipos e iconos (.ico, .png)
 ├── reportes/                   # Directorio de salida para planillas Excel generadas
 │
-├── database/                   # Capa de persistencia y conexión
+├── database/                   # Capa de datos y persistencia
 │   ├── config.py               # Gestor de configuración y lectura de config.json
-│   ├── connection.py           # Engine de SQLAlchemy, sesiones scoped, migraciones y seeders
-│   └── schema.py               # Modelos relacionales ORM (User, Teacher, Student, Designation, etc.)
+│   ├── connection.py           # Engine SQLAlchemy, pooling LAN, migraciones y seeders
+│   └── schema.py               # Modelos relacionales ORM (User, Teacher, Student, etc.)
 │
-├── models/                     # Lógica de dominio, servicios de negocio y normativas
-│   ├── attendance.py           # Servicio de registro y gestión de asistencias
-│   ├── attendance_processor.py # Motor de procesamiento de novedades docentes para planillas
-│   ├── auth.py                 # Servicio de autenticación, verificación bcrypt y control de sesión
-│   ├── designation.py          # Gestión integral de cátedras, horarios y suplencias
-│   ├── normative.py            # Catálogo oficial de artículos, cuadros DL-01/DL-02 y reglas RN-01 a RN-08
-│   ├── reports.py              # Compilador de reportes corporativos en Excel con openpyxl/pandas
-│   ├── student.py              # Servicio CRUD y padrón de estudiantes
-│   ├── teacher.py              # Servicio CRUD y legajo docente
-│   └── validation.py           # Validador de topes horarios y solapamientos de cátedra
+├── models/                     # Servicios de lógica de negocio y normativas
+│   ├── attendance.py           # Registro y novedades de asistencia
+│   ├── attendance_processor.py # Agrupador de partes diarios para planillas
+│   ├── auth.py                 # Autenticación, sesión y seguridad bcrypt
+│   ├── designation.py          # Gestión de cátedras y suplencias
+│   ├── normative.py            # Artículos estatutarios y tipificación ministerial
+│   ├── reports.py              # Exportador a planillas Excel con openpyxl/pandas
+│   ├── student.py              # Gestión de matrícula y legajos de alumnos
+│   ├── teacher.py              # Gestión de legajos docentes
+│   └── validation.py           # Algoritmos de topes horarios y prevención de solapamientos
 │
-└── views/                      # Capa de presentación (CustomTkinter GUI)
-    ├── attendance_view.py      # Planilla interactiva de carga de asistencia diaria
-    ├── dashboard_view.py       # Panel de control institucional con métricas y alertas
-    ├── designations_view.py    # Pantalla de asignación de cátedras y cobertura de suplencias
-    ├── excel_table.py          # Componente de tabla visual con estilo de planilla de cálculo
-    ├── login_view.py           # Ventana de Login con botón ver contraseña y selector de BD
-    ├── main_window.py          # Contenedor principal con sidebar responsivo según rol
-    ├── register_view.py        # Diálogo para registro institucional de nuevos usuarios
-    ├── reports_view.py         # Vista para parametrizar y generar reportes oficiales
-    ├── students_view.py        # Formulario N° 1 para gestión de matrícula de alumnos
-    ├── teachers_view.py        # Formulario N° 1 para gestión de legajos docentes
-    └── theme.py                # Definición centralizada de colores, tipografías y estilos
-```
-
----
-
-## 🚀 Guía de Puesta en Marcha
-
-### 1. Requisitos Previos
-* **Python 3.10 o superior** instalado en el sistema.
-* **Node.js 18+** (opcional, requerido para ejecutar las suites de prueba de tooling en JavaScript).
-
-### 2. Configuración del Entorno Virtual (Python)
-
-Abrir una terminal en el directorio raíz del proyecto:
-
-```bash
-# Crear el entorno virtual (si no existe)
-python -m venv .venv
-
-# Activar el entorno virtual
-# En Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-# En Windows (CMD):
-.venv\Scripts\activate.bat
-# En Linux / macOS:
-source .venv/bin/activate
-```
-
-### 3. Instalación de Dependencias
-
-```bash
-# Dependencias principales de Python
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# Dependencias de tooling y pruebas JS (opcional)
-npm install
-```
-
-### 4. Ejecución del Sistema
-
-Con el entorno virtual activado:
-
-```bash
-python main.py
-```
-
----
-
-## 🔐 Credenciales Iniciales de Demostración
-
-Al iniciarse por primera vez, SIGET inicializa automáticamente la base de datos con carreras, materias, docentes y los siguientes usuarios de demostración:
-
-| Rol Oficial | Usuario (`username`) | Contraseña | Nivel de Acceso y Funciones |
-| :--- | :--- | :--- | :--- |
-| **Rectoría** | `rector` | `rector123` | **Acceso Total:** Planta docente, designaciones, auditoría y configuración de BD. |
-| **Secretaría** | `secretaria` | `secretaria123` | **Gestión Académica:** Legajos (Formulario N° 1), emisión de reportes oficiales. |
-| **Bedelía** | `bedel` | `bedel123` | **Operativa:** Asistencia diaria, licencias, inasistencias y matrícula. |
-
----
-
-## 🗄️ Conexión a Servidores de Base de Datos (MySQL / PostgreSQL)
-
-Por defecto, SIGET opera sobre SQLite local (`siget.db`). Para conectarse a un servidor de red o en la nube:
-
-1. Inicie la aplicación y en la pantalla de Login presione el botón **⚙️ Base de Datos**.
-2. En la lista desplegable, seleccione el motor: `mysql` o `postgresql`.
-3. Complete los parámetros del servidor:
-   * **Host / Servidor:** Dirección IP o dominio (p. ej., `192.168.1.50` o `localhost`).
-   * **Puerto:** `3306` para MySQL, `5432` para PostgreSQL.
-   * **Base de Datos:** Nombre del esquema (p. ej., `siget_db`).
-   * **Usuario y Contraseña:** Credenciales del motor de base de datos.
-4. Presione **Guardar y Conectar**. El sistema verificará la conectividad, creará las tablas automáticamente si no existen y persistirá la configuración en `config.json`.
-
----
-
-## 📦 Compilación a Archivo Ejecutable (.exe)
-
-Para generar la versión de distribución standalone (que no requiere instalación previa de Python en los puestos de trabajo del instituto):
-
-```bash
-python build_exe.py
-```
-
-El script invocará PyInstaller respetando las directivas de [`siget.spec`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/siget.spec) e incrustando el icono institucional. Al finalizar con éxito, el ejecutable empaquetado estará disponible en:
-```text
-dist/SIGET.exe
+└── views/                      # Capa de interfaz gráfica (CustomTkinter)
+    ├── attendance_view.py      # Planilla de asistencia diaria y carga de novedades
+    ├── dashboard_view.py       # Pantalla de bienvenida, métricas y accesos rápidos
+    ├── designations_view.py    # Formulario de designación de cátedras y suplencias
+    ├── excel_table.py          # Componente visual de tabla de datos interactiva
+    ├── login_view.py           # Ventana de autenticación institucional y configuración de BD
+    ├── main_window.py          # Ventana contenedora principal
+    ├── register_view.py        # Alta institucional de nuevos usuarios
+    ├── reports_view.py         # Generador de reportes mensuales en Excel
+    ├── students_view.py        # Gestión de legajos de alumnos
+    ├── teachers_view.py        # Gestión de legajos docentes
+    └── theme.py                # Paleta de colores institucional y configuración de temas
 ```
 
 ---
 
 ## 🧪 Ejecución de Pruebas Automatizadas
 
-El proyecto incluye suites de prueba completas para validar tanto la lógica de negocio como los componentes de integración:
+Para verificar el correcto funcionamiento de la base de datos, autenticación, topes horarios y generación de reportes:
 
 ```bash
-# Pruebas funcionales y de modelo en Python
-python -m unittest test_siget.py
+# Ejecutar suite principal de integración
+python test_siget.py
 
-# Pruebas de reglas normativas DL-01 / DL-02 y topes horarios
-python -m unittest test_business_logic_dl.py
-
-# Pruebas de verificación de reglas con entorno Node.js
-npm run test:backend
+# Ejecutar pruebas específicas de reglas de negocio normativas
+python test_business_logic_dl.py
 ```
+
+Ambas suites se ejecutan en consola y emiten un informe detallado indicando la conformidad de cada validación.
 
 ---
 
-## 📄 Licencia y Marco Institucional
-Sistema desarrollado para el **IESETyFP** (Instituto de Educación Superior de Educación Técnica y Formación Profesional). Todos los derechos reservados.
+## 📦 Generación de Ejecutable para Windows (`.exe`)
+
+Si se desea generar un instalador o ejecutable independiente para distribuir en PCs sin Python instalado:
+
+```bash
+python build_exe.py
+```
+
+El ejecutable resultante se ubicará en `dist/SIGET.exe`, incluyendo todos los componentes gráficos, librerías y recursos necesarios en un único archivo autónomo.
+
+---
+
+## 📄 Marco Institucional
+Sistema desarrollado para el **IESETyFP** (*Instituto de Educación Superior de Educación Técnica y Formación Profesional*). Cumple con los lineamientos de acreditación académica y administrativa vigentes.
