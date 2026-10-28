@@ -1,7 +1,7 @@
 import os
 import bcrypt
 from datetime import datetime, date, timedelta
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from database.config import load_config
 from database.schema import (
@@ -37,22 +37,148 @@ def get_connection_url(cfg: dict = None) -> str:
     else:
         return "sqlite:///siget.db"
 
+def _setup_sqlite_pragmas(target_engine):
+    """Configura PRAGMAs de alto rendimiento y concurrencia (WAL) para SQLite."""
+    @event.listens_for(target_engine, "connect")
+    def _set_pragmas(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode = WAL;")
+            cursor.execute("PRAGMA synchronous = NORMAL;")
+            cursor.execute("PRAGMA busy_timeout = 30000;")
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.close()
+        except Exception:
+            pass
+
 def get_engine(cfg: dict = None, force_reconnect: bool = False):
-    global _engine
+    global _engine, _SessionFactory
+    if cfg is None:
+        cfg = load_config()
+
     if _engine is None or force_reconnect:
+        # Si se fuerza reconexión, limpiar pool anterior y scoped_session
+        if _SessionFactory is not None:
+            try:
+                _SessionFactory.remove()
+            except Exception:
+                pass
+            _SessionFactory = None
+
+        if _engine is not None:
+            try:
+                _engine.dispose()
+            except Exception:
+                pass
+            _engine = None
+
         url = get_connection_url(cfg)
-        connect_args = {}
-        if url.startswith("sqlite"):
-            connect_args = {"check_same_thread": False}
-        _engine = create_engine(url, connect_args=connect_args, echo=False)
+        db_type = cfg.get("db_type", "sqlite").lower()
+        timeout = int(cfg.get("connect_timeout", 5))
+
+        if db_type == "sqlite":
+            connect_args = {
+                "check_same_thread": False,
+                "timeout": int(cfg.get("sqlite_timeout", 30))
+            }
+            _engine = create_engine(
+                url,
+                connect_args=connect_args,
+                pool_pre_ping=True,
+                echo=False
+            )
+            _setup_sqlite_pragmas(_engine)
+        elif db_type == "mysql":
+            connect_args = {
+                "connect_timeout": timeout,
+                "read_timeout": timeout * 2,
+                "write_timeout": timeout * 2
+            }
+            _engine = create_engine(
+                url,
+                connect_args=connect_args,
+                pool_size=int(cfg.get("pool_size", 10)),
+                max_overflow=int(cfg.get("max_overflow", 20)),
+                pool_recycle=int(cfg.get("pool_recycle", 1800)),
+                pool_pre_ping=True,
+                echo=False
+            )
+        elif db_type == "postgresql":
+            connect_args = {
+                "connect_timeout": timeout
+            }
+            _engine = create_engine(
+                url,
+                connect_args=connect_args,
+                pool_size=int(cfg.get("pool_size", 10)),
+                max_overflow=int(cfg.get("max_overflow", 20)),
+                pool_recycle=int(cfg.get("pool_recycle", 1800)),
+                pool_pre_ping=True,
+                echo=False
+            )
+        else:
+            _engine = create_engine(url, echo=False)
+
     return _engine
 
 def get_db_session():
     global _SessionFactory
     if _SessionFactory is None:
         engine = get_engine()
-        _SessionFactory = scoped_session(sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine))
+        _SessionFactory = scoped_session(
+            sessionmaker(
+                autocommit=False,
+                autoflush=False,
+                expire_on_commit=False,
+                bind=engine
+            )
+        )
     return _SessionFactory()
+
+def test_connection(cfg: dict = None) -> tuple[bool, str]:
+    """
+    Verifica la conectividad con el servidor de base de datos sin alterar el estado global.
+    Retorna (True, 'Conexión exitosa') o (False, mensaje_error_amigable).
+    """
+    if cfg is None:
+        cfg = load_config()
+
+    db_type = cfg.get("db_type", "sqlite").lower()
+    url = get_connection_url(cfg)
+    timeout = int(cfg.get("connect_timeout", 4))
+
+    try:
+        connect_args = {}
+        if db_type == "sqlite":
+            connect_args = {"check_same_thread": False, "timeout": 5}
+        elif db_type == "mysql":
+            connect_args = {"connect_timeout": timeout}
+        elif db_type == "postgresql":
+            connect_args = {"connect_timeout": timeout}
+
+        temp_engine = create_engine(url, connect_args=connect_args, pool_pre_ping=False)
+        with temp_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        temp_engine.dispose()
+        return True, "Conexión establecida correctamente con el servidor."
+    except Exception as e:
+        err_str = str(e)
+        host = cfg.get("host", "localhost")
+        port = cfg.get("port", 3306)
+        if db_type in ["mysql", "postgresql"]:
+            if "Access denied" in err_str:
+                return False, f"Acceso denegado en el servidor ({host}): Usuario o contraseña incorrectos."
+            elif "Unknown database" in err_str:
+                return False, f"Servidor alcanzado ({host}), pero la base de datos '{cfg.get('database')}' no existe."
+            else:
+                return False, (
+                    f"No se pudo conectar al servidor local en red ({host}:{port}).\n\n"
+                    "Por favor verifique:\n"
+                    "1. Que la PC Servidor esté encendida y conectada a la red del instituto.\n"
+                    "2. Que la IP sea correcta (ej: 192.168.1.100).\n"
+                    f"3. Que el servicio de base de datos esté iniciado y el firewall permita el puerto {port}."
+                )
+        return False, f"Error al verificar base de datos local: {err_str}"
 
 def hash_password(plain_password: str) -> str:
     salt = bcrypt.gensalt(rounds=12)
@@ -66,45 +192,46 @@ def check_password(plain_password: str, hashed_password: str) -> bool:
 
 def _ensure_schema_columns(engine):
     """
-    Verifica y aplica migraciones automáticas no destructivas para SQLite y otros motores,
-    garantizando que existan las nuevas columnas de RN-01, RN-02 y RN-03 sin pérdida de datos.
+    Verifica y aplica migraciones automáticas no destructivas de forma agnóstica al motor
+    (SQLite, MySQL, PostgreSQL), garantizando las columnas de RN-01, RN-02 y RN-03 sin pérdida de datos.
     """
     try:
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+
         with engine.connect() as conn:
-            dialect = engine.dialect.name
-            if dialect == "sqlite":
-                # Tabla designations
-                res = conn.exec_driver_sql("PRAGMA table_info(designations)").fetchall()
-                desig_cols = {r[1] for r in res}
-                if desig_cols:
-                    if "cargo" not in desig_cols:
-                        conn.exec_driver_sql("ALTER TABLE designations ADD COLUMN cargo VARCHAR(150)")
-                    if "revista" not in desig_cols:
-                        conn.exec_driver_sql("ALTER TABLE designations ADD COLUMN revista VARCHAR(20)")
+            # 1. Tabla designations
+            if "designations" in tables:
+                desig_cols = {c["name"] for c in inspector.get_columns("designations")}
+                if "cargo" not in desig_cols:
+                    conn.execute(text("ALTER TABLE designations ADD COLUMN cargo VARCHAR(150)"))
+                if "revista" not in desig_cols:
+                    conn.execute(text("ALTER TABLE designations ADD COLUMN revista VARCHAR(20)"))
 
-                # Tabla attendances
-                res = conn.exec_driver_sql("PRAGMA table_info(attendances)").fetchall()
-                att_cols = {r[1] for r in res}
-                if att_cols:
-                    if "designation_id" not in att_cols:
-                        conn.exec_driver_sql("ALTER TABLE attendances ADD COLUMN designation_id INTEGER")
-                    if "is_active" not in att_cols:
-                        conn.exec_driver_sql("ALTER TABLE attendances ADD COLUMN is_active BOOLEAN DEFAULT 1")
+            # 2. Tabla attendances
+            if "attendances" in tables:
+                att_cols = {c["name"] for c in inspector.get_columns("attendances")}
+                if "designation_id" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN designation_id INTEGER"))
+                if "is_active" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN is_active BOOLEAN DEFAULT 1"))
 
-                # Ajuste de registros históricos preexistentes guardados con desfase UTC (+3 hs)
-                from database.schema import get_argentina_now
-                now_local_str = get_argentina_now().strftime("%Y-%m-%d %H:%M:%S")
-                future_check = conn.exec_driver_sql(
-                    "SELECT COUNT(*) FROM audit_logs WHERE timestamp > :now_str",
-                    {"now_str": now_local_str}
-                ).fetchone()
-                if future_check and future_check[0] > 0:
-                    conn.exec_driver_sql("UPDATE audit_logs SET timestamp = datetime(timestamp, '-3 hours')")
-                    conn.exec_driver_sql("UPDATE users SET last_login = datetime(last_login, '-3 hours') WHERE last_login IS NOT NULL")
+            # 3. Tabla users (campos de seguridad y recuperación)
+            if "users" in tables:
+                user_cols = {c["name"] for c in inspector.get_columns("users")}
+                if "security_question" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN security_question VARCHAR(255)"))
+                if "security_answer_hash" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN security_answer_hash VARCHAR(255)"))
+                if "recovery_key_hash" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN recovery_key_hash VARCHAR(255)"))
+                if "recovery_key" not in user_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN recovery_key VARCHAR(100)"))
 
             conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[SIGET DB] Nota en verificación de esquema: {e}")
+
 
 def init_db(cfg: dict = None):
     """

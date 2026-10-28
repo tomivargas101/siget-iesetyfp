@@ -1,0 +1,41 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js & Gestores de paquetes
+node_modules/
+pnpm-lock.yaml
+pnpm-workspace.yaml
+package-lock.json
+
+# Base de datos local
+siget.db
+*.db
+*.sqlite3
+
+# Reportes y planillas generadas
+reportes/*.xlsx
+reportes/*.xls
+reportes/*.pdf
+
+# Compilación, empaquetado y logs
+dist/
+build/
+*.log
+.pytest_cache/
+
+# Entornos y variables de configuración sensible
+.env
+.env.*
+*.local
+
+# Sistema Operativo / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

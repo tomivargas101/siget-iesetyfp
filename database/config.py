@@ -12,8 +12,14 @@ DEFAULT_CONFIG = {
     "database": "siget_db",
     "user": "root",
     "password": "",
+    "connect_timeout": 5,      # Timeout en segundos para conexiones en red LAN
+    "pool_size": 10,           # Conexiones simultáneas en pool
+    "max_overflow": 20,        # Conexiones adicionales permitidas ante picos de concurrencia
+    "pool_recycle": 1800,      # Reciclado de conexiones cada 30 min (evita desconexiones por inactividad)
+    "sqlite_timeout": 30,      # Timeout para evitar bloqueos en SQLite ante escrituras concurrentes
     "max_weekly_hours_default": 30
 }
+
 
 def load_config() -> dict:
     if not CONFIG_FILE.exists():

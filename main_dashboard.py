@@ -344,23 +344,31 @@ class MainDashboardWindow(ctk.CTk):
         }
         self.lbl_view_title.configure(text=titles.get(view_name, "SIGET"))
 
-        # Instanciar vista correspondiente
-        if view_name == "dashboard":
-            self.current_view = DashboardView(self.view_container, on_navigate=self.show_view)
-        elif view_name == "teachers":
-            self.current_view = TeachersView(self.view_container)
-        elif view_name == "attendance":
-            # Abre el módulo de docentes directamente posicionado en Asistencias
-            self.current_view = TeachersView(self.view_container, default_tab="attendance")
-        elif view_name == "students":
-            self.current_view = StudentsView(self.view_container)
-        elif view_name == "designations":
-            self.current_view = DesignationsView(self.view_container)
-        elif view_name == "reports":
-            self.current_view = ReportsView(self.view_container)
+        # Instanciar vista correspondiente con protección de resiliencia LAN
+        try:
+            if view_name == "dashboard":
+                self.current_view = DashboardView(self.view_container, on_navigate=self.show_view)
+            elif view_name == "teachers":
+                self.current_view = TeachersView(self.view_container)
+            elif view_name == "attendance":
+                # Abre el módulo de docentes directamente posicionado en Asistencias
+                self.current_view = TeachersView(self.view_container, default_tab="attendance")
+            elif view_name == "students":
+                self.current_view = StudentsView(self.view_container)
+            elif view_name == "designations":
+                self.current_view = DesignationsView(self.view_container)
+            elif view_name == "reports":
+                self.current_view = ReportsView(self.view_container)
 
-        if self.current_view:
-            self.current_view.pack(fill="both", expand=True)
+            if self.current_view:
+                self.current_view.pack(fill="both", expand=True)
+        except Exception as e:
+            messagebox.showwarning(
+                "Interrupción de Conectividad LAN",
+                f"No se pudieron cargar los datos de la vista '{titles.get(view_name, view_name)}'.\n\n"
+                f"Detalle: {str(e)}\n\n"
+                "Verifique la conexión física o Wi-Fi con la PC Servidor e intente nuevamente."
+            )
 
     def _on_db_config_saved(self):
         messagebox.showinfo("Actualizado", "Configuración de base de datos actualizada. Refrescando vistas.")

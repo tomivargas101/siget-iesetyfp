@@ -102,9 +102,20 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
             hover_color=Theme.SECONDARY_HOVER,
             text_color=Theme.SECONDARY_TEXT,
             command=self.destroy,
-            width=100
+            width=85
         )
         btn_cancel.pack(side="left")
+
+        btn_test = ctk.CTkButton(
+            frame_btn,
+            text="Probar Conexión",
+            fg_color=Theme.SECONDARY,
+            hover_color=Theme.SECONDARY_HOVER,
+            text_color=Theme.SECONDARY_TEXT,
+            command=self._test_connection,
+            width=125
+        )
+        btn_test.pack(side="left", padx=8)
 
         btn_save = ctk.CTkButton(
             frame_btn,
@@ -113,7 +124,7 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
             hover_color=Theme.PRIMARY_HOVER,
             text_color=Theme.PRIMARY_TEXT,
             command=self._save,
-            width=180
+            width=150
         )
         btn_save.pack(side="right")
 
@@ -125,24 +136,47 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         for entry in [self.entry_host, self.entry_port, self.entry_db, self.entry_user, self.entry_pass]:
             entry.configure(state=state)
 
-    def _save(self):
-        self.cfg["db_type"] = self.var_engine.get()
-        if self.cfg["db_type"] in ["mysql", "postgresql"]:
-            self.cfg["host"] = self.entry_host.get().strip()
-            self.cfg["port"] = int(self.entry_port.get().strip()) if self.entry_port.get().strip().isdigit() else 3306
-            self.cfg["database"] = self.entry_db.get().strip()
-            self.cfg["user"] = self.entry_user.get().strip()
-            self.cfg["password"] = self.entry_pass.get()
+    def _get_current_form_config(self):
+        test_cfg = self.cfg.copy()
+        test_cfg["db_type"] = self.var_engine.get()
+        if test_cfg["db_type"] in ["mysql", "postgresql"]:
+            test_cfg["host"] = self.entry_host.get().strip()
+            test_cfg["port"] = int(self.entry_port.get().strip()) if self.entry_port.get().strip().isdigit() else 3306
+            test_cfg["database"] = self.entry_db.get().strip()
+            test_cfg["user"] = self.entry_user.get().strip()
+            test_cfg["password"] = self.entry_pass.get()
+        return test_cfg
 
+    def _test_connection(self):
+        from database.connection import test_connection
+        cfg = self._get_current_form_config()
+        self.update_idletasks()
+        ok, msg = test_connection(cfg)
+        if ok:
+            host = cfg.get("host", "local")
+            messagebox.showinfo(
+                "Conexión Exitosa",
+                f"¡Conexión establecida correctamente con el servidor ({host})!\n\n"
+                "El enlace por red local LAN responde con normalidad."
+            )
+        else:
+            messagebox.showwarning("Prueba de Conexión en Red LAN", msg)
+
+    def _save(self):
+        self.cfg = self._get_current_form_config()
         save_config(self.cfg)
         try:
             init_db(self.cfg)
-            messagebox.showinfo("Éxito", "Configuración guardada e inicializada correctamente.")
+            messagebox.showinfo("Éxito", "Configuración de red guardada e inicializada correctamente.")
             if self.on_saved:
                 self.on_saved()
             self.destroy()
         except Exception as e:
-            messagebox.showerror("Error de Conexión", f"No se pudo conectar con los parámetros provistos:\n{str(e)}")
+            messagebox.showerror(
+                "Error de Conexión LAN",
+                f"No se pudo conectar con los parámetros provistos:\n{str(e)}\n\n"
+                "Verifique que la IP del servidor esté encendida y acepte conexiones remotas."
+            )
 
 class LoginWindow(ctk.CTk):
     """
@@ -511,13 +545,22 @@ class LoginWindow(ctk.CTk):
 
     def _check_db_status(self):
         try:
+            from database.connection import test_connection
             cfg = load_config()
-            init_db(cfg)
             db_type = cfg.get("db_type", "sqlite").upper()
-            self.lbl_db_badge.configure(
-                text=f"Estado BD: {db_type} Activa",
-                text_color=Theme.SUCCESS_TEXT
-            )
+            host = cfg.get("host", "localhost")
+            ok, msg = test_connection(cfg)
+            if ok:
+                mode_str = "Local" if db_type == "SQLITE" else f"LAN ({host})"
+                self.lbl_db_badge.configure(
+                    text=f"Estado BD: {db_type} {mode_str} Activa",
+                    text_color=Theme.SUCCESS_TEXT
+                )
+            else:
+                self.lbl_db_badge.configure(
+                    text=f"Estado BD: Sin conexión ({host})",
+                    text_color=Theme.DANGER_TEXT
+                )
         except Exception:
             self.lbl_db_badge.configure(
                 text="Estado BD: Error de Conexión",
@@ -550,10 +593,22 @@ class LoginWindow(ctk.CTk):
             self.after(300, lambda: self._on_success(user))
         else:
             self.btn_login.configure(state="normal")
+            err_msg = str(result)
             self.lbl_status.configure(
-                text=f"{result}",
+                text=f"{err_msg}",
                 text_color=Theme.DANGER_TEXT
             )
+            if "Error al conectar con la base de datos" in err_msg or "Can't connect" in err_msg:
+                cfg = load_config()
+                host = cfg.get("host", "servidor")
+                messagebox.showwarning(
+                    "Servidor LAN No Disponible",
+                    f"No se pudo establecer comunicación con el servidor central ({host}).\n\n"
+                    "Causas comunes:\n"
+                    "• La PC Servidor se encuentra apagada o fuera de red.\n"
+                    "• Cambió la dirección IP del servidor.\n\n"
+                    "Puede verificar los parámetros en 'Configuración BD' o usar SQLite de contingencia."
+                )
 
     def _on_success(self, user):
         self.authenticated_user = user

@@ -74,28 +74,30 @@ def test_full_system():
     print(f">> Aprobación de horas válida verificada: {msg}")
 
     # Test 3.3: Superposición Horaria
-    # t1 tiene clase Lunes 18:30 a 21:30.
-    # Intento 1 con conflicto: Lunes 20:00 a 22:00
+    t1_desig = next((d for d in t1.designations if d.is_active), None)
+    test_day = t1_desig.day_of_week if t1_desig else "Lunes"
+    # Intento 1 con conflicto de horario
     is_time_ok, time_msg = BusinessValidationService.validate_schedule_compatibility(
         teacher_id=t1.id,
-        day_of_week="Lunes",
-        start_time="20:00",
-        end_time="22:00",
+        day_of_week=test_day,
+        start_time="19:00",
+        end_time="21:00",
         session=session
     )
-    assert not is_time_ok, "Debería haber detectado superposición horaria los lunes"
+    assert not is_time_ok, f"Debería haber detectado superposición horaria los {test_day}"
     print(f">> Detección de incompatibilidad horaria OK: {time_msg.splitlines()[0]}")
 
-    # Intento 2 sin conflicto: Martes 18:30 a 21:30 (otro día) o Lunes 14:00 a 17:00
+    # Intento 2 sin conflicto: Domingo o franja horaria matutina distinta
     is_time_ok, time_msg = BusinessValidationService.validate_schedule_compatibility(
         teacher_id=t1.id,
-        day_of_week="Lunes",
-        start_time="14:00",
-        end_time="17:00",
+        day_of_week=test_day,
+        start_time="08:00",
+        end_time="11:00",
         session=session
     )
     assert is_time_ok, "Horario sin superposición debería ser válido"
     print(f">> Compatibilidad horaria aprobada: {time_msg}\n")
+
 
     print("=== TEST 4: Generación de Planilla Oficial Excel con openpyxl y pandas ===")
     excel_path = ReportService.generate_monthly_statistics_excel(month=10, year=2026)

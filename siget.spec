@@ -23,8 +23,14 @@ hiddenimports = [
     'PIL',
     'PIL._tkinter_finder',
     'openpyxl',
+    'pandas',
+    'bcrypt',
     'sqlalchemy',
     'sqlalchemy.dialects.sqlite',
+    'sqlalchemy.dialects.mysql',
+    'sqlalchemy.dialects.postgresql',
+    'pymysql',
+    'cryptography',
 ]
 
 a = Analysis(
