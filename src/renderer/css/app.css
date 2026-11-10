@@ -7,7 +7,6 @@
    - Tipografía Corporativa: Segoe UI
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700;800;900&display=swap');
 
 /* ==========================================================================
    1. VARIABLES CSS (TEMA CLARO Y MODO OSCURO)
@@ -49,6 +48,22 @@ body.dark-mode,
     --color-excel-border: #3D3D3D;
     --color-gold-bg: #2D2818;
     --color-gold-text: #E0C45D;
+}
+
+html.dark aside,
+body.dark-mode aside,
+.dark aside,
+[data-theme="dark"] aside {
+    background-color: #242424 !important;
+    border-color: #383838 !important;
+}
+
+html.dark header,
+body.dark-mode header,
+.dark header,
+[data-theme="dark"] header {
+    background-color: #242424 !important;
+    border-color: #383838 !important;
 }
 
 * {
@@ -751,3 +766,165 @@ body.dark-mode .bg-indigo-50,
     border-color: rgba(129, 140, 248, 0.4) !important;
     color: #A5B4FC !important;
 }
+
+/* ==========================================================================
+   8.3 TARJETAS REDISEÑADAS DE ASISTENCIA DIARIA (.att-teacher-card & .att-chip)
+   ========================================================================== */
+.att-teacher-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s ease;
+    border-left-width: 4px !important;
+}
+
+.att-teacher-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.att-teacher-card.card-status-pr {
+    border-left-color: #10B981 !important;
+}
+.att-teacher-card.card-status-i {
+    border-left-color: #F43F5E !important;
+}
+.att-teacher-card.card-status-p {
+    border-left-color: #F59E0B !important;
+}
+.att-teacher-card.card-status-lic {
+    border-left-color: #8B5CF6 !important;
+}
+.att-teacher-card.card-status-lt {
+    border-left-color: #A855F7 !important;
+}
+
+.att-chip {
+    padding: 6px 2px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.1;
+    text-align: center;
+    border: 1px solid #E2E8F0;
+    background-color: #F8FAFC;
+    color: #64748B;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.att-chip:hover {
+    background-color: #F1F5F9;
+    color: #1E293B;
+}
+
+.att-chip.active-pr {
+    background-color: #ECFDF5 !important;
+    color: #065F46 !important;
+    border-color: #10B981 !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25);
+}
+
+.att-chip.active-i {
+    background-color: #FFF1F2 !important;
+    color: #9F1239 !important;
+    border-color: #F43F5E !important;
+    box-shadow: 0 1px 3px rgba(244, 63, 94, 0.25);
+}
+
+.att-chip.active-p {
+    background-color: #FFFBEB !important;
+    color: #92400E !important;
+    border-color: #F59E0B !important;
+    box-shadow: 0 1px 3px rgba(245, 158, 11, 0.25);
+}
+
+.att-chip.active-lic {
+    background-color: #F5F3FF !important;
+    color: #5B21B6 !important;
+    border-color: #8B5CF6 !important;
+    box-shadow: 0 1px 3px rgba(139, 92, 246, 0.25);
+}
+
+.att-chip.active-lt {
+    background-color: #FAF5FF !important;
+    color: #6B21A8 !important;
+    border-color: #A855F7 !important;
+    box-shadow: 0 1px 3px rgba(168, 85, 247, 0.25);
+}
+
+/* Modo Oscuro para Cards y Chips */
+html.dark .att-teacher-card,
+body.dark-mode .att-teacher-card,
+.dark .att-teacher-card,
+[data-theme="dark"] .att-teacher-card {
+    background-color: #242424;
+    border-color: #383838;
+}
+
+html.dark .att-teacher-card:hover,
+body.dark-mode .att-teacher-card:hover,
+.dark .att-teacher-card:hover,
+[data-theme="dark"] .att-teacher-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+html.dark .att-chip,
+body.dark-mode .att-chip,
+.dark .att-chip,
+[data-theme="dark"] .att-chip {
+    background-color: #1E1E1E;
+    border-color: #383838;
+    color: #A1A1AA;
+}
+
+html.dark .att-chip:hover,
+body.dark-mode .att-chip:hover,
+.dark .att-chip:hover,
+[data-theme="dark"] .att-chip:hover {
+    background-color: #2E2E2E;
+    color: #F4F4F5;
+}
+
+html.dark .att-chip.active-pr,
+body.dark-mode .att-chip.active-pr,
+.dark .att-chip.active-pr,
+[data-theme="dark"] .att-chip.active-pr {
+    background-color: rgba(6, 78, 59, 0.6) !important;
+    color: #34D399 !important;
+    border-color: #10B981 !important;
+}
+
+html.dark .att-chip.active-i,
+body.dark-mode .att-chip.active-i,
+.dark .att-chip.active-i,
+[data-theme="dark"] .att-chip.active-i {
+    background-color: rgba(136, 19, 55, 0.6) !important;
+    color: #FB7185 !important;
+    border-color: #F43F5E !important;
+}
+
+html.dark .att-chip.active-p,
+body.dark-mode .att-chip.active-p,
+.dark .att-chip.active-p,
+[data-theme="dark"] .att-chip.active-p {
+    background-color: rgba(120, 53, 15, 0.6) !important;
+    color: #FBBF24 !important;
+    border-color: #F59E0B !important;
+}
+
+html.dark .att-chip.active-lic,
+body.dark-mode .att-chip.active-lic,
+.dark .att-chip.active-lic,
+[data-theme="dark"] .att-chip.active-lic {
+    background-color: rgba(76, 29, 149, 0.6) !important;
+    color: #C4B5FD !important;
+    border-color: #8B5CF6 !important;
+}
+
+html.dark .att-chip.active-lt,
+body.dark-mode .att-chip.active-lt,
+.dark .att-chip.active-lt,
+[data-theme="dark"] .att-chip.active-lt {
+    background-color: rgba(88, 28, 135, 0.6) !important;
+    color: #E9D5FF !important;
+    border-color: #A855F7 !important;
+}
+

@@ -13,6 +13,7 @@ const AppState = {
     currentTeacherSubtab: 'legajos',
     currentDesigSubtab: 'desig',
     attendanceDate: getTodayDateString(),
+    attendanceFilter: 'all',
     careers: [],
     teachersCache: [],
     attendanceRecordsCache: [],
@@ -349,7 +350,7 @@ function setupEventListeners() {
     if (btnNewTeacher) btnNewTeacher.addEventListener('click', () => openTeacherModal());
 
     // -------------------------------------------------------------
-    // Asistencias Diarias: Controles de Fecha
+    // Asistencias Diarias: Controles de Fecha y Acciones Rápidas
     // -------------------------------------------------------------
     const attDateInput = document.getElementById('att-date-input');
     const btnAttPrev = document.getElementById('btn-att-prev');
@@ -357,6 +358,7 @@ function setupEventListeners() {
     const btnAttNext = document.getElementById('btn-att-next');
     const attSearch = document.getElementById('att-search');
     const btnAttSaveAll = document.getElementById('btn-att-save-all');
+    const btnAttMarkAllPr = document.getElementById('btn-att-mark-all-pr');
     const btnQuickAtt = document.getElementById('btn-quick-attendance');
 
     if (attDateInput) {
@@ -395,8 +397,29 @@ function setupEventListeners() {
         });
     }
 
-    if (attSearch) attSearch.addEventListener('input', debounce(filterAttendanceTable, 200));
+    if (attSearch) attSearch.addEventListener('input', debounce(filterAttendanceTable, 150));
     if (btnAttSaveAll) btnAttSaveAll.addEventListener('click', saveAllAttendanceRecords);
+
+    if (btnAttMarkAllPr) {
+        btnAttMarkAllPr.addEventListener('click', () => {
+            markAllVisibleAsPresent();
+        });
+    }
+
+    // Botones de filtro rápido por estado (Todos, Presentes, Inasistencias, Justificados, Alertas)
+    document.querySelectorAll('.att-filter-chip').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.att-filter-chip').forEach(b => {
+                b.classList.remove('active', 'bg-slate-900', 'text-gold', 'dark:bg-gold', 'dark:text-slate-900');
+                b.classList.add('bg-slate-100', 'text-slate-700', 'dark:bg-zinc-800', 'dark:text-zinc-300');
+            });
+            const clicked = e.currentTarget;
+            clicked.classList.add('active', 'bg-slate-900', 'text-gold', 'dark:bg-gold', 'dark:text-slate-900');
+            clicked.classList.remove('bg-slate-100', 'text-slate-700', 'dark:bg-zinc-800', 'dark:text-zinc-300');
+            AppState.attendanceFilter = clicked.getAttribute('data-filter') || 'all';
+            filterAttendanceTable();
+        });
+    });
 
     if (btnQuickAtt) {
         btnQuickAtt.addEventListener('click', () => {
@@ -1666,56 +1689,7 @@ async function loadDashboard() {
         // 4. Alertas de Inasistencias y Topes Anuales (v2.0)
         const alertsContainer = document.getElementById('dashboard-attendance-alerts');
         if (alertsContainer) {
-            const alerts = stats.attendanceAlerts || [];
-            if (alerts.length === 0) {
-                alertsContainer.innerHTML = `
-                    <div class="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center space-x-2">
-                        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"></i>
-                        <span class="font-medium text-xs">Sin alertas normativas activas. Toda la planta docente se encuentra dentro de los topes anuales reglamentarios.</span>
-                    </div>
-                `;
-            } else {
-                alertsContainer.innerHTML = alerts.map(a => {
-                    const isDanger = a.nivel === 'danger';
-                    const badgeClass = isDanger 
-                        ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800' 
-                        : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
-                    const iconName = isDanger ? 'alert-triangle' : 'alert-circle';
-                    const iconColor = isDanger ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
-                    const progressPercent = Math.min(100, Math.round((a.consumido / a.limite) * 100));
-                    const barColor = isDanger ? 'bg-rose-600' : 'bg-amber-500';
-
-                    return `
-                        <div class="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-                            <div class="flex items-start space-x-2.5">
-                                <div class="mt-0.5 shrink-0 ${iconColor}">
-                                    <i data-lucide="${iconName}" class="w-4 h-4"></i>
-                                </div>
-                                <div>
-                                    <div class="flex items-center space-x-2">
-                                        <span class="font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(a.fullName)}</span>
-                                        <span class="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">DNI ${escapeHtml(a.dni)} • Leg. ${escapeHtml(a.legajo || 'S/L')}</span>
-                                    </div>
-                                    <div class="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5 font-medium">
-                                        ${escapeHtml(a.detalle)}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center space-x-3 shrink-0 self-end md:self-center">
-                                <div class="w-24 text-right">
-                                    <div class="text-[10px] font-bold text-slate-500 dark:text-zinc-400">${a.consumido} / ${a.limite} días</div>
-                                    <div class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-full mt-1 overflow-hidden">
-                                        <div class="${barColor} h-1.5 rounded-full" style="width: ${progressPercent}%"></div>
-                                    </div>
-                                </div>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass} whitespace-nowrap">
-                                    ${escapeHtml(a.badge)}
-                                </span>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
+            renderDashboardAlertsHtml(alertsContainer, stats.attendanceAlerts || []);
         }
 
         // 5. Auditoría Reciente
@@ -1976,114 +1950,697 @@ function openTeacherModal(teacher = null) {
 }
 
 // ============================================================================
-// 10. CONTROL DIARIO DE ASISTENCIAS
+// 10. CONTROL DIARIO DE ASISTENCIAS (REDISEÑO MODERNO v2.5)
 // ============================================================================
+
+function renderDashboardAlertsHtml(alertsContainer, alerts) {
+    if (!alertsContainer) return;
+    if (!alerts || alerts.length === 0) {
+        alertsContainer.innerHTML = `
+            <div class="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center space-x-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"></i>
+                <span class="font-medium text-xs">Sin alertas normativas activas. Toda la planta docente se encuentra dentro de los topes anuales reglamentarios.</span>
+            </div>
+        `;
+    } else {
+        alertsContainer.innerHTML = alerts.map(a => {
+            const isDanger = a.nivel === 'danger';
+            const badgeClass = isDanger 
+                ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800' 
+                : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
+            const iconName = isDanger ? 'alert-triangle' : 'alert-circle';
+            const iconColor = isDanger ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
+            const progressPercent = Math.min(100, Math.round((a.consumido / a.limite) * 100));
+            const barColor = isDanger ? 'bg-rose-600' : 'bg-amber-500';
+
+            return `
+                <div class="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                    <div class="flex items-start space-x-2.5">
+                        <div class="mt-0.5 shrink-0 ${iconColor}">
+                            <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(a.fullName)}</span>
+                                <span class="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">DNI ${escapeHtml(a.dni)} • Leg. ${escapeHtml(a.legajo || 'S/L')}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5 font-medium">
+                                ${escapeHtml(a.detalle)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 shrink-0 self-end md:self-center">
+                        <div class="w-24 text-right">
+                            <div class="text-[10px] font-bold text-slate-500 dark:text-zinc-400">${a.consumido} / ${a.limite} días</div>
+                            <div class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-full mt-1 overflow-hidden">
+                                <div class="${barColor} h-1.5 rounded-full" style="width: ${progressPercent}%"></div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass} whitespace-nowrap">
+                            ${escapeHtml(a.badge)}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    initLucideIcons();
+}
+
+function updateLiveDashboardAlerts() {
+    const alertsContainer = document.getElementById('dashboard-attendance-alerts');
+    if (!alertsContainer) return;
+
+    const liveAlerts = [];
+    (AppState.attendanceRecordsCache || []).forEach(r => {
+        const stats = r.liveStats || r.annualStats || { inasistencias: 0, permisos: 0, licencias: 0, largoTratamiento: 0 };
+        const inasistencias = stats.inasistencias || 0;
+        const permisos = stats.permisos || 0;
+        const licencias = stats.licencias || 0;
+
+        if (permisos >= 6) {
+            liveAlerts.push({
+                teacherId: r.teacherId,
+                fullName: r.fullName,
+                dni: String(r.dni),
+                legajo: r.legajo,
+                tipo: 'Permisos Particulares (Art. 115)',
+                consumido: permisos,
+                limite: 6,
+                nivel: 'danger',
+                badge: 'Cupo Anual Agotado',
+                detalle: `Agotó los 6 permisos particulares permitidos en el año (${permisos}/6).`
+            });
+        } else if (permisos >= 4) {
+            liveAlerts.push({
+                teacherId: r.teacherId,
+                fullName: r.fullName,
+                dni: String(r.dni),
+                legajo: r.legajo,
+                tipo: 'Permisos Particulares (Art. 115)',
+                consumido: permisos,
+                limite: 6,
+                nivel: 'warning',
+                badge: 'Próximo al Límite',
+                detalle: `Consumió ${permisos} de 6 permisos particulares (quedan ${6 - permisos} disponibles).`
+            });
+        }
+
+        if (inasistencias >= 5) {
+            liveAlerts.push({
+                teacherId: r.teacherId,
+                fullName: r.fullName,
+                dni: String(r.dni),
+                legajo: r.legajo,
+                tipo: 'Inasistencias Injustificadas (I)',
+                consumido: inasistencias,
+                limite: 5,
+                nivel: 'danger',
+                badge: 'Límite Crítico de Faltas',
+                detalle: `Acumula ${inasistencias} inasistencias sin justificar en el ciclo lectivo.`
+            });
+        } else if (inasistencias >= 3) {
+            liveAlerts.push({
+                teacherId: r.teacherId,
+                fullName: r.fullName,
+                dni: String(r.dni),
+                legajo: r.legajo,
+                tipo: 'Inasistencias Injustificadas (I)',
+                consumido: inasistencias,
+                limite: 5,
+                nivel: 'warning',
+                badge: 'Acumulación de Inasistencias',
+                detalle: `Acumula ${inasistencias} inasistencias en el ciclo lectivo.`
+            });
+        }
+
+        if (licencias >= 25) {
+            liveAlerts.push({
+                teacherId: r.teacherId,
+                fullName: r.fullName,
+                dni: String(r.dni),
+                legajo: r.legajo,
+                tipo: 'Licencias Médicas (Art. 114 a)',
+                consumido: licencias,
+                limite: 25,
+                nivel: 'danger',
+                badge: 'Tope Médico Alcanzado',
+                detalle: `Alcanzó el tope anual de 25 días de corto tratamiento (${licencias} días).`
+            });
+        } else if (licencias >= 20) {
+            liveAlerts.push({
+                teacherId: r.teacherId,
+                fullName: r.fullName,
+                dni: String(r.dni),
+                legajo: r.legajo,
+                tipo: 'Licencias Médicas (Art. 114 a)',
+                consumido: licencias,
+                limite: 25,
+                nivel: 'warning',
+                badge: 'Cercano a Tope Médico',
+                detalle: `Acumula ${licencias} de 25 días médicos anuales permitidos.`
+            });
+        }
+    });
+
+    liveAlerts.sort((a, b) => {
+        if (a.nivel === 'danger' && b.nivel !== 'danger') return -1;
+        if (a.nivel !== 'danger' && b.nivel === 'danger') return 1;
+        return b.consumido - a.consumido;
+    });
+
+    renderDashboardAlertsHtml(alertsContainer, liveAlerts);
+}
+
 async function loadDailyAttendance() {
+    const grid = document.getElementById('attendance-cards-grid');
     const tbody = document.getElementById('tbody-attendance');
-    if (!tbody) return;
+    if (!grid && !tbody) return;
 
     try {
-        const records = await window.sigetApi.attendance.getDaily(AppState.attendanceDate);
-        AppState.attendanceRecordsCache = records;
+        const dateInput = document.getElementById('att-date-input');
+        if (dateInput && dateInput.value !== AppState.attendanceDate) {
+            dateInput.value = AppState.attendanceDate;
+        }
 
-        renderAttendanceRows(records);
+        const dateBadge = document.getElementById('att-date-badge');
+        if (dateBadge) {
+            dateBadge.textContent = formatFriendlyDate(AppState.attendanceDate);
+        }
+
+        const records = await window.sigetApi.attendance.getDaily(AppState.attendanceDate);
+        AppState.attendanceRecordsCache = records || [];
+
+        // Inicializar currentStatus y liveStats para cada registro cargado de la BD
+        AppState.attendanceRecordsCache.forEach(r => {
+            r.currentStatus = r.isSavedInDb ? r.status : 'PR';
+            r.liveStats = Object.assign({}, r.annualStats);
+        });
+
+        filterAttendanceTable();
+        updateLiveDashboardAlerts();
     } catch (err) {
         console.error('Error al cargar asistencias:', err);
         showToast('Error al cargar la planilla de asistencias.', 'error');
     }
 }
 
-function normalizeStatusCode(status) {
-    if (!status) return 'I';
-    const s = String(status).trim().toUpperCase();
-    if (s === 'PR' || s === 'PRESENTE') return 'PR';
-    if (s === 'P' || s.includes('PERMISO') || s === 'AUSENTE CON JUSTIFICACIÓN') return 'P';
-    if (s === 'LIC' || s.includes('LICENCIA MÉDICA') || s.includes('LICENCIA ORDINARIA') || s === 'LICENCIA') return 'LIC';
-    if (s === 'LT' || s.includes('LARGO TRATAMIENTO')) return 'LT';
-    if (s === 'I' || s.includes('AUSENTE') || s.includes('INASISTENCIA') || s.includes('FALTA')) return 'I';
-    return s;
+function formatFriendlyDate(dateStr) {
+    if (!dateStr) return 'Parte Diario Oficial';
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+            const formatted = dt.toLocaleDateString('es-AR', options);
+            return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+        }
+    } catch {}
+    return `Parte Diario: ${dateStr}`;
 }
 
-function getStatusSelectColor(status) {
-    const code = normalizeStatusCode(status);
-    switch (code) {
-        case 'PR': return 'status-select-pr';
-        case 'I': return 'status-select-i';
-        case 'P': return 'status-select-p';
-        case 'LIC': return 'status-select-lic';
-        case 'LT': return 'status-select-lt';
-        default: return 'status-select-default';
+function classifyAttendanceRecord(status, observations = '') {
+    const s = String(status || '').trim().toUpperCase();
+    const o = String(observations || '').trim().toLowerCase();
+    const combined = `${s} ${o}`.toLowerCase();
+
+    // 1. Presente (PR)
+    if (s === 'PR' || s === 'PRESENTE') {
+        return { code: 'PR', isPresence: true, isUnexcusedAbsence: false, isJustifiedAbsence: false, isPermit: false, isLicense: false, isLongTreatment: false };
     }
+
+    // 2. Largo Tratamiento de Salud (LT)
+    if (s === 'LT' || combined.includes('largo tratamiento') || combined.includes('art. 48') || combined.includes('art 48') || combined.includes('114b') || combined.includes('114 b')) {
+        return { code: 'LT', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: false, isLicense: true, isLongTreatment: true };
+    }
+
+    // 3. Licencias Médicas u Ordinarias (LIC)
+    if (s === 'LIC' || s === 'LICENCIA' ||
+        combined.includes('licencia') || combined.includes('médic') || combined.includes('medic') ||
+        combined.includes('salud') || combined.includes('reposo') || combined.includes('114a') ||
+        combined.includes('114 a') || combined.includes('114c') || combined.includes('114 c') ||
+        combined.includes('art. 70') || combined.includes('art 70') || combined.includes('examen') ||
+        combined.includes('estudio') || combined.includes('maternidad') || combined.includes('accidente')) {
+        return { code: 'LIC', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: false, isLicense: true, isLongTreatment: false };
+    }
+
+    // 4. Permisos Particulares (P / Art. 115) o Inasistencias Justificadas / Con Aviso / Certificado
+    const isArt115 = s === 'P' || combined.includes('permiso') || combined.includes('115') || combined.includes('razones particulares');
+    const isJustifiedOrNotice = combined.includes('justificad') ||
+                                combined.includes('con aviso') ||
+                                combined.includes('c/aviso') ||
+                                combined.includes('formulario') ||
+                                combined.includes('form:') ||
+                                combined.includes('certificado') ||
+                                s === 'IJ' || s === 'JUST';
+
+    if (isArt115) {
+        return { code: 'P', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: true, isLicense: false, isLongTreatment: false };
+    }
+
+    if (isJustifiedOrNotice) {
+        return { code: 'P', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: false, isLicense: false, isLongTreatment: false };
+    }
+
+    // 5. Inasistencia Injustificada ('I')
+    return { code: 'I', isPresence: false, isUnexcusedAbsence: true, isJustifiedAbsence: false, isPermit: false, isLicense: false, isLongTreatment: false };
+}
+
+function normalizeStatusCode(status, observations = '') {
+    if (!status) return 'I';
+    return classifyAttendanceRecord(status, observations).code;
+}
+
+function getTeacherInitials(fullName) {
+    if (!fullName) return 'DC';
+    const clean = fullName.replace(',', '').trim();
+    const parts = clean.split(/\s+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.substring(0, 2).toUpperCase();
+}
+
+function getStatusCardClass(code) {
+    switch (code) {
+        case 'PR': return 'card-status-pr';
+        case 'I': return 'card-status-i';
+        case 'P': return 'card-status-p';
+        case 'LIC': return 'card-status-lic';
+        case 'LT': return 'card-status-lt';
+        default: return 'card-status-i';
+    }
+}
+
+function getChipActiveClass(code) {
+    switch (code) {
+        case 'PR': return 'active-pr';
+        case 'I': return 'active-i';
+        case 'P': return 'active-p';
+        case 'LIC': return 'active-lic';
+        case 'LT': return 'active-lt';
+        default: return '';
+    }
+}
+
+function updateAttendanceKpis() {
+    const cards = document.querySelectorAll('.att-teacher-card[data-teacher-id]');
+    let total = (AppState.attendanceRecordsCache || []).length;
+    let pr = 0;
+    let i = 0;
+    let just = 0;
+    let alerts = 0;
+
+    // Conteo en vivo considerando las ediciones actuales en las tarjetas
+    const statusMap = new Map();
+    cards.forEach(card => {
+        const id = parseInt(card.getAttribute('data-teacher-id'));
+        const statusInput = card.querySelector('.att-status-value');
+        if (statusInput) {
+            statusMap.set(id, normalizeStatusCode(statusInput.value));
+        }
+    });
+
+    (AppState.attendanceRecordsCache || []).forEach(r => {
+        const code = statusMap.has(r.teacherId) ? statusMap.get(r.teacherId) : normalizeStatusCode(r.currentStatus || r.status);
+        if (code === 'PR') pr++;
+        else if (code === 'I') i++;
+        else if (code === 'P' || code === 'LIC' || code === 'LT') just++;
+
+        const st = r.liveStats || r.annualStats;
+        if (st && (st.alertLevel || st.inasistencias >= 3 || st.permisos >= 4)) {
+            alerts++;
+        }
+    });
+
+    const elTotal = document.getElementById('kpi-att-total');
+    const elPr = document.getElementById('kpi-att-pr');
+    const elI = document.getElementById('kpi-att-i');
+    const elJust = document.getElementById('kpi-att-just');
+
+    if (elTotal) elTotal.textContent = total;
+    if (elPr) elPr.textContent = `${pr} (${total > 0 ? Math.round((pr / total) * 100) : 0}%)`;
+    if (elI) elI.textContent = i;
+    if (elJust) elJust.textContent = just;
+
+    const cfAll = document.getElementById('count-filter-all');
+    const cfPr = document.getElementById('count-filter-pr');
+    const cfI = document.getElementById('count-filter-i');
+    const cfJust = document.getElementById('count-filter-just');
+    const cfAlerts = document.getElementById('count-filter-alerts');
+
+    if (cfAll) cfAll.textContent = total;
+    if (cfPr) cfPr.textContent = pr;
+    if (cfI) cfI.textContent = i;
+    if (cfJust) cfJust.textContent = just;
+    if (cfAlerts) cfAlerts.textContent = alerts;
+}
+
+function updateCardActionFooter(card, newCode, teacherId, teacherName, hasPhysicalForm) {
+    const footer = card.querySelector('.att-action-footer');
+    if (!footer) return;
+
+    if (newCode === 'I') {
+        footer.innerHTML = `
+            <button type="button" class="btn-receive-physical-form w-full py-1.5 px-3 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs"
+                data-teacher-id="${teacherId}" data-teacher-name="${escapeHtml(teacherName)}">
+                <i data-lucide="file-check" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+                <span>Justificar / Formulario Físico</span>
+            </button>
+        `;
+        footer.querySelector('.btn-receive-physical-form')?.addEventListener('click', (ev) => {
+            const t = ev.currentTarget;
+            openPhysicalFormModal(parseInt(t.getAttribute('data-teacher-id')), t.getAttribute('data-teacher-name'), AppState.attendanceDate);
+        });
+    } else if (newCode === 'P' || newCode === 'LIC' || newCode === 'LT') {
+        footer.innerHTML = `
+            <div class="flex items-center justify-between w-full">
+                <span class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                    <span>${hasPhysicalForm ? 'Formulario Recibido' : 'Justificado (' + newCode + ')'}</span>
+                </span>
+                <button type="button" class="btn-receive-physical-form text-[11px] text-gold-text dark:text-gold font-bold hover:underline"
+                    data-teacher-id="${teacherId}" data-teacher-name="${escapeHtml(teacherName)}">
+                    ${hasPhysicalForm ? 'Editar Formulario' : 'Justificación Oficial'}
+                </button>
+            </div>
+        `;
+        footer.querySelector('.btn-receive-physical-form')?.addEventListener('click', (ev) => {
+            const t = ev.currentTarget;
+            openPhysicalFormModal(parseInt(t.getAttribute('data-teacher-id')), t.getAttribute('data-teacher-name'), AppState.attendanceDate);
+        });
+    } else {
+        footer.innerHTML = `
+            <div class="text-[11px] text-slate-400 dark:text-zinc-500 italic py-0.5">
+                Sin novedades registradas
+            </div>
+        `;
+    }
+    initLucideIcons();
+}
+
+function handleAttendanceStatusChange(card, newCode) {
+    if (!card) return;
+    const teacherId = parseInt(card.getAttribute('data-teacher-id'));
+    const rec = (AppState.attendanceRecordsCache || []).find(r => r.teacherId === teacherId);
+    if (!rec) return;
+
+    // 1. Actualizar estado en input y tarjeta
+    const hiddenStatus = card.querySelector('.att-status-value');
+    if (hiddenStatus) hiddenStatus.value = newCode;
+    card.setAttribute('data-status', newCode);
+
+    // Actualizar borde de la tarjeta
+    card.classList.remove('card-status-pr', 'card-status-i', 'card-status-p', 'card-status-lic', 'card-status-lt');
+    card.classList.add(getStatusCardClass(newCode));
+
+    // Actualizar clases activas en los chips del grupo
+    const chipGroup = card.querySelectorAll('.att-chip');
+    chipGroup.forEach(c => {
+        c.classList.remove('active-pr', 'active-i', 'active-p', 'active-lic', 'active-lt');
+    });
+    const activeBtn = card.querySelector(`.att-chip[data-status="${newCode}"]`);
+    if (activeBtn) activeBtn.classList.add(getChipActiveClass(newCode));
+
+    // 2. Calcular cómputo dinámico anual en vivo
+    const baseStats = rec.annualStats || { inasistencias: 0, justificadas: 0, permisos: 0, licencias: 0, largoTratamiento: 0 };
+    
+    const wasUnexcused = rec.isSavedInDb ? Boolean(rec.isSavedUnexcused) : false;
+    const wasPermit = rec.isSavedInDb ? Boolean(rec.isSavedPermit) : false;
+    const wasLicense = rec.isSavedInDb ? Boolean(rec.isSavedLicense) : false;
+    const wasLt = rec.isSavedInDb ? Boolean(rec.isSavedLongTreatment) : false;
+
+    const newIsUnexcused = (newCode === 'I');
+    const newIsPermit = (newCode === 'P');
+    const newIsLicense = (newCode === 'LIC');
+    const newIsLt = (newCode === 'LT');
+
+    const inasistenciasDelta = (newIsUnexcused ? 1 : 0) - (wasUnexcused ? 1 : 0);
+    const permisosDelta = (newIsPermit ? 1 : 0) - (wasPermit ? 1 : 0);
+    const licenciasDelta = (newIsLicense ? 1 : 0) - (wasLicense ? 1 : 0);
+    const ltDelta = (newIsLt ? 1 : 0) - (wasLt ? 1 : 0);
+
+    const liveFaltas = Math.max(0, (baseStats.inasistencias || 0) + inasistenciasDelta);
+    const livePermisos = Math.max(0, (baseStats.permisos || 0) + permisosDelta);
+    const liveLicencias = Math.max(0, (baseStats.licencias || 0) + licenciasDelta);
+    const liveLt = Math.max(0, (baseStats.largoTratamiento || 0) + ltDelta);
+
+    rec.currentStatus = newCode;
+    rec.liveStats = {
+        year: baseStats.year || new Date().getFullYear(),
+        inasistencias: liveFaltas,
+        justificadas: baseStats.justificadas || 0,
+        permisos: livePermisos,
+        permisosDisponibles: Math.max(0, 6 - livePermisos),
+        licencias: liveLicencias,
+        largoTratamiento: liveLt
+    };
+
+    // 3. Determinar badges y niveles de alerta en vivo
+    let liveAlertBadge = null;
+    let liveAlertLevel = null;
+    let liveAlertDetail = null;
+
+    if (liveFaltas >= 5) {
+        liveAlertLevel = 'danger';
+        liveAlertBadge = 'Límite Crítico Inasistencias';
+        liveAlertDetail = `Acumula ${liveFaltas} inasistencias en el ciclo lectivo.`;
+    } else if (liveFaltas >= 3) {
+        liveAlertLevel = 'warning';
+        liveAlertBadge = `${liveFaltas}/5 Inasistencias`;
+        liveAlertDetail = `Acumula ${liveFaltas} inasistencias sin justificar.`;
+    }
+
+    if (livePermisos >= 6) {
+        liveAlertLevel = 'danger';
+        liveAlertBadge = 'Cupo Art. 115 Agotado';
+        liveAlertDetail = 'Agotó los 6 permisos particulares anuales (6/6).';
+    } else if (livePermisos >= 4 && !liveAlertBadge) {
+        liveAlertLevel = 'warning';
+        liveAlertBadge = `${livePermisos}/6 Permisos (115)`;
+        liveAlertDetail = `Consumió ${livePermisos} de 6 permisos anuales permitidos.`;
+    }
+
+    rec.liveStats.alertLevel = liveAlertLevel;
+    rec.liveStats.alertBadge = liveAlertBadge;
+    rec.liveStats.alertDetail = liveAlertDetail;
+
+    // 4. Actualizar visualmente la tira de seguimiento anual de la tarjeta
+    const elFaltas = card.querySelector('.att-stat-faltas');
+    if (elFaltas) {
+        elFaltas.textContent = `Faltas: ${liveFaltas}`;
+        elFaltas.className = `att-stat-faltas font-bold ${liveFaltas >= 5 ? 'text-rose-600 dark:text-rose-400 font-black' : liveFaltas >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}`;
+    }
+
+    const elPermisos = card.querySelector('.att-stat-permisos');
+    if (elPermisos) {
+        elPermisos.textContent = `Art. 115: ${livePermisos}/6`;
+        elPermisos.className = `att-stat-permisos font-bold ${livePermisos >= 6 ? 'text-rose-600 dark:text-rose-400 font-black' : livePermisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}`;
+    }
+
+    const elLic = card.querySelector('.att-stat-licencias');
+    if (elLic) {
+        elLic.textContent = `Lic: ${liveLicencias}d`;
+    }
+
+    const badgeWrap = card.querySelector('.att-card-badge-wrap');
+    if (badgeWrap) {
+        if (liveAlertBadge) {
+            const badgeClass = liveAlertLevel === 'danger'
+                ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800';
+            badgeWrap.innerHTML = `
+                <span class="px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-tight ${badgeClass}" title="${escapeHtml(liveAlertDetail || '')}">
+                    ⚠️ ${escapeHtml(liveAlertBadge)}
+                </span>
+            `;
+        } else {
+            badgeWrap.innerHTML = '';
+        }
+    }
+
+    // 5. Actualizar el footer de acciones (botón de formulario físico)
+    updateCardActionFooter(card, newCode, teacherId, rec.fullName, rec.hasPhysicalForm);
+
+    // 6. Actualizar KPIs del encabezado y contadores de filtros
+    updateAttendanceKpis();
+
+    // 7. Actualizar en vivo el componente de Alertas del Dashboard
+    updateLiveDashboardAlerts();
 }
 
 function renderAttendanceRows(records) {
-    const tbody = document.getElementById('tbody-attendance');
-    if (!tbody) return;
+    renderAttendanceCards(records);
+}
 
-    if (records.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 italic">No hay docentes activos para registrar asistencia en esta fecha.</td></tr>`;
+function renderAttendanceCards(records) {
+    const grid = document.getElementById('attendance-cards-grid');
+    const emptyState = document.getElementById('attendance-empty-state');
+    if (!grid) return;
+
+    if (!records || records.length === 0) {
+        grid.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        updateAttendanceKpis();
         return;
     }
 
-    tbody.innerHTML = records.map((r, index) => {
-        const code = normalizeStatusCode(r.status);
+    if (emptyState) emptyState.classList.add('hidden');
+
+    grid.innerHTML = records.map((r) => {
+        const code = normalizeStatusCode(r.currentStatus || r.status);
         const isAbsence = (code === 'I');
         const isJustified = (code === 'P' || code === 'LIC' || code === 'LT');
+        const initials = getTeacherInitials(r.fullName);
+        const borderClass = getStatusCardClass(code);
+
+        const annual = r.liveStats || r.annualStats || {
+            year: new Date().getFullYear(),
+            inasistencias: 0,
+            justificadas: 0,
+            permisos: 0,
+            permisosDisponibles: 6,
+            licencias: 0,
+            largoTratamiento: 0,
+            alertLevel: null,
+            alertBadge: null
+        };
 
         return `
-            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition border-b border-slate-100 dark:border-zinc-800 text-xs" data-teacher-id="${r.teacherId}">
-                <td class="py-2.5 px-3">
-                    <div class="font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(r.fullName)}</div>
-                    <div class="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">DNI ${escapeHtml(r.dni)}</div>
-                </td>
-                <td class="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-zinc-400 font-bold">${escapeHtml(r.legajo || 'S/L')}</td>
-                <td class="py-2.5 px-3 text-center">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
-                        ${escapeHtml(r.revista || 'Titular')}
-                    </span>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                    <select class="att-status-select ${getStatusSelectColor(code)}"
-                        data-index="${index}">
-                        <option value="I" ${code === 'I' ? 'selected' : ''}>I - Inasistencia</option>
-                        <option value="PR" ${code === 'PR' ? 'selected' : ''}>PR - Presente</option>
-                        <option value="P" ${code === 'P' ? 'selected' : ''}>P - Permiso (115)</option>
-                        <option value="LIC" ${code === 'LIC' ? 'selected' : ''}>LIC - Licencia</option>
-                        <option value="LT" ${code === 'LT' ? 'selected' : ''}>LT - Largo Tratamiento</option>
-                    </select>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                    <input type="number" min="1" max="10" value="${r.hours || 4}" class="att-hours-input w-16 text-center px-1 py-1 border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded text-xs font-bold">
-                </td>
-                <td class="py-2.5 px-3">
-                    <input type="text" placeholder="N° Formulario, Certificado o Causa..." value="${escapeHtml(r.observations || '')}"
-                        class="att-obs-input w-full px-2 py-1 border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded text-xs">
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                    ${isAbsence ? `
-                        <button type="button" class="btn-receive-physical-form px-2 py-1 bg-amber-500 hover:bg-amber-600 text-slate-900 rounded text-[11px] font-bold inline-flex items-center space-x-1 shadow-xs transition mx-auto"
-                            data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
-                            <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
-                            <span>Formulario</span>
-                        </button>
-                    ` : isJustified ? `
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            Justificado
+            <div class="att-teacher-card bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-4 shadow-xs transition hover:shadow-md flex flex-col justify-between space-y-3 ${borderClass}"
+                data-teacher-id="${r.teacherId}" data-status="${code}">
+                
+                <!-- Cabecera del Docente -->
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-slate-900 text-gold flex items-center justify-center font-black text-xs shadow-xs border border-slate-700 shrink-0">
+                            ${initials}
+                        </div>
+                        <div class="min-w-0">
+                            <h4 class="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-snug truncate" title="${escapeHtml(r.fullName)}">
+                                ${escapeHtml(r.fullName)}
+                            </h4>
+                            <div class="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                                <span>DNI ${escapeHtml(r.dni)}</span>
+                                <span>•</span>
+                                <span>Leg. ${escapeHtml(r.legajo || 'S/L')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-end space-y-1 shrink-0">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                            ${escapeHtml(r.revista || 'Titular')}
                         </span>
-                    ` : `
-                        <span class="text-slate-400 font-bold">-</span>
-                    `}
-                </td>
-            </tr>
+                        <div class="flex items-center space-x-1 text-[11px] text-slate-500 dark:text-zinc-400 font-bold" title="Horas cátedra de la jornada">
+                            <input type="number" min="1" max="12" value="${r.hours || 4}"
+                                class="att-hours-input w-12 text-center py-0.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded text-xs font-bold focus:ring-1 focus:ring-gold">
+                            <span class="text-[10px] text-slate-400">hs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seguimiento Anual y Topes Reglamentarios (RN-04 / RN-05) -->
+                <div class="att-annual-strip p-2 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-800 flex items-center justify-between text-[10.5px]">
+                    <div class="flex items-center space-x-2.5 flex-wrap">
+                        <span class="text-slate-500 dark:text-zinc-400 font-medium">Ciclo ${annual.year}:</span>
+                        <span class="att-stat-faltas font-bold ${annual.inasistencias >= 5 ? 'text-rose-600 dark:text-rose-400 font-black' : annual.inasistencias >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}" title="Inasistencias injustificadas acumuladas en el ciclo">
+                            Faltas: ${annual.inasistencias}
+                        </span>
+                        <span class="att-stat-justificadas text-slate-600 dark:text-zinc-400 font-medium" title="Inasistencias justificadas formalmente en el ciclo">
+                            Just: ${annual.justificadas || 0}d
+                        </span>
+                        <span class="att-stat-permisos font-bold ${annual.permisos >= 6 ? 'text-rose-600 dark:text-rose-400 font-black' : annual.permisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}" title="Permisos particulares consumidos (Máx 6/año)">
+                            Art. 115: ${annual.permisos}/6
+                        </span>
+                        <span class="att-stat-licencias font-bold text-slate-700 dark:text-zinc-300" title="Días de licencias médicas del año">
+                            Lic: ${annual.licencias}d
+                        </span>
+                    </div>
+                    <div class="att-card-badge-wrap">
+                        ${annual.alertBadge ? `
+                            <span class="px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-tight ${annual.alertLevel === 'danger' ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800'}" title="${escapeHtml(annual.alertDetail || '')}">
+                                ⚠️ ${escapeHtml(annual.alertBadge)}
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- Selector de Estado Rápido: Chips visuales interactivos -->
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">Estado Diario</label>
+                    <div class="grid grid-cols-5 gap-1 att-chip-group">
+                        <button type="button" class="att-chip ${code === 'PR' ? 'active-pr' : ''}" data-status="PR" title="Presente">
+                            <span class="font-bold">PR</span>
+                            <span class="text-[9px] block opacity-80">Presente</span>
+                        </button>
+                        <button type="button" class="att-chip ${code === 'I' ? 'active-i' : ''}" data-status="I" title="Inasistencia Injustificada">
+                            <span class="font-bold">I</span>
+                            <span class="text-[9px] block opacity-80">Falta</span>
+                        </button>
+                        <button type="button" class="att-chip ${code === 'P' ? 'active-p' : ''}" data-status="P" title="Permiso Particular (Art. 115)">
+                            <span class="font-bold">P</span>
+                            <span class="text-[9px] block opacity-80">Permiso</span>
+                        </button>
+                        <button type="button" class="att-chip ${code === 'LIC' ? 'active-lic' : ''}" data-status="LIC" title="Licencia Médica / Ordinaria">
+                            <span class="font-bold">LIC</span>
+                            <span class="text-[9px] block opacity-80">Licencia</span>
+                        </button>
+                        <button type="button" class="att-chip ${code === 'LT' ? 'active-lt' : ''}" data-status="LT" title="Largo Tratamiento de Salud">
+                            <span class="font-bold">LT</span>
+                            <span class="text-[9px] block opacity-80">Tratam.</span>
+                        </button>
+                    </div>
+                    <input type="hidden" class="att-status-value" value="${code}">
+                </div>
+
+                <!-- Observaciones y Justificación de Formulario -->
+                <div class="space-y-2 pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+                    <input type="text" placeholder="Observaciones, motivo o justificación..." value="${escapeHtml(r.observations || '')}"
+                        class="att-obs-input w-full px-2.5 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:ring-1 focus:ring-gold focus:outline-none">
+
+                    <div class="att-action-footer flex items-center justify-between pt-0.5">
+                        ${isAbsence ? `
+                            <button type="button" class="btn-receive-physical-form w-full py-1.5 px-3 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs"
+                                data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
+                                <i data-lucide="file-check" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+                                <span>Justificar / Formulario Físico</span>
+                            </button>
+                        ` : isJustified ? `
+                            <div class="flex items-center justify-between w-full">
+                                <span class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                                    <span>${r.hasPhysicalForm ? 'Formulario Recibido' : 'Justificado (' + code + ')'}</span>
+                                </span>
+                                <button type="button" class="btn-receive-physical-form text-[11px] text-gold-text dark:text-gold font-bold hover:underline"
+                                    data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
+                                    ${r.hasPhysicalForm ? 'Editar Formulario' : 'Justificación Oficial'}
+                                </button>
+                            </div>
+                        ` : `
+                            <div class="text-[11px] text-slate-400 dark:text-zinc-500 italic py-0.5">
+                                Sin novedades registradas
+                            </div>
+                        `}
+                    </div>
+                </div>
+            </div>
         `;
     }).join('');
 
-    document.querySelectorAll('.att-status-select').forEach(sel => {
-        sel.addEventListener('change', (e) => {
-            e.target.className = `att-status-select ${getStatusSelectColor(e.target.value)}`;
+    // Event listeners para chips interactivos de cada tarjeta
+    document.querySelectorAll('.att-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const newCode = btn.getAttribute('data-status');
+            const card = btn.closest('.att-teacher-card');
+            if (card) {
+                handleAttendanceStatusChange(card, newCode);
+            }
         });
     });
 
+    // Event listeners para botones de formulario físico
     document.querySelectorAll('.btn-receive-physical-form').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const target = e.currentTarget;
@@ -2094,6 +2651,7 @@ function renderAttendanceRows(records) {
     });
 
     initLucideIcons();
+    updateAttendanceKpis();
 }
 
 async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
@@ -2219,7 +2777,8 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
                     if (res && res.success) {
                         showToast(`Recepción de formulario registrada: estado actualizado a ${newStatus}.`, 'success');
                         closeModal();
-                        loadDailyAttendance();
+                        await loadDailyAttendance();
+                        await loadDashboard();
                     } else {
                         errDiv.textContent = (res && res.message) || 'Error al registrar recepción de formulario.';
                         errDiv.classList.remove('hidden');
@@ -2235,16 +2794,39 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
 }
 
 function filterAttendanceTable() {
-    const query = document.getElementById('att-search').value.toLowerCase().trim();
-    if (!query) {
-        renderAttendanceRows(AppState.attendanceRecordsCache);
-        return;
-    }
-    const filtered = AppState.attendanceRecordsCache.filter(r => {
-        const full = `${r.fullName} ${r.legajo} ${r.dni}`.toLowerCase();
-        return full.includes(query);
+    const query = (document.getElementById('att-search')?.value || '').toLowerCase().trim();
+    const filter = AppState.attendanceFilter || 'all';
+
+    const filtered = (AppState.attendanceRecordsCache || []).filter(r => {
+        const code = normalizeStatusCode(r.currentStatus || r.status);
+        const matchesQuery = !query || `${r.fullName} ${r.legajo} ${r.dni}`.toLowerCase().includes(query);
+        if (!matchesQuery) return false;
+
+        if (filter === 'PR') return code === 'PR';
+        if (filter === 'I') return code === 'I';
+        if (filter === 'JUST') return (code === 'P' || code === 'LIC' || code === 'LT');
+        if (filter === 'ALERTS') {
+            const st = r.liveStats || r.annualStats;
+            return Boolean(st && (st.alertLevel || st.inasistencias >= 3 || st.permisos >= 4));
+        }
+        return true;
     });
-    renderAttendanceRows(filtered);
+
+    renderAttendanceCards(filtered);
+}
+
+function markAllVisibleAsPresent() {
+    const cards = document.querySelectorAll('.att-teacher-card');
+    if (cards.length === 0) return;
+
+    cards.forEach(card => {
+        const prBtn = card.querySelector('.att-chip[data-status="PR"]');
+        if (prBtn) {
+            prBtn.click();
+        }
+    });
+
+    showToast('Todos los docentes visibles fueron marcados como Presente. Recuerde guardar los cambios.', 'info');
 }
 
 async function saveAllAttendanceRecords() {
@@ -2255,29 +2837,49 @@ async function saveAllAttendanceRecords() {
     }
 
     try {
-        const rows = document.querySelectorAll('#tbody-attendance tr[data-teacher-id]');
-        const records = [];
+        // Obtenemos los valores de las tarjetas renderizadas en el DOM
+        const cards = document.querySelectorAll('.att-teacher-card[data-teacher-id]');
+        const currentEdits = new Map();
 
-        rows.forEach(row => {
-            const teacherId = parseInt(row.getAttribute('data-teacher-id'));
-            const statusSelect = row.querySelector('.att-status-select');
-            const hoursInput = row.querySelector('.att-hours-input');
-            const obsInput = row.querySelector('.att-obs-input');
+        cards.forEach(card => {
+            const teacherId = parseInt(card.getAttribute('data-teacher-id'));
+            const statusInput = card.querySelector('.att-status-value');
+            const hoursInput = card.querySelector('.att-hours-input');
+            const obsInput = card.querySelector('.att-obs-input');
 
-            records.push({
-                teacherId: teacherId,
-                status: statusSelect ? statusSelect.value : 'I',
+            currentEdits.set(teacherId, {
+                status: statusInput ? statusInput.value : 'I',
                 hours: hoursInput ? parseInt(hoursInput.value) || 0 : 4,
                 observations: obsInput ? obsInput.value.trim() : ''
             });
         });
 
-        const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, records);
-        if (res.success) {
+        // Combinamos con la caché completa para que ningún docente se pierda por filtros activos
+        const recordsToSave = (AppState.attendanceRecordsCache || []).map(r => {
+            if (currentEdits.has(r.teacherId)) {
+                const edit = currentEdits.get(r.teacherId);
+                return {
+                    teacherId: r.teacherId,
+                    status: edit.status,
+                    hours: edit.hours,
+                    observations: edit.observations
+                };
+            }
+            return {
+                teacherId: r.teacherId,
+                status: r.currentStatus || r.status || 'I',
+                hours: r.hours || 4,
+                observations: r.observations || ''
+            };
+        });
+
+        const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, recordsToSave);
+        if (res && res.success) {
             showToast(`Se guardó el parte diario para la fecha ${AppState.attendanceDate}.`, 'success');
-            loadDailyAttendance();
+            await loadDailyAttendance();
+            await loadDashboard();
         } else {
-            showToast(res.message || 'Error al guardar registros.', 'error');
+            showToast((res && res.message) || 'Error al guardar registros.', 'error');
         }
     } catch (err) {
         console.error('Error al guardar asistencias en lote:', err);
@@ -2285,7 +2887,7 @@ async function saveAllAttendanceRecords() {
     } finally {
         if (btnSave) {
             btnSave.disabled = false;
-            btnSave.innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Guardar Todo</span>`;
+            btnSave.innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Guardar Planilla</span>`;
             initLucideIcons();
         }
     }

@@ -5,6 +5,7 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
+    "build:css": "tailwindcss -i src/renderer/css/tailwind.input.css -o src/renderer/css/tailwind.css --minify",
     "test:backend": "node test_backend.js",
     "test:electron": "electron . --test"
   },
@@ -20,9 +21,11 @@
   "homepage": "https://github.com/tomivargas101/siget-iesetyfp#readme",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "exceljs": "^4.4.0"
+    "exceljs": "^4.4.0",
+    "lucide": "^1.68.0"
   },
   "devDependencies": {
-    "electron": "^35.7.5"
+    "electron": "^35.7.5",
+    "tailwindcss": "3.4.17"
   }
 }

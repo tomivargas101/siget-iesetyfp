@@ -8,6 +8,7 @@ const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 const { NormativeService } = require('./normativeService');
+const { AttendanceService } = require('./attendanceService');
 
 class DashboardService {
     static getStats() {
@@ -88,7 +89,7 @@ class DashboardService {
             // CÓMPUTO OPERATIVO DE ASISTENCIAS DE HOY (Conjunto Cerrado v2.0)
             // -------------------------------------------------------------
             const todayStr = AuditService.getArgentinaTimestamp().substring(0, 10);
-            const todayAtts = db.prepare('SELECT status FROM attendances WHERE date = ? AND is_active = 1').all(todayStr);
+            const todayAtts = db.prepare('SELECT status, observations FROM attendances WHERE date = ? AND is_active = 1').all(todayStr);
 
             let todayPresentes = 0;
             let todayInasistencias = 0;
@@ -96,12 +97,12 @@ class DashboardService {
             let todayLicencias = 0;
 
             for (const a of todayAtts) {
-                const s = (a.status || '').trim().toUpperCase();
-                if (s === 'PR' || s === 'PRESENTE') todayPresentes++;
-                else if (s === 'P' || s.includes('PERMISO')) todayPermisos++;
-                else if (s === 'LIC' || s === 'LT' || s.includes('LICENCIA')) todayLicencias++;
-                else if (s === 'I' || s.includes('AUSENTE') || s.includes('FALTA')) todayInasistencias++;
-                else todayInasistencias++;
+                const c = AttendanceService.classifyRecord(a.status, a.observations);
+                if (c.isPresence) todayPresentes++;
+                else if (c.isUnexcusedAbsence) todayInasistencias++;
+                else if (c.isPermit) todayPermisos++;
+                else if (c.isLicense || c.isLongTreatment) todayLicencias++;
+                else if (c.isJustifiedAbsence) todayPermisos++;
             }
 
             const todaySinRegistrar = Math.max(0, totalTeachers - todayAtts.length);
@@ -165,39 +166,47 @@ class DashboardService {
      */
     static _calculateAttendanceAlerts(db, teachers, currentYear) {
         try {
-            const yearStart = `${currentYear}-01-01`;
-            const yearEnd = `${currentYear}-12-31`;
+            const yStr = String(currentYear || new Date().getFullYear());
 
-            // Obtener todas las asistencias del ciclo lectivo actual
+            // Obtener todas las asistencias del ciclo lectivo actual, ordenadas por fecha e id desc
             const yearAtts = db.prepare(`
-                SELECT teacher_id, status, observations
+                SELECT teacher_id, date, status, observations
                 FROM attendances
-                WHERE date >= ? AND date <= ? AND is_active = 1
-            `).all(yearStart, yearEnd);
+                WHERE substr(date, 1, 4) = ? AND is_active = 1
+                ORDER BY date ASC, id DESC
+            `).all(yStr);
 
-            // Agrupar por docente
+            // Deduplicar por fecha y docente (evita contar duplicados accidentales del mismo día)
+            const seenTeacherDate = new Set();
             const countsByTeacher = new Map();
+
             for (const att of yearAtts) {
+                const key = `${att.teacher_id}_${att.date}`;
+                if (seenTeacherDate.has(key)) continue;
+                seenTeacherDate.add(key);
+
                 if (!countsByTeacher.has(att.teacher_id)) {
                     countsByTeacher.set(att.teacher_id, {
                         inasistencias: 0,
+                        justificadas: 0,
                         permisos: 0,
                         licencias: 0,
                         largoTratamiento: 0
                     });
                 }
                 const cnt = countsByTeacher.get(att.teacher_id);
-                const s = (att.status || '').trim().toUpperCase();
-                const obs = (att.observations || '').toLowerCase();
+                const c = AttendanceService.classifyRecord(att.status, att.observations);
 
-                if (s === 'P' || obs.includes('115') || obs.includes('permiso')) {
-                    cnt.permisos++;
-                } else if (s === 'LT' || obs.includes('largo tratamiento') || obs.includes('48')) {
-                    cnt.largoTratamiento++;
-                } else if (s === 'LIC' || obs.includes('médic') || obs.includes('salud') || obs.includes('licencia')) {
-                    cnt.licencias++;
-                } else if (s === 'I' || s.includes('AUSENTE') || s.includes('FALTA')) {
+                if (c.isUnexcusedAbsence) {
                     cnt.inasistencias++;
+                } else if (c.isPermit) {
+                    cnt.permisos++;
+                } else if (c.isLongTreatment) {
+                    cnt.largoTratamiento++;
+                } else if (c.isLicense) {
+                    cnt.licencias++;
+                } else if (c.isJustifiedAbsence) {
+                    cnt.justificadas++;
                 }
             }
 
