@@ -2133,7 +2133,7 @@ async function loadDailyAttendance() {
 
         // Inicializar currentStatus y liveStats para cada registro cargado de la BD
         AppState.attendanceRecordsCache.forEach(r => {
-            r.currentStatus = r.status;
+            r.currentStatus = r.isSavedInDb ? r.status : 'PR';
             r.liveStats = Object.assign({}, r.annualStats);
         });
 
@@ -2159,15 +2159,56 @@ function formatFriendlyDate(dateStr) {
     return `Parte Diario: ${dateStr}`;
 }
 
-function normalizeStatusCode(status) {
+function classifyAttendanceRecord(status, observations = '') {
+    const s = String(status || '').trim().toUpperCase();
+    const o = String(observations || '').trim().toLowerCase();
+    const combined = `${s} ${o}`.toLowerCase();
+
+    // 1. Presente (PR)
+    if (s === 'PR' || s === 'PRESENTE') {
+        return { code: 'PR', isPresence: true, isUnexcusedAbsence: false, isJustifiedAbsence: false, isPermit: false, isLicense: false, isLongTreatment: false };
+    }
+
+    // 2. Largo Tratamiento de Salud (LT)
+    if (s === 'LT' || combined.includes('largo tratamiento') || combined.includes('art. 48') || combined.includes('art 48') || combined.includes('114b') || combined.includes('114 b')) {
+        return { code: 'LT', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: false, isLicense: true, isLongTreatment: true };
+    }
+
+    // 3. Licencias Médicas u Ordinarias (LIC)
+    if (s === 'LIC' || s === 'LICENCIA' ||
+        combined.includes('licencia') || combined.includes('médic') || combined.includes('medic') ||
+        combined.includes('salud') || combined.includes('reposo') || combined.includes('114a') ||
+        combined.includes('114 a') || combined.includes('114c') || combined.includes('114 c') ||
+        combined.includes('art. 70') || combined.includes('art 70') || combined.includes('examen') ||
+        combined.includes('estudio') || combined.includes('maternidad') || combined.includes('accidente')) {
+        return { code: 'LIC', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: false, isLicense: true, isLongTreatment: false };
+    }
+
+    // 4. Permisos Particulares (P / Art. 115) o Inasistencias Justificadas / Con Aviso / Certificado
+    const isArt115 = s === 'P' || combined.includes('permiso') || combined.includes('115') || combined.includes('razones particulares');
+    const isJustifiedOrNotice = combined.includes('justificad') ||
+                                combined.includes('con aviso') ||
+                                combined.includes('c/aviso') ||
+                                combined.includes('formulario') ||
+                                combined.includes('form:') ||
+                                combined.includes('certificado') ||
+                                s === 'IJ' || s === 'JUST';
+
+    if (isArt115) {
+        return { code: 'P', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: true, isLicense: false, isLongTreatment: false };
+    }
+
+    if (isJustifiedOrNotice) {
+        return { code: 'P', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: true, isPermit: false, isLicense: false, isLongTreatment: false };
+    }
+
+    // 5. Inasistencia Injustificada ('I')
+    return { code: 'I', isPresence: false, isUnexcusedAbsence: true, isJustifiedAbsence: false, isPermit: false, isLicense: false, isLongTreatment: false };
+}
+
+function normalizeStatusCode(status, observations = '') {
     if (!status) return 'I';
-    const s = String(status).trim().toUpperCase();
-    if (s === 'PR' || s === 'PRESENTE') return 'PR';
-    if (s === 'P' || s.includes('PERMISO') || s.includes('115') || s === 'AUSENTE CON JUSTIFICACIÓN') return 'P';
-    if (s === 'LIC' || s.includes('LICENCIA')) return 'LIC';
-    if (s === 'LT' || s.includes('LARGO TRATAMIENTO') || s.includes('48')) return 'LT';
-    if (s === 'I' || s.includes('AUSENTE') || s.includes('INASISTENCIA') || s.includes('FALTA')) return 'I';
-    return s;
+    return classifyAttendanceRecord(status, observations).code;
 }
 
 function getTeacherInitials(fullName) {
@@ -2322,13 +2363,22 @@ function handleAttendanceStatusChange(card, newCode) {
     if (activeBtn) activeBtn.classList.add(getChipActiveClass(newCode));
 
     // 2. Calcular cómputo dinámico anual en vivo
-    const baseStats = rec.annualStats || { inasistencias: 0, permisos: 0, licencias: 0, largoTratamiento: 0 };
-    const prevSavedStatus = rec.isSavedInDb ? rec.savedStatus : null;
+    const baseStats = rec.annualStats || { inasistencias: 0, justificadas: 0, permisos: 0, licencias: 0, largoTratamiento: 0 };
+    
+    const wasUnexcused = rec.isSavedInDb ? Boolean(rec.isSavedUnexcused) : false;
+    const wasPermit = rec.isSavedInDb ? Boolean(rec.isSavedPermit) : false;
+    const wasLicense = rec.isSavedInDb ? Boolean(rec.isSavedLicense) : false;
+    const wasLt = rec.isSavedInDb ? Boolean(rec.isSavedLongTreatment) : false;
 
-    const inasistenciasDelta = (newCode === 'I' ? 1 : 0) - (prevSavedStatus === 'I' ? 1 : 0);
-    const permisosDelta = (newCode === 'P' ? 1 : 0) - (prevSavedStatus === 'P' ? 1 : 0);
-    const licenciasDelta = (newCode === 'LIC' ? 1 : 0) - (prevSavedStatus === 'LIC' ? 1 : 0);
-    const ltDelta = (newCode === 'LT' ? 1 : 0) - (prevSavedStatus === 'LT' ? 1 : 0);
+    const newIsUnexcused = (newCode === 'I');
+    const newIsPermit = (newCode === 'P');
+    const newIsLicense = (newCode === 'LIC');
+    const newIsLt = (newCode === 'LT');
+
+    const inasistenciasDelta = (newIsUnexcused ? 1 : 0) - (wasUnexcused ? 1 : 0);
+    const permisosDelta = (newIsPermit ? 1 : 0) - (wasPermit ? 1 : 0);
+    const licenciasDelta = (newIsLicense ? 1 : 0) - (wasLicense ? 1 : 0);
+    const ltDelta = (newIsLt ? 1 : 0) - (wasLt ? 1 : 0);
 
     const liveFaltas = Math.max(0, (baseStats.inasistencias || 0) + inasistenciasDelta);
     const livePermisos = Math.max(0, (baseStats.permisos || 0) + permisosDelta);
@@ -2337,8 +2387,11 @@ function handleAttendanceStatusChange(card, newCode) {
 
     rec.currentStatus = newCode;
     rec.liveStats = {
+        year: baseStats.year || new Date().getFullYear(),
         inasistencias: liveFaltas,
+        justificadas: baseStats.justificadas || 0,
         permisos: livePermisos,
+        permisosDisponibles: Math.max(0, 6 - livePermisos),
         licencias: liveLicencias,
         largoTratamiento: liveLt
     };
@@ -2444,6 +2497,7 @@ function renderAttendanceCards(records) {
         const annual = r.liveStats || r.annualStats || {
             year: new Date().getFullYear(),
             inasistencias: 0,
+            justificadas: 0,
             permisos: 0,
             permisosDisponibles: 6,
             licencias: 0,
@@ -2492,6 +2546,9 @@ function renderAttendanceCards(records) {
                         <span class="text-slate-500 dark:text-zinc-400 font-medium">Ciclo ${annual.year}:</span>
                         <span class="att-stat-faltas font-bold ${annual.inasistencias >= 5 ? 'text-rose-600 dark:text-rose-400 font-black' : annual.inasistencias >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}" title="Inasistencias injustificadas acumuladas en el ciclo">
                             Faltas: ${annual.inasistencias}
+                        </span>
+                        <span class="att-stat-justificadas text-slate-600 dark:text-zinc-400 font-medium" title="Inasistencias justificadas formalmente en el ciclo">
+                            Just: ${annual.justificadas || 0}d
                         </span>
                         <span class="att-stat-permisos font-bold ${annual.permisos >= 6 ? 'text-rose-600 dark:text-rose-400 font-black' : annual.permisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}" title="Permisos particulares consumidos (Máx 6/año)">
                             Art. 115: ${annual.permisos}/6

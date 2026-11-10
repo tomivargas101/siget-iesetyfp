@@ -16,6 +16,8 @@ package-lock.json
 # Base de datos local
 siget.db
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Reportes y planillas generadas

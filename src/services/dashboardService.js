@@ -89,7 +89,7 @@ class DashboardService {
             // CÓMPUTO OPERATIVO DE ASISTENCIAS DE HOY (Conjunto Cerrado v2.0)
             // -------------------------------------------------------------
             const todayStr = AuditService.getArgentinaTimestamp().substring(0, 10);
-            const todayAtts = db.prepare('SELECT status FROM attendances WHERE date = ? AND is_active = 1').all(todayStr);
+            const todayAtts = db.prepare('SELECT status, observations FROM attendances WHERE date = ? AND is_active = 1').all(todayStr);
 
             let todayPresentes = 0;
             let todayInasistencias = 0;
@@ -97,12 +97,12 @@ class DashboardService {
             let todayLicencias = 0;
 
             for (const a of todayAtts) {
-                const s = (a.status || '').trim().toUpperCase();
-                if (s === 'PR' || s === 'PRESENTE') todayPresentes++;
-                else if (s === 'P' || s.includes('PERMISO')) todayPermisos++;
-                else if (s === 'LIC' || s === 'LT' || s.includes('LICENCIA')) todayLicencias++;
-                else if (s === 'I' || s.includes('AUSENTE') || s.includes('FALTA')) todayInasistencias++;
-                else todayInasistencias++;
+                const c = AttendanceService.classifyRecord(a.status, a.observations);
+                if (c.isPresence) todayPresentes++;
+                else if (c.isUnexcusedAbsence) todayInasistencias++;
+                else if (c.isPermit) todayPermisos++;
+                else if (c.isLicense || c.isLongTreatment) todayLicencias++;
+                else if (c.isJustifiedAbsence) todayPermisos++;
             }
 
             const todaySinRegistrar = Math.max(0, totalTeachers - todayAtts.length);
@@ -188,23 +188,25 @@ class DashboardService {
                 if (!countsByTeacher.has(att.teacher_id)) {
                     countsByTeacher.set(att.teacher_id, {
                         inasistencias: 0,
+                        justificadas: 0,
                         permisos: 0,
                         licencias: 0,
                         largoTratamiento: 0
                     });
                 }
                 const cnt = countsByTeacher.get(att.teacher_id);
-                const s = AttendanceService.normalizeStatusCode(att.status);
-                const obs = (att.observations || '').toLowerCase();
+                const c = AttendanceService.classifyRecord(att.status, att.observations);
 
-                if (s === 'P' || obs.includes('115') || obs.includes('permiso')) {
-                    cnt.permisos++;
-                } else if (s === 'LT' || obs.includes('largo tratamiento') || obs.includes('48')) {
-                    cnt.largoTratamiento++;
-                } else if (s === 'LIC' || obs.includes('médic') || obs.includes('salud') || obs.includes('licencia')) {
-                    cnt.licencias++;
-                } else if (s === 'I') {
+                if (c.isUnexcusedAbsence) {
                     cnt.inasistencias++;
+                } else if (c.isPermit) {
+                    cnt.permisos++;
+                } else if (c.isLongTreatment) {
+                    cnt.largoTratamiento++;
+                } else if (c.isLicense) {
+                    cnt.licencias++;
+                } else if (c.isJustifiedAbsence) {
+                    cnt.justificadas++;
                 }
             }
 
