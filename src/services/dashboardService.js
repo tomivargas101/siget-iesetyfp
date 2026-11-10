@@ -8,6 +8,7 @@ const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 const { NormativeService } = require('./normativeService');
+const { AttendanceService } = require('./attendanceService');
 
 class DashboardService {
     static getStats() {
@@ -165,19 +166,25 @@ class DashboardService {
      */
     static _calculateAttendanceAlerts(db, teachers, currentYear) {
         try {
-            const yearStart = `${currentYear}-01-01`;
-            const yearEnd = `${currentYear}-12-31`;
+            const yStr = String(currentYear || new Date().getFullYear());
 
-            // Obtener todas las asistencias del ciclo lectivo actual
+            // Obtener todas las asistencias del ciclo lectivo actual, ordenadas por fecha e id desc
             const yearAtts = db.prepare(`
-                SELECT teacher_id, status, observations
+                SELECT teacher_id, date, status, observations
                 FROM attendances
-                WHERE date >= ? AND date <= ? AND is_active = 1
-            `).all(yearStart, yearEnd);
+                WHERE substr(date, 1, 4) = ? AND is_active = 1
+                ORDER BY date ASC, id DESC
+            `).all(yStr);
 
-            // Agrupar por docente
+            // Deduplicar por fecha y docente (evita contar duplicados accidentales del mismo día)
+            const seenTeacherDate = new Set();
             const countsByTeacher = new Map();
+
             for (const att of yearAtts) {
+                const key = `${att.teacher_id}_${att.date}`;
+                if (seenTeacherDate.has(key)) continue;
+                seenTeacherDate.add(key);
+
                 if (!countsByTeacher.has(att.teacher_id)) {
                     countsByTeacher.set(att.teacher_id, {
                         inasistencias: 0,
@@ -187,7 +194,7 @@ class DashboardService {
                     });
                 }
                 const cnt = countsByTeacher.get(att.teacher_id);
-                const s = (att.status || '').trim().toUpperCase();
+                const s = AttendanceService.normalizeStatusCode(att.status);
                 const obs = (att.observations || '').toLowerCase();
 
                 if (s === 'P' || obs.includes('115') || obs.includes('permiso')) {
@@ -196,7 +203,7 @@ class DashboardService {
                     cnt.largoTratamiento++;
                 } else if (s === 'LIC' || obs.includes('médic') || obs.includes('salud') || obs.includes('licencia')) {
                     cnt.licencias++;
-                } else if (s === 'I' || s.includes('AUSENTE') || s.includes('FALTA')) {
+                } else if (s === 'I') {
                     cnt.inasistencias++;
                 }
             }

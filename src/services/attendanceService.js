@@ -56,14 +56,88 @@ class AttendanceService {
                 attMap.set(a.teacher_id, a);
             }
 
+            // Obtener asistencias del año lectivo para el seguimiento de topes y contadores anuales (RN-04 / RN-05)
+            const yearStr = dateStr ? dateStr.substring(0, 4) : new Date().getFullYear().toString();
+            const yearAttendances = db.prepare(`
+                SELECT teacher_id, date, status, observations
+                FROM attendances
+                WHERE substr(date, 1, 4) = ? AND is_active = 1
+                ORDER BY date ASC, id DESC
+            `).all(yearStr);
+
+            const seenTeacherDate = new Set();
+            const yearStatsMap = new Map();
+            for (const ya of yearAttendances) {
+                const key = `${ya.teacher_id}_${ya.date}`;
+                if (seenTeacherDate.has(key)) continue;
+                seenTeacherDate.add(key);
+
+                if (!yearStatsMap.has(ya.teacher_id)) {
+                    yearStatsMap.set(ya.teacher_id, {
+                        inasistencias: 0,
+                        permisos: 0,
+                        licencias: 0,
+                        largoTratamiento: 0
+                    });
+                }
+                const stat = yearStatsMap.get(ya.teacher_id);
+                const s = this.normalizeStatusCode(ya.status);
+                const obs = (ya.observations || '').toLowerCase();
+
+                if (s === 'P' || obs.includes('115') || obs.includes('permiso')) {
+                    stat.permisos++;
+                } else if (s === 'LT' || obs.includes('largo tratamiento') || obs.includes('48')) {
+                    stat.largoTratamiento++;
+                } else if (s === 'LIC' || obs.includes('médic') || obs.includes('salud') || obs.includes('licencia')) {
+                    stat.licencias++;
+                } else if (s === 'I') {
+                    stat.inasistencias++;
+                }
+            }
+
             return teachers.map(t => {
                 const att = attMap.get(t.id);
-                // Si ya fue registrado, normalizamos al conjunto cerrado; si no, estado por defecto 'I' (Inasistencia)
+                const isSavedInDb = Boolean(att);
+                const savedStatus = att ? this.normalizeStatusCode(att.status) : null;
+                // Si ya fue registrado en BD, normalizamos; si no, estado por defecto 'I' (Inasistencia)
                 const currentStatus = att ? this.normalizeStatusCode(att.status) : 'I';
+
+                const yStat = yearStatsMap.get(t.id) || {
+                    inasistencias: 0,
+                    permisos: 0,
+                    licencias: 0,
+                    largoTratamiento: 0
+                };
+
+                let alertLevel = null;
+                let alertBadge = null;
+                let alertDetail = null;
+
+                if (yStat.inasistencias >= 5) {
+                    alertLevel = 'danger';
+                    alertBadge = 'Límite Crítico Inasistencias';
+                    alertDetail = `Acumula ${yStat.inasistencias} inasistencias en el ciclo lectivo.`;
+                } else if (yStat.inasistencias >= 3) {
+                    alertLevel = 'warning';
+                    alertBadge = `${yStat.inasistencias}/5 Inasistencias`;
+                    alertDetail = `Acumula ${yStat.inasistencias} inasistencias sin justificar.`;
+                }
+
+                if (yStat.permisos >= 6) {
+                    alertLevel = 'danger';
+                    alertBadge = 'Cupo Art. 115 Agotado';
+                    alertDetail = 'Agotó los 6 permisos particulares anuales (6/6).';
+                } else if (yStat.permisos >= 4 && !alertBadge) {
+                    alertLevel = 'warning';
+                    alertBadge = `${yStat.permisos}/6 Permisos (115)`;
+                    alertDetail = `Consumió ${yStat.permisos} de 6 permisos anuales permitidos.`;
+                }
 
                 return {
                     teacherId: t.id,
                     attendanceId: att ? att.id : null,
+                    isSavedInDb,
+                    savedStatus,
                     legajo: t.legajo,
                     dni: String(t.dni),
                     fullName: `${t.last_name}, ${t.first_name}`,
@@ -73,7 +147,18 @@ class AttendanceService {
                     rawStatus: att ? att.status : 'I',
                     observations: att ? (att.observations || '') : '',
                     registeredBy: att ? (att.registered_by || '') : '',
-                    hasPhysicalForm: Boolean(att && att.observations && (att.observations.includes('Form:') || att.observations.includes('Formulario')))
+                    hasPhysicalForm: Boolean(att && att.observations && (att.observations.includes('Form:') || att.observations.includes('Formulario'))),
+                    annualStats: {
+                        year: yearStr,
+                        inasistencias: yStat.inasistencias,
+                        permisos: yStat.permisos,
+                        permisosDisponibles: Math.max(0, 6 - yStat.permisos),
+                        licencias: yStat.licencias,
+                        largoTratamiento: yStat.largoTratamiento,
+                        alertLevel,
+                        alertBadge,
+                        alertDetail
+                    }
                 };
             });
         } catch (error) {
@@ -90,10 +175,15 @@ class AttendanceService {
             const now = AuditService.getArgentinaTimestamp();
             const normalizedStatus = this.normalizeStatusCode(status);
 
-            // Verificar si ya existe para esa fecha
-            const existing = db.prepare('SELECT id FROM attendances WHERE teacher_id = ? AND date = ?').get(teacherId, dateStr);
+            // Verificar si ya existen registros para esa fecha y docente
+            const existing = db.prepare('SELECT id FROM attendances WHERE teacher_id = ? AND date = ?').all(teacherId, dateStr);
 
-            if (existing) {
+            if (existing && existing.length > 0) {
+                const primaryId = existing[0].id;
+                // Si hubiera duplicados huérfanos del mismo día, eliminarlos
+                if (existing.length > 1) {
+                    db.prepare('DELETE FROM attendances WHERE teacher_id = ? AND date = ? AND id != ?').run(teacherId, dateStr, primaryId);
+                }
                 db.prepare(`
                     UPDATE attendances SET
                         status = ?, hours = ?, observations = ?,
@@ -104,7 +194,7 @@ class AttendanceService {
                     hours !== null ? Number(hours) : null,
                     observations ? observations.trim() : null,
                     username,
-                    existing.id
+                    primaryId
                 );
             } else {
                 db.prepare(`
@@ -217,7 +307,7 @@ class AttendanceService {
 
             return { success: true, message: 'Parte diario guardado exitosamente.' };
         } catch (error) {
-            db.exec('ROLLBACK');
+            try { db.exec('ROLLBACK'); } catch {}
             console.error('[AttendanceService] Error guardando lote:', error);
             return { success: false, message: `Error guardando lote: ${error.message}` };
         }
