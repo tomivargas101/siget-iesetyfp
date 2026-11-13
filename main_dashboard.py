@@ -193,8 +193,8 @@ class MainDashboardWindow(ctk.CTk):
                 ("dashboard", "Dashboard General", True),
                 ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Cátedras y Suplencias", True),
-                ("calendar", "Calendario de Docentes", True),
-                ("csv_import", "Carga Masiva CSV", True),
+                ("calendar", "Calendario", True),
+                ("csv_import", "Carga CSV", True),
                 ("reports", "Reportes y Planillas Excel", True),
                 ("config", "Configuración de BD", True),
             ]
@@ -203,7 +203,7 @@ class MainDashboardWindow(ctk.CTk):
                 ("dashboard", "Dashboard Operativo", True),
                 ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Consulta de Cátedras", True),
-                ("calendar", "Calendario de Docentes", True),
+                ("calendar", "Calendario", True),
             ]
 
         for key, text, allowed in nav_items:

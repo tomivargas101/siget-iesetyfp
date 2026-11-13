@@ -3607,14 +3607,18 @@ async function loadTeacherCalendar() {
                 desigList.innerHTML = '<div class="text-slate-400 italic py-2">No posee cátedras regulares asignadas actualmente.</div>';
             } else {
                 desigList.innerHTML = res.designations.map(d => `
-                    <div class="p-2.5 rounded-lg border border-slate-100 dark:border-zinc-700/60 bg-slate-50/60 dark:bg-zinc-800/40 flex items-center justify-between">
-                        <div>
-                            <div class="font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(d.subject_name)} <span class="font-mono text-[10px] text-slate-400">(${escapeHtml(d.subject_code || '')})</span></div>
-                            <div class="text-[11px] text-slate-500 dark:text-zinc-400">${escapeHtml(d.career_name || '')} • ${escapeHtml(d.day_of_week)} ${escapeHtml(d.start_time)} a ${escapeHtml(d.end_time)}</div>
+                    <div class="cal-card-item p-3.5 rounded-xl border border-slate-100 dark:border-zinc-700/60 bg-slate-50/70 dark:bg-zinc-800/50 hover:border-gold/40 transition-all flex items-center justify-between shadow-2xs">
+                        <div class="pr-3">
+                            <div class="font-bold text-slate-900 dark:text-zinc-100 text-xs">${escapeHtml(d.subject_name)} <span class="font-mono text-[10px] text-slate-400 font-normal">(${escapeHtml(d.subject_code || '')})</span></div>
+                            <div class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 flex flex-wrap items-center gap-1.5">
+                                <span>${escapeHtml(d.career_name || '')}</span>
+                                <span>•</span>
+                                <span class="font-medium text-slate-700 dark:text-zinc-300">${escapeHtml(d.day_of_week)} ${escapeHtml(d.start_time)} a ${escapeHtml(d.end_time)}</span>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">${d.hours_count} hs</span>
-                            <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(d.revista || 'Titular')}</div>
+                        <div class="text-right shrink-0">
+                            <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">${d.hours_count} hs</span>
+                            <div class="text-[10px] text-slate-400 font-medium mt-1">${escapeHtml(d.revista || 'Titular')}</div>
                         </div>
                     </div>
                 `).join('');
@@ -3630,23 +3634,24 @@ async function loadTeacherCalendar() {
             ];
 
             if (allSubs.length === 0) {
-                subList.innerHTML = '<div class="text-slate-400 italic py-2">No registra suplencias vigentes ni históricas.</div>';
+                subList.innerHTML = '<div class="text-slate-400 italic py-3 text-center">No registra suplencias vigentes ni históricas.</div>';
             } else {
                 subList.innerHTML = allSubs.map(s => `
-                    <div class="p-2.5 rounded-lg border border-slate-100 dark:border-zinc-700/60 bg-slate-50/60 dark:bg-zinc-800/40 flex items-center justify-between">
-                        <div>
-                            <div class="font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-2">
-                                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${s.rol.includes('Titular') ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">${s.rol}</span>
+                    <div class="cal-card-item p-3.5 rounded-xl border border-slate-100 dark:border-zinc-700/60 bg-slate-50/70 dark:bg-zinc-800/50 hover:border-purple-500/30 transition-all flex items-center justify-between shadow-2xs">
+                        <div class="pr-3">
+                            <div class="font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-2 text-xs">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold ${s.rol.includes('Titular') ? 'bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'}">${s.rol}</span>
                                 <span>${escapeHtml(s.subjectName || '')}</span>
                             </div>
-                            <div class="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                                ${s.suplenteName ? `Suplente: <strong>${escapeHtml(s.suplenteName)}</strong>` : `Titular: <strong>${escapeHtml(s.titularName)}</strong>`}
-                                • ${escapeHtml(s.reason || 'Sin motivo')}
+                            <div class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                                ${s.suplenteName ? `Suplente: <strong class="text-slate-700 dark:text-zinc-300">${escapeHtml(s.suplenteName)}</strong>` : `Titular: <strong class="text-slate-700 dark:text-zinc-300">${escapeHtml(s.titularName)}</strong>`}
+                                <span class="mx-1">•</span>
+                                <span class="italic text-slate-600 dark:text-zinc-400">${escapeHtml(s.reason || 'Sin motivo')}</span>
                             </div>
                         </div>
-                        <div class="text-right text-[10px] text-slate-400">
-                            <div>${escapeHtml(s.startDate)} al ${escapeHtml(s.endDate)}</div>
-                            <div class="font-mono text-slate-500 font-bold">${escapeHtml(s.resolution || 'Disp. Pendiente')}</div>
+                        <div class="text-right text-[10px] text-slate-400 shrink-0">
+                            <div class="font-medium text-slate-600 dark:text-zinc-400">${escapeHtml(s.startDate)} al ${escapeHtml(s.endDate)}</div>
+                            <div class="font-mono text-slate-500 dark:text-zinc-400 font-bold mt-1">${escapeHtml(s.resolution || 'Disp. Pendiente')}</div>
                         </div>
                     </div>
                 `).join('');
@@ -3656,19 +3661,19 @@ async function loadTeacherCalendar() {
         // 5. Tabla Cronológica de Novedades y Asistencias
         if (tbody) {
             if (!res.events || res.events.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400 italic">No se registraron asistencias ni novedades para este docente en el rango de fechas seleccionado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-xs text-slate-400 italic">No se registraron asistencias ni novedades para este docente en el rango de fechas seleccionado.</td></tr>`;
             } else {
                 tbody.innerHTML = res.events.map(ev => `
                     <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition border-b border-slate-100 dark:border-zinc-800 text-xs">
-                        <td class="py-2.5 px-3 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${ev.date}</td>
-                        <td class="py-2.5 px-3 text-center">
-                            <span class="px-2.5 py-0.5 rounded text-[10px] font-bold border ${ev.badgeClass}">
+                        <td class="py-3 px-4 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${ev.date}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2.5 py-1 rounded text-[10px] font-bold border ${ev.badgeClass}">
                                 ${ev.eventType} (${ev.status})
                             </span>
                         </td>
-                        <td class="py-2.5 px-3 text-center font-bold text-slate-600 dark:text-zinc-300">${ev.hours || 4} hs</td>
-                        <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-zinc-200">${escapeHtml(ev.subjectName || 'Planta General')}</td>
-                        <td class="py-2.5 px-3 text-slate-500 dark:text-zinc-400">${escapeHtml(ev.observations || '—')}</td>
+                        <td class="py-3 px-4 text-center font-bold text-slate-600 dark:text-zinc-300">${ev.hours || 4} hs</td>
+                        <td class="py-3 px-4 font-medium text-slate-800 dark:text-zinc-200">${escapeHtml(ev.subjectName || 'Planta General')}</td>
+                        <td class="py-3 px-4 text-slate-500 dark:text-zinc-400">${escapeHtml(ev.observations || '—')}</td>
                     </tr>
                 `).join('');
             }

@@ -479,7 +479,7 @@ class DashboardView(ctk.CTkScrollableFrame):
 
         btn_cal = ctk.CTkButton(
             btn_box,
-            text="Calendario de Docentes",
+            text="Calendario",
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=Theme.SECONDARY,
             hover_color=Theme.SECONDARY_HOVER,

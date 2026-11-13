@@ -75,10 +75,10 @@ class CalendarView(ctk.CTkFrame):
 
         # Contenedor de Ficha del Docente y Topes Estatutarios
         self.profile_frame = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)
-        self.profile_frame.pack(fill="x", padx=16, pady=6)
+        self.profile_frame.pack(fill="x", padx=16, pady=(6, 12))
 
         p_inner = ctk.CTkFrame(self.profile_frame, fg_color="transparent")
-        p_inner.pack(fill="x", padx=14, pady=12)
+        p_inner.pack(fill="x", padx=16, pady=14)
 
         top_info = ctk.CTkFrame(p_inner, fg_color="transparent")
         top_info.pack(fill="x")
@@ -157,7 +157,7 @@ class CalendarView(ctk.CTkFrame):
 
         # Historial de Novedades / Cronograma
         tbl_frame = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)
-        tbl_frame.pack(fill="both", expand=True, padx=16, pady=(8, 12))
+        tbl_frame.pack(fill="both", expand=True, padx=16, pady=(6, 16))
 
         lbl_tbl = ctk.CTkLabel(
             tbl_frame,
