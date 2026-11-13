@@ -196,9 +196,9 @@ async function runTests() {
         hoursCount: firstDesig.hoursCount || 4,
         cargo: 'Profesor Titular',
         revista: 'Titular',
-        dayOfWeek: 'Miércoles',
-        startTime: '18:30',
-        endTime: '21:30',
+        dayOfWeek: firstDesig.dayOfWeek || 'Lunes',
+        startTime: firstDesig.startTime || '08:00',
+        endTime: firstDesig.endTime || '10:00',
         resolutionNumber: 'Res. Mod. 2026/01'
     });
     assert(editDesigRes.success, `Modificación de designación debe ser exitosa: ${editDesigRes.message}`);
