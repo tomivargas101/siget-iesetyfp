@@ -3604,21 +3604,24 @@ async function loadTeacherCalendar() {
         const desigList = document.getElementById('cal-designations-list');
         if (desigList) {
             if (!res.designations || res.designations.length === 0) {
-                desigList.innerHTML = '<div class="text-slate-400 italic py-2">No posee cátedras regulares asignadas actualmente.</div>';
+                desigList.innerHTML = '<div class="text-gray-300 italic py-3 px-4 text-center bg-zinc-800/80 rounded-xl border border-zinc-700/60">No posee cátedras regulares asignadas actualmente.</div>';
             } else {
                 desigList.innerHTML = res.designations.map(d => `
-                    <div class="cal-card-item p-3.5 rounded-xl border border-slate-100 dark:border-zinc-700/60 bg-slate-50/70 dark:bg-zinc-800/50 hover:border-gold/40 transition-all flex items-center justify-between shadow-2xs">
+                    <div class="cal-card-item p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800 hover:bg-zinc-750 hover:border-gold/50 transition-all flex items-center justify-between shadow-xs">
                         <div class="pr-3">
-                            <div class="font-bold text-slate-900 dark:text-zinc-100 text-xs">${escapeHtml(d.subject_name)} <span class="font-mono text-[10px] text-slate-400 font-normal">(${escapeHtml(d.subject_code || '')})</span></div>
-                            <div class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 flex flex-wrap items-center gap-1.5">
-                                <span>${escapeHtml(d.career_name || '')}</span>
-                                <span>•</span>
-                                <span class="font-medium text-slate-700 dark:text-zinc-300">${escapeHtml(d.day_of_week)} ${escapeHtml(d.start_time)} a ${escapeHtml(d.end_time)}</span>
+                            <div class="font-bold text-gray-100 text-xs flex items-center space-x-1.5">
+                                <span>${escapeHtml(d.subject_name)}</span>
+                                <span class="font-mono text-[10px] text-amber-300 font-semibold">(${escapeHtml(d.subject_code || '')})</span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 mt-1.5 flex flex-wrap items-center gap-1.5">
+                                <span class="text-gray-300 font-medium">${escapeHtml(d.career_name || '')}</span>
+                                <span class="text-zinc-500">•</span>
+                                <span class="font-medium text-gray-200">${escapeHtml(d.day_of_week)} ${escapeHtml(d.start_time)} a ${escapeHtml(d.end_time)}</span>
                             </div>
                         </div>
                         <div class="text-right shrink-0">
-                            <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">${d.hours_count} hs</span>
-                            <div class="text-[10px] text-slate-400 font-medium mt-1">${escapeHtml(d.revista || 'Titular')}</div>
+                            <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">${d.hours_count} hs</span>
+                            <div class="text-[10px] text-gray-400 font-medium mt-1">${escapeHtml(d.revista || 'Titular')}</div>
                         </div>
                     </div>
                 `).join('');
@@ -3634,24 +3637,24 @@ async function loadTeacherCalendar() {
             ];
 
             if (allSubs.length === 0) {
-                subList.innerHTML = '<div class="text-slate-400 italic py-3 text-center">No registra suplencias vigentes ni históricas.</div>';
+                subList.innerHTML = '<div class="text-gray-300 italic py-3 px-4 text-center bg-zinc-800/80 rounded-xl border border-zinc-700/60">No registra suplencias vigentes ni históricas.</div>';
             } else {
                 subList.innerHTML = allSubs.map(s => `
-                    <div class="cal-card-item p-3.5 rounded-xl border border-slate-100 dark:border-zinc-700/60 bg-slate-50/70 dark:bg-zinc-800/50 hover:border-purple-500/30 transition-all flex items-center justify-between shadow-2xs">
+                    <div class="cal-card-item p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800 hover:bg-zinc-750 hover:border-purple-400/50 transition-all flex items-center justify-between shadow-xs">
                         <div class="pr-3">
-                            <div class="font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-2 text-xs">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold ${s.rol.includes('Titular') ? 'bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'}">${s.rol}</span>
-                                <span>${escapeHtml(s.subjectName || '')}</span>
+                            <div class="font-bold text-gray-100 flex items-center space-x-2 text-xs">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold ${s.rol.includes('Titular') ? 'bg-purple-900/60 text-purple-200 border border-purple-500/50' : 'bg-blue-900/60 text-blue-200 border border-blue-500/50'}">${s.rol}</span>
+                                <span class="text-gray-100 font-bold">${escapeHtml(s.subjectName || '')}</span>
                             </div>
-                            <div class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
-                                ${s.suplenteName ? `Suplente: <strong class="text-slate-700 dark:text-zinc-300">${escapeHtml(s.suplenteName)}</strong>` : `Titular: <strong class="text-slate-700 dark:text-zinc-300">${escapeHtml(s.titularName)}</strong>`}
-                                <span class="mx-1">•</span>
-                                <span class="italic text-slate-600 dark:text-zinc-400">${escapeHtml(s.reason || 'Sin motivo')}</span>
+                            <div class="text-[11px] text-gray-300 mt-1.5 leading-relaxed">
+                                ${s.suplenteName ? `<span class="text-gray-400">Suplente:</span> <strong class="text-gray-100 font-semibold">${escapeHtml(s.suplenteName)}</strong>` : `<span class="text-gray-400">Titular:</span> <strong class="text-gray-100 font-semibold">${escapeHtml(s.titularName)}</strong>`}
+                                <span class="mx-1 text-zinc-500">•</span>
+                                <span class="italic text-gray-300">${escapeHtml(s.reason || 'Sin motivo')}</span>
                             </div>
                         </div>
-                        <div class="text-right text-[10px] text-slate-400 shrink-0">
-                            <div class="font-medium text-slate-600 dark:text-zinc-400">${escapeHtml(s.startDate)} al ${escapeHtml(s.endDate)}</div>
-                            <div class="font-mono text-slate-500 dark:text-zinc-400 font-bold mt-1">${escapeHtml(s.resolution || 'Disp. Pendiente')}</div>
+                        <div class="text-right text-[10px] shrink-0">
+                            <div class="font-medium text-gray-300">${escapeHtml(s.startDate)} al ${escapeHtml(s.endDate)}</div>
+                            <div class="font-mono text-amber-300 font-bold mt-1">${escapeHtml(s.resolution || 'Disp. Pendiente')}</div>
                         </div>
                     </div>
                 `).join('');
