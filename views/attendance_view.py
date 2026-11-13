@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 from datetime import date, timedelta
 from models.attendance import AttendanceService
+from models.normative import NormativeClassifier
 from models.auth import CurrentSession
 from views.theme import Theme
 
@@ -95,6 +96,22 @@ class AttendanceView(ctk.CTkFrame):
             command=self._next_day
         )
         btn_next.pack(side="left", padx=4)
+
+        # Banner de Notificación de Calendario Escolar y Días Inhábiles (RF-10)
+        self.banner_calendar = ctk.CTkFrame(
+            self,
+            fg_color="#FEF3C7",
+            corner_radius=8,
+            border_width=1,
+            border_color="#F59E0B"
+        )
+        self.lbl_calendar_notice = ctk.CTkLabel(
+            self.banner_calendar,
+            text="",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#92400E"
+        )
+        self.lbl_calendar_notice.pack(side="left", padx=15, pady=8)
 
         # 2. Tarjetas de Resumen Diario (KPIs)
         self.kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -210,6 +227,17 @@ class AttendanceView(ctk.CTkFrame):
 
     def refresh(self):
         self.lbl_date.configure(text=self.current_date.strftime("%A %d/%m/%Y").capitalize())
+        
+        # Validación y visualización de Calendario Escolar (RF-10)
+        cal_info = NormativeClassifier.get_calendar_day_info(self.current_date)
+        if cal_info["is_non_working"]:
+            self.lbl_calendar_notice.configure(
+                text=f"📅 Calendario Escolar: {cal_info['badge']} — Jornada Inhábil Institucional"
+            )
+            self.banner_calendar.pack(fill="x", padx=5, pady=(0, 10), before=self.kpi_frame)
+        else:
+            self.banner_calendar.pack_forget()
+
         self.records = AttendanceService.get_daily_records(self.current_date)
         self._update_kpis()
         self._render_table()

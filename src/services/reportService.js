@@ -277,7 +277,7 @@ class ReportService {
         const currentUser = AuthService.getCurrentUser();
         AuditService.log(
             currentUser ? currentUser.id : null,
-            currentUser ? currentUser.username : 'RECTORIA',
+            currentUser ? currentUser.username : 'SECRETARIA',
             'GENERAR_REPORTE_EXCEL',
             `Generada planilla oficial ${fileName} (${listIL01.length} IL-01, ${listIL02.length} IL-02)`
         );

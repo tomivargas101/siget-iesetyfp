@@ -191,22 +191,12 @@ function setupEventListeners() {
     }
 
     // -------------------------------------------------------------
-    // Botones de Acceso Rápido Oficial (Rector, Secretaría, Bedelía)
+    // Botones de Acceso Rápido Oficial (Secretaría y Bedelía)
     // -------------------------------------------------------------
-    const btnDemoRector = document.getElementById('btn-demo-rector');
     const btnDemoSec = document.getElementById('btn-demo-secretaria');
     const btnDemoBedel = document.getElementById('btn-demo-bedel');
     const uInput = document.getElementById('login-username');
     const pInput = document.getElementById('login-password');
-
-    if (btnDemoRector && uInput && pInput) {
-        btnDemoRector.addEventListener('click', () => {
-            uInput.value = 'rector';
-            pInput.value = 'rector123';
-            const errorDiv = document.getElementById('login-error');
-            if (errorDiv) errorDiv.classList.add('hidden');
-        });
-    }
     if (btnDemoSec && uInput && pInput) {
         btnDemoSec.addEventListener('click', () => {
             uInput.value = 'secretaria';
@@ -487,18 +477,20 @@ function setupEventListeners() {
     }
 
     // -------------------------------------------------------------
-    // Alumnos e Inscripciones
+    // Calendario Institucional del Profesorado
     // -------------------------------------------------------------
-    const studentSearch = document.getElementById('student-search');
-    const studentFilterCareer = document.getElementById('student-filter-career');
-    if (studentSearch) studentSearch.addEventListener('input', debounce(loadStudents, 250));
-    if (studentFilterCareer) studentFilterCareer.addEventListener('change', loadStudents);
-
-    const btnNewStudent = document.getElementById('btn-new-student');
-    if (btnNewStudent) btnNewStudent.addEventListener('click', () => openStudentModal());
+    const btnLoadCal = document.getElementById('btn-load-calendar');
+    const calTeacherSelect = document.getElementById('calendar-teacher-select');
+    if (btnLoadCal) btnLoadCal.addEventListener('click', loadTeacherCalendar);
+    if (calTeacherSelect) calTeacherSelect.addEventListener('change', loadTeacherCalendar);
 
     // -------------------------------------------------------------
-    // Gestión de Usuarios (Rector)
+    // Carga Masiva CSV
+    // -------------------------------------------------------------
+    initCsvImportEvents();
+
+    // -------------------------------------------------------------
+    // Gestión de Usuarios (Secretaría)
     // -------------------------------------------------------------
     const btnNewUser = document.getElementById('btn-new-user');
     if (btnNewUser) btnNewUser.addEventListener('click', () => openNewUserModal());
@@ -665,7 +657,7 @@ function setupRegisterListeners() {
     const rectorHint = document.getElementById('register-rector-hint');
     if (roleSelect && rectorHint) {
         roleSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'RECTOR') {
+            if (e.target.value === 'SECRETARIA') {
                 rectorHint.classList.remove('hidden');
             } else {
                 rectorHint.classList.add('hidden');
@@ -762,7 +754,7 @@ function setupRegisterListeners() {
                                 loginPassInput.value = '';
                                 loginPassInput.focus();
                             }
-                            showToast('Cuenta de Rector creada exitosamente. Inicie sesión.', 'success');
+                            showToast('Cuenta de Secretaría creada exitosamente. Inicie sesión.', 'success');
                         };
                         initLucideIcons();
                     } else {
@@ -1005,10 +997,7 @@ function handleLoginSuccess(user) {
 
     if (nameElem) nameElem.textContent = user.fullName || user.full_name || user.username;
     if (roleElem) {
-        if (userRoleStr === 'rector') {
-            roleElem.textContent = 'RECTOR';
-            roleElem.className = 'px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-gold uppercase tracking-wider border border-gold/50';
-        } else if (userRoleStr === 'secretaria') {
+        if (userRoleStr === 'secretaria') {
             roleElem.textContent = 'SECRETARÍA';
             roleElem.className = 'px-2 py-0.5 text-[10px] font-bold rounded bg-purple-900 text-purple-200 uppercase tracking-wider border border-purple-400/40';
         } else {
@@ -1017,22 +1006,21 @@ function handleLoginSuccess(user) {
         }
     }
 
-    // Regla de Perfiles Institucionales (3 Roles Oficiales):
-    // 1. Rector: Control total institucional (incluye Gestión de Usuarios y Planillas Excel)
-    // 2. Secretaría: Gestión Académica integral (Alumnos, Docentes, Cátedras, Planillas Excel). Excluye Gestión de Usuarios.
-    // 3. Bedelía: Operativa de asistencias y alumnos. Excluye Gestión de Usuarios y Planillas Excel.
+    // Regla de Perfiles Institucionales (2 Roles Oficiales):
+    // 1. Secretaría: Gestión administrativa total (Docentes, Cátedras, Suplencias, Planillas Excel, Gestión de Usuarios, Carga Masiva CSV).
+    // 2. Bedelía: Operativa de asistencias, calendario y novedades. Excluye Gestión de Usuarios, Carga Masiva CSV y Planillas Excel.
     const navReports = document.getElementById('nav-btn-reports');
     const navUsers = document.getElementById('nav-btn-users');
+    const navCsv = document.getElementById('nav-btn-csv');
 
-    if (userRoleStr === 'rector') {
+    if (userRoleStr === 'secretaria') {
         if (navReports) navReports.classList.remove('hidden');
         if (navUsers) navUsers.classList.remove('hidden');
-    } else if (userRoleStr === 'secretaria') {
-        if (navReports) navReports.classList.remove('hidden');
-        if (navUsers) navUsers.classList.add('hidden');
+        if (navCsv) navCsv.classList.remove('hidden');
     } else {
         if (navReports) navReports.classList.add('hidden');
         if (navUsers) navUsers.classList.add('hidden');
+        if (navCsv) navCsv.classList.add('hidden');
     }
 
     // Reasegurar tema activo en el contenedor y vistas
@@ -1058,7 +1046,6 @@ async function loadInitialCatalogs() {
 
 function populateCareerDropdowns(selectedDesigCareerId = null) {
     const desigSel = document.getElementById('desig-filter-career');
-    const studentSel = document.getElementById('student-filter-career');
 
     const updateSelect = (sel, forcedVal) => {
         if (!sel) return;
@@ -1074,7 +1061,6 @@ function populateCareerDropdowns(selectedDesigCareerId = null) {
     };
 
     updateSelect(desigSel, selectedDesigCareerId);
-    updateSelect(studentSel, null);
 }
 
 async function reloadCareers(selectedCareerId = null) {
@@ -1126,7 +1112,8 @@ function navigateTo(viewName) {
         dashboard: 'Panel de Control y Métricas',
         teachers: 'Módulo de Docentes y Asistencias',
         designations: 'Gestión de Cátedras, Designaciones y Suplencias',
-        students: 'Gestión de Alumnos e Inscripciones',
+        calendar: 'Calendario Institucional del Profesorado',
+        'csv-import': 'Módulo de Carga Masiva por Archivos CSV',
         reports: 'Generación Oficial de Planillas Mensuales',
         users: 'Gestión de Usuarios y Accesos Institucionales'
     };
@@ -1152,8 +1139,11 @@ function navigateTo(viewName) {
                 loadSubstitutions();
             }
             break;
-        case 'students':
-            loadStudents();
+        case 'calendar':
+            initTeacherCalendar();
+            break;
+        case 'csv-import':
+            initCsvImport();
             break;
         case 'reports':
             previewMonthlyReport(true);
@@ -1314,7 +1304,6 @@ function openNewUserModal() {
                 <div>
                     <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Rol Institucional *</label>
                     <select id="modal-u-role" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-bold">
-                        <option value="RECTOR">Rector</option>
                         <option value="SECRETARIA">Secretaría</option>
                         <option value="BEDEL">Bedelía</option>
                     </select>
@@ -1432,7 +1421,6 @@ window.editUserModal = async function(id) {
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Rol *</label>
                         <select id="modal-edit-role" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-bold">
-                            <option value="RECTOR" ${user.role === 'RECTOR' ? 'selected' : ''}>Rector</option>
                             <option value="SECRETARIA" ${(user.role === 'SECRETARIA' || user.role === 'SECRETARIO') ? 'selected' : ''}>Secretaría</option>
                             <option value="BEDEL" ${user.role === 'BEDEL' ? 'selected' : ''}>Bedelía</option>
                         </select>
@@ -1508,7 +1496,7 @@ window.promptResetPassword = function(userId, username) {
 
         <form id="reset-pass-form" class="space-y-3">
             <p class="text-xs text-slate-500">
-                Como Rector, puede establecer de manera inmediata una nueva contraseña para el usuario <strong>${escapeHtml(username)}</strong>.
+                Como Secretaría, puede establecer de manera inmediata una nueva contraseña para el usuario <strong>${escapeHtml(username)}</strong>.
             </p>
 
             <div>
@@ -1605,11 +1593,11 @@ async function loadDashboard() {
 
                 <div class="kpi-card flex items-center justify-between">
                     <div>
-                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Alumnos Matriculados</div>
-                        <div class="text-2xl font-black text-slate-900 mt-1">${stats.totalStudents || 0}</div>
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Horas Semanales</div>
+                        <div class="text-2xl font-black text-slate-900 mt-1">${stats.totalWeeklyHours || 0} hs</div>
                     </div>
                     <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                        <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                        <i data-lucide="clock" class="w-5 h-5"></i>
                     </div>
                 </div>
 
@@ -2126,6 +2114,25 @@ async function loadDailyAttendance() {
         const dateBadge = document.getElementById('att-date-badge');
         if (dateBadge) {
             dateBadge.textContent = formatFriendlyDate(AppState.attendanceDate);
+        }
+
+        // Validación y visualización del Calendario Escolar / Días Inhábiles (RF-10)
+        try {
+            if (window.sigetApi && window.sigetApi.normative && window.sigetApi.normative.getCalendarDayInfo) {
+                const calInfo = await window.sigetApi.normative.getCalendarDayInfo(AppState.attendanceDate);
+                const noticeBox = document.getElementById('att-calendar-notice');
+                const noticeText = document.getElementById('att-calendar-notice-text');
+                if (noticeBox && noticeText) {
+                    if (calInfo && calInfo.isNonWorking) {
+                        noticeText.textContent = `${calInfo.reason} — ${calInfo.type} (Jornada Inhábil Escolar)`;
+                        noticeBox.classList.remove('hidden');
+                    } else {
+                        noticeBox.classList.add('hidden');
+                    }
+                }
+            }
+        } catch (calErr) {
+            console.warn('Error verificando calendario escolar:', calErr);
         }
 
         const records = await window.sigetApi.attendance.getDaily(AppState.attendanceDate);
@@ -3465,236 +3472,688 @@ window.openSubstitutionModal = function(designationId) {
 };
 
 // ============================================================================
-// 12. MÓDULO: ALUMNOS E INSCRIPCIONES
+// 12. MÓDULO: CALENDARIO INSTITUCIONAL DEL PROFESORADO (LICENCIAS Y SUPLENCIAS)
 // ============================================================================
-async function loadStudents() {
-    const tbody = document.getElementById('tbody-students');
-    if (!tbody) return;
+AppState.calendarTimeline = null;
 
-    const searchInput = document.getElementById('student-search');
-    const careerFilter = document.getElementById('student-filter-career');
-
-    const searchTerm = searchInput ? searchInput.value.trim() : '';
-    const careerId = careerFilter ? parseInt(careerFilter.value) || 0 : 0;
+async function initTeacherCalendar() {
+    const sel = document.getElementById('calendar-teacher-select');
+    if (!sel) return;
 
     try {
-        const students = await window.sigetApi.students.getAll({ searchTerm, careerId });
+        if (!AppState.teachersCache || AppState.teachersCache.length === 0) {
+            AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
+        }
 
-        if (students.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 italic">No se encontraron alumnos con ese criterio.</td></tr>`;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Seleccione un Docente...</option>';
+        AppState.teachersCache.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = `${t.lastName}, ${t.firstName} (DNI: ${t.dni}) - ${t.revista}`;
+            sel.appendChild(opt);
+        });
+
+        if (currentVal) {
+            sel.value = currentVal;
+        } else if (AppState.teachersCache.length > 0) {
+            sel.value = AppState.teachersCache[0].id;
+        }
+
+        // Configurar fechas iniciales (mes actual)
+        const startInput = document.getElementById('calendar-start-date');
+        const endInput = document.getElementById('calendar-end-date');
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+
+        if (startInput && !startInput.value) startInput.value = `${y}-${m}-01`;
+        if (endInput && !endInput.value) endInput.value = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+
+        if (sel.value) {
+            await loadTeacherCalendar();
+        }
+    } catch (err) {
+        console.error('Error al inicializar calendario docente:', err);
+    }
+}
+
+async function loadTeacherCalendar() {
+    const sel = document.getElementById('calendar-teacher-select');
+    const startInput = document.getElementById('calendar-start-date');
+    const endInput = document.getElementById('calendar-end-date');
+    const headerPanel = document.getElementById('calendar-teacher-header');
+    const detailsPanel = document.getElementById('calendar-details-panel');
+    const tbody = document.getElementById('tbody-calendar-events');
+    const countBadge = document.getElementById('cal-events-count');
+
+    if (!sel || !sel.value) {
+        if (headerPanel) headerPanel.classList.add('hidden');
+        if (detailsPanel) detailsPanel.classList.add('hidden');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400 italic">Seleccione un docente institucional y presione Consultar.</td></tr>`;
+        }
+        return;
+    }
+
+    const teacherId = parseInt(sel.value);
+    const startDate = startInput ? startInput.value : null;
+    const endDate = endInput ? endInput.value : null;
+
+    try {
+        const res = await window.sigetApi.calendar.getTeacherTimeline({ teacherId, startDate, endDate });
+        if (!res || !res.success) {
+            showToast((res && res.message) ? res.message : 'Error al obtener datos del docente.', 'error');
             return;
         }
 
-        tbody.innerHTML = students.map(s => {
-            const statusBadge = s.isActive ? 
-                `<span class="badge-status bg-emerald-50 text-emerald-700 border-emerald-200">Regular</span>` : 
-                `<span class="badge-status bg-slate-100 text-slate-500 border-slate-300">Pasivo</span>`;
+        AppState.calendarTimeline = res;
+        const t = res.teacher;
+        const m = res.annualMetrics;
 
-            return `
-                <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-xs">
-                    <td class="py-2.5 px-3 text-center font-mono font-bold text-slate-600">${escapeHtml(s.legajo || 'S/L')}</td>
-                    <td class="py-2.5 px-3">
-                        <div class="font-bold text-slate-900">${escapeHtml(s.fullName || `${s.lastName}, ${s.firstName}`)}</div>
-                        <div class="text-[11px] text-slate-400">${escapeHtml(s.email || '')}</div>
-                    </td>
-                    <td class="py-2.5 px-3 text-center font-mono font-medium text-slate-700">${escapeHtml(s.dni || '')}</td>
-                    <td class="py-2.5 px-3">
-                        <div class="font-semibold text-slate-800">${escapeHtml(s.careerName || 'Sin Carrera')}</div>
-                        <div class="text-[11px] text-slate-400">${escapeHtml(s.careerCode || '')}</div>
-                    </td>
-                    <td class="py-2.5 px-3 text-center font-bold text-slate-600">${s.yearEnrolled || 2026}</td>
-                    <td class="py-2.5 px-3 text-center">${statusBadge}</td>
-                    <td class="py-2.5 px-3 text-center">
-                        <div class="flex items-center justify-center space-x-1">
-                            <button onclick="editStudent(${s.id})" title="Editar Alumno" class="p-1 rounded text-slate-500 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-zinc-800">
-                                <i data-lucide="edit-3" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="toggleStudentActive(${s.id})" title="${s.isActive ? 'Dar de baja (Pasivo)' : 'Reactivar (Regular)'}" class="p-1 rounded text-slate-500 hover:text-${s.isActive ? 'amber' : 'emerald'}-600 hover:bg-slate-100 dark:hover:bg-zinc-800">
-                                <i data-lucide="${s.isActive ? 'user-x' : 'user-check'}" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="deleteStudent(${s.id})" title="Eliminar registro de alumno" class="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+        // 1. Cabecera y Carga Horaria
+        if (headerPanel) headerPanel.classList.remove('hidden');
+        if (detailsPanel) detailsPanel.classList.remove('hidden');
+
+        document.getElementById('cal-docente-name').textContent = t.fullName;
+        document.getElementById('cal-docente-dni').textContent = t.dni;
+        document.getElementById('cal-docente-legajo').textContent = t.legajo || 'S/L';
+        document.getElementById('cal-docente-revista').textContent = t.revista || 'Titular';
+
+        const availBadge = document.getElementById('cal-avail-badge');
+        if (availBadge) {
+            availBadge.textContent = t.availabilityStatus;
+            availBadge.className = `px-2 py-0.5 rounded text-[10px] font-black border ${t.availabilityBadge}`;
+        }
+
+        const hoursPercent = Math.min(100, Math.round((t.activeHours / 30) * 100));
+        document.getElementById('cal-hours-text').textContent = `${t.activeHours} / 30 hs (${t.availableHours} hs disponibles)`;
+        const hoursBar = document.getElementById('cal-hours-bar');
+        if (hoursBar) {
+            hoursBar.style.width = `${hoursPercent}%`;
+            hoursBar.className = t.activeHours >= 30 ? 'h-full bg-rose-500 rounded-full' : (t.activeHours >= 24 ? 'h-full bg-amber-500 rounded-full' : 'h-full bg-gold rounded-full');
+        }
+
+        // 2. Límites Estatutarios Anuales
+        // Inasistencias
+        document.getElementById('cal-stat-i-text').textContent = `${m.inasistencias.count} / ${m.inasistencias.limit}`;
+        const iBar = document.getElementById('cal-stat-i-bar');
+        if (iBar) {
+            iBar.style.width = `${m.inasistencias.percentage}%`;
+            iBar.className = m.inasistencias.isDanger ? 'h-full bg-rose-600 rounded-full' : (m.inasistencias.isWarning ? 'h-full bg-amber-500 rounded-full' : 'h-full bg-emerald-500 rounded-full');
+        }
+
+        // Permisos Art. 115
+        document.getElementById('cal-stat-p-text').textContent = `${m.permisos.count} / ${m.permisos.limit}`;
+        const pBar = document.getElementById('cal-stat-p-bar');
+        if (pBar) {
+            pBar.style.width = `${m.permisos.percentage}%`;
+            pBar.className = m.permisos.isDanger ? 'h-full bg-rose-600 rounded-full' : (m.permisos.isWarning ? 'h-full bg-amber-500 rounded-full' : 'h-full bg-amber-500 rounded-full');
+        }
+
+        // Licencias Médicas
+        document.getElementById('cal-stat-lic-text').textContent = `${m.licenciasMedicas.count} / ${m.licenciasMedicas.limit} días`;
+        const licBar = document.getElementById('cal-stat-lic-bar');
+        if (licBar) {
+            licBar.style.width = `${m.licenciasMedicas.percentage}%`;
+            licBar.className = m.licenciasMedicas.isDanger ? 'h-full bg-rose-600 rounded-full' : (m.licenciasMedicas.isWarning ? 'h-full bg-amber-500 rounded-full' : 'h-full bg-purple-500 rounded-full');
+        }
+
+        // 3. Cátedras Asignadas
+        const desigList = document.getElementById('cal-designations-list');
+        if (desigList) {
+            if (!res.designations || res.designations.length === 0) {
+                desigList.innerHTML = '<div class="text-gray-300 italic py-3 px-4 text-center bg-zinc-800/80 rounded-xl border border-zinc-700/60">No posee cátedras regulares asignadas actualmente.</div>';
+            } else {
+                desigList.innerHTML = res.designations.map(d => `
+                    <div class="cal-card-item p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800 hover:bg-zinc-750 hover:border-gold/50 transition-all flex items-center justify-between shadow-xs">
+                        <div class="pr-3">
+                            <div class="font-bold text-gray-100 text-xs flex items-center space-x-1.5">
+                                <span>${escapeHtml(d.subject_name)}</span>
+                                <span class="font-mono text-[10px] text-amber-300 font-semibold">(${escapeHtml(d.subject_code || '')})</span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 mt-1.5 flex flex-wrap items-center gap-1.5">
+                                <span class="text-gray-300 font-medium">${escapeHtml(d.career_name || '')}</span>
+                                <span class="text-zinc-500">•</span>
+                                <span class="font-medium text-gray-200">${escapeHtml(d.day_of_week)} ${escapeHtml(d.start_time)} a ${escapeHtml(d.end_time)}</span>
+                            </div>
                         </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+                        <div class="text-right shrink-0">
+                            <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">${d.hours_count} hs</span>
+                            <div class="text-[10px] text-gray-400 font-medium mt-1">${escapeHtml(d.revista || 'Titular')}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // 4. Suplencias Activas
+        const subList = document.getElementById('cal-substitutions-list');
+        if (subList) {
+            const allSubs = [
+                ...(res.substitutions.asTitular || []),
+                ...(res.substitutions.asSuplente || [])
+            ];
+
+            if (allSubs.length === 0) {
+                subList.innerHTML = '<div class="text-gray-300 italic py-3 px-4 text-center bg-zinc-800/80 rounded-xl border border-zinc-700/60">No registra suplencias vigentes ni históricas.</div>';
+            } else {
+                subList.innerHTML = allSubs.map(s => `
+                    <div class="cal-card-item p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800 hover:bg-zinc-750 hover:border-purple-400/50 transition-all flex items-center justify-between shadow-xs">
+                        <div class="pr-3">
+                            <div class="font-bold text-gray-100 flex items-center space-x-2 text-xs">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold ${s.rol.includes('Titular') ? 'bg-purple-900/60 text-purple-200 border border-purple-500/50' : 'bg-blue-900/60 text-blue-200 border border-blue-500/50'}">${s.rol}</span>
+                                <span class="text-gray-100 font-bold">${escapeHtml(s.subjectName || '')}</span>
+                            </div>
+                            <div class="text-[11px] text-gray-300 mt-1.5 leading-relaxed">
+                                ${s.suplenteName ? `<span class="text-gray-400">Suplente:</span> <strong class="text-gray-100 font-semibold">${escapeHtml(s.suplenteName)}</strong>` : `<span class="text-gray-400">Titular:</span> <strong class="text-gray-100 font-semibold">${escapeHtml(s.titularName)}</strong>`}
+                                <span class="mx-1 text-zinc-500">•</span>
+                                <span class="italic text-gray-300">${escapeHtml(s.reason || 'Sin motivo')}</span>
+                            </div>
+                        </div>
+                        <div class="text-right text-[10px] shrink-0">
+                            <div class="font-medium text-gray-300">${escapeHtml(s.startDate)} al ${escapeHtml(s.endDate)}</div>
+                            <div class="font-mono text-amber-300 font-bold mt-1">${escapeHtml(s.resolution || 'Disp. Pendiente')}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // 5. Tabla Cronológica de Novedades y Asistencias
+        if (tbody) {
+            if (!res.events || res.events.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-xs text-slate-400 italic">No se registraron asistencias ni novedades para este docente en el rango de fechas seleccionado.</td></tr>`;
+            } else {
+                tbody.innerHTML = res.events.map(ev => `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition border-b border-slate-100 dark:border-zinc-800 text-xs">
+                        <td class="py-3 px-4 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${ev.date}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2.5 py-1 rounded text-[10px] font-bold border ${ev.badgeClass}">
+                                ${ev.eventType} (${ev.status})
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-center font-bold text-slate-600 dark:text-zinc-300">${ev.hours || 4} hs</td>
+                        <td class="py-3 px-4 font-medium text-slate-800 dark:text-zinc-200">${escapeHtml(ev.subjectName || 'Planta General')}</td>
+                        <td class="py-3 px-4 text-slate-500 dark:text-zinc-400">${escapeHtml(ev.observations || '—')}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        if (countBadge) {
+            countBadge.textContent = `${(res.events || []).length} registros`;
+        }
 
         initLucideIcons();
     } catch (err) {
-        console.error('Error al cargar alumnos:', err);
+        console.error('Error al cargar calendario de docente:', err);
+        showToast('Error al consultar el calendario docente: ' + err.message, 'error');
     }
 }
+window.initTeacherCalendar = initTeacherCalendar;
+window.loadTeacherCalendar = loadTeacherCalendar;
 
-window.toggleStudentActive = async function(id) {
-    try {
-        const res = await window.sigetApi.students.toggleActive(id);
-        if (res.success) {
-            showToast(`Estado del alumno actualizado.`, 'success');
-            loadStudents();
-        } else {
-            showToast(res.message || 'No se pudo actualizar.', 'error');
-        }
-    } catch (err) {
-        showToast('Error al modificar estado del alumno.', 'error');
-    }
-};
+// ============================================================================
+// 12.B MÓDULO: IMPORTACIÓN MASIVA UNIFICADA DE ARCHIVOS
+// ============================================================================
+AppState.csvExplicitMode = 'auto'; // 'auto' | 'personnel' | 'attendance'
+AppState.csvDetectedType = 'personnel';
+AppState.csvLoadedFile = null;
+AppState.csvText = '';
+AppState.csvPreviewData = null;
 
-window.editStudent = async function(id) {
-    try {
-        const student = await window.sigetApi.students.getById(id);
-        if (student) {
-            openStudentModal(student);
-        } else {
-            showToast('No se encontró el alumno seleccionado.', 'error');
-        }
-    } catch (err) {
-        showToast('Error al recuperar datos del alumno: ' + err.message, 'error');
-    }
-};
+function initCsvImport() {
+    initLucideIcons();
+}
 
-window.deleteStudent = async function(id) {
-    if (!confirm('¿Está seguro de que desea eliminar permanentemente este registro de alumno? Esta acción no se puede deshacer.')) {
-        return;
-    }
-    try {
-        const res = await window.sigetApi.students.delete(id);
-        if (res && res.success) {
-            showToast(res.message, 'success');
-            loadStudents();
-        } else {
-            showToast((res && res.message) ? res.message : 'No se pudo eliminar el alumno.', 'error');
-        }
-    } catch (err) {
-        showToast('Error al eliminar alumno: ' + err.message, 'error');
-    }
-};
+function initCsvImportEvents() {
+    const dropzone = document.getElementById('csv-dropzone');
+    const fileInput = document.getElementById('csv-file-input');
+    const btnClear = document.getElementById('btn-csv-clear');
+    const btnPreview = document.getElementById('btn-csv-preview');
+    const btnCommit = document.getElementById('btn-csv-commit');
 
-function openStudentModal(studentToEdit = null) {
-    const isEdit = !!studentToEdit;
-    const title = isEdit ? 'Modificar Alumno Institucional' : 'Nuevo Alumno Institucional';
-    const submitBtnText = isEdit ? 'Actualizar Alumno' : 'Matricular Alumno';
+    const btnAuto = document.getElementById('btn-mode-auto');
+    const btnPersonnel = document.getElementById('btn-mode-personnel');
+    const btnAttendance = document.getElementById('btn-mode-attendance');
 
-    const modalHtml = `
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <h3 class="text-sm font-bold text-slate-900">${title}</h3>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700">✕</button>
-        </div>
+    if (btnAuto) btnAuto.addEventListener('click', () => setCsvExplicitMode('auto'));
+    if (btnPersonnel) btnPersonnel.addEventListener('click', () => setCsvExplicitMode('personnel'));
+    if (btnAttendance) btnAttendance.addEventListener('click', () => setCsvExplicitMode('attendance'));
 
-        <form id="student-form" class="space-y-3">
-            <input type="hidden" id="modal-student-id" value="${isEdit ? studentToEdit.id : ''}">
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', () => fileInput.click());
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">DNI (como texto) *</label>
-                    <input type="text" id="modal-student-dni" required value="${isEdit ? escapeHtml(studentToEdit.dni) : ''}"
-                        placeholder="Ej. 42123456" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">N° de Legajo</label>
-                    <input type="text" id="modal-student-legajo" value="${isEdit ? escapeHtml(studentToEdit.legajo || '') : ''}"
-                        placeholder="Ej. A-2026-042" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Apellido(s) *</label>
-                    <input type="text" id="modal-student-lastname" required value="${isEdit ? escapeHtml(studentToEdit.lastName || '') : ''}"
-                        placeholder="Ej. GÓMEZ" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre(s) *</label>
-                    <input type="text" id="modal-student-firstname" required value="${isEdit ? escapeHtml(studentToEdit.firstName || '') : ''}"
-                        placeholder="Ej. María Elena" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Carrera de Matriculación *</label>
-                <select id="modal-student-career" required class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                    <option value="">Seleccione una carrera...</option>
-                    ${AppState.careers.map(c => `<option value="${c.id}" ${isEdit && Number(studentToEdit.careerId) === Number(c.id) ? 'selected' : ''}>${escapeHtml(c.name)} (${c.code})</option>`).join('')}
-                </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Año de Ingreso / Cohorte</label>
-                    <input type="number" id="modal-student-year-enrolled" value="${isEdit ? (studentToEdit.yearEnrolled || 2026) : 2026}" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">CUIL</label>
-                    <input type="text" id="modal-student-cuil" value="${isEdit ? escapeHtml(studentToEdit.cuil || '') : ''}"
-                        placeholder="27-xxxxxxxx-x" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Correo Electrónico</label>
-                    <input type="email" id="modal-student-email" value="${isEdit ? escapeHtml(studentToEdit.email || '') : ''}"
-                        placeholder="alumno@gmail.com" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Teléfono</label>
-                    <input type="text" id="modal-student-phone" value="${isEdit ? escapeHtml(studentToEdit.phone || '') : ''}"
-                        placeholder="+54 383 4..." class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-            </div>
-
-            <div id="modal-student-error" class="hidden p-2 rounded bg-red-50 text-red-700 text-xs"></div>
-
-            <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
-                <button type="submit" class="btn-gold px-4 py-2 text-xs font-bold shadow-sm">${submitBtnText}</button>
-            </div>
-        </form>
-    `;
-
-    openModal(modalHtml, () => {
-        const form = document.getElementById('student-form');
-        form.addEventListener('submit', async (e) => {
+        dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            const errDiv = document.getElementById('modal-student-error');
-            errDiv.classList.add('hidden');
+            e.stopPropagation();
+            dropzone.classList.add('border-gold', 'bg-gold/5');
+        });
 
-            const payload = {
-                dni: document.getElementById('modal-student-dni').value.trim(),
-                lastName: document.getElementById('modal-student-lastname').value.trim(),
-                firstName: document.getElementById('modal-student-firstname').value.trim(),
-                legajo: document.getElementById('modal-student-legajo').value.trim(),
-                careerId: parseInt(document.getElementById('modal-student-career').value),
-                yearEnrolled: parseInt(document.getElementById('modal-student-year-enrolled').value),
-                cuil: document.getElementById('modal-student-cuil').value.trim(),
-                email: document.getElementById('modal-student-email').value.trim(),
-                phone: document.getElementById('modal-student-phone').value.trim()
-            };
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-gold', 'bg-gold/5');
+        });
 
-            const hiddenId = document.getElementById('modal-student-id').value;
-            if (hiddenId) {
-                payload.id = parseInt(hiddenId);
-            }
-
-            try {
-                const res = await window.sigetApi.students.save(payload);
-                if (res.success) {
-                    showToast(isEdit ? 'Alumno actualizado con éxito.' : 'Alumno registrado con éxito.', 'success');
-                    closeModal();
-                    loadStudents();
-                } else {
-                    errDiv.textContent = res.message || 'Error al guardar alumno.';
-                    errDiv.classList.remove('hidden');
-                }
-            } catch (err) {
-                errDiv.textContent = 'Error de comunicación al guardar.';
-                errDiv.classList.remove('hidden');
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-gold', 'bg-gold/5');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFileSelected(e.dataTransfer.files[0]);
             }
         });
-    });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelected(e.target.files[0]);
+            }
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', clearCsvImportState);
+    }
+
+    if (btnPreview) {
+        btnPreview.addEventListener('click', handleCsvPreview);
+    }
+
+    if (btnCommit) {
+        btnCommit.addEventListener('click', handleCsvCommit);
+    }
 }
-window.openStudentModal = openStudentModal;
+
+function setCsvExplicitMode(mode) {
+    AppState.csvExplicitMode = mode;
+    const btnAuto = document.getElementById('btn-mode-auto');
+    const btnPersonnel = document.getElementById('btn-mode-personnel');
+    const btnAttendance = document.getElementById('btn-mode-attendance');
+    const optPersonnel = document.getElementById('csv-options-personnel');
+
+    const activeClasses = 'px-3 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs transition';
+    const inactiveClasses = 'px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition';
+
+    if (btnAuto) btnAuto.className = mode === 'auto' ? activeClasses : inactiveClasses;
+    if (btnPersonnel) btnPersonnel.className = mode === 'personnel' ? activeClasses : inactiveClasses;
+    if (btnAttendance) btnAttendance.className = mode === 'attendance' ? activeClasses : inactiveClasses;
+
+    if (optPersonnel) {
+        if (mode === 'attendance') {
+            optPersonnel.classList.add('hidden');
+        } else {
+            optPersonnel.classList.remove('hidden');
+        }
+    }
+
+    if (AppState.csvLoadedFile) {
+        handleFileSelected(AppState.csvLoadedFile);
+    }
+}
+
+async function handleFileSelected(file) {
+    if (!file) return;
+
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const validExts = ['csv', 'txt', 'xlsx', 'xls', 'docx', 'doc'];
+    if (!validExts.includes(ext)) {
+        showToast(`Formato de archivo .${ext} no admitido. Formatos válidos: .xlsx, .xls, .docx, .doc, .csv, .txt`, 'error');
+        return;
+    }
+
+    showToast(`Cargando archivo "${file.name}"...`, 'info');
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const dataUrl = e.target.result;
+            const base64 = dataUrl.split(',')[1];
+
+            const res = await window.sigetApi.csv.parseUniversalFile({
+                fileBufferBase64: base64,
+                fileName: file.name,
+                explicitType: AppState.csvExplicitMode
+            });
+
+            if (!res || !res.success) {
+                showToast(res && res.message ? res.message : 'Error al procesar el archivo.', 'error');
+                return;
+            }
+
+            AppState.csvLoadedFile = file;
+            AppState.csvText = res.csvText || '';
+            AppState.csvDetectedType = res.detectedType || 'personnel';
+            AppState.csvPreviewData = null;
+
+            updateFileLoadedCard(res);
+            showToast(res.message || `Archivo "${file.name}" cargado exitosamente.`, 'success');
+
+            // Previsualización y validación inmediata
+            await handleCsvPreview();
+        } catch (err) {
+            console.error('Error procesando archivo:', err);
+            showToast('Error procesando archivo: ' + err.message, 'error');
+        }
+    };
+    reader.onerror = () => {
+        showToast('No se pudo leer el archivo seleccionado.', 'error');
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateFileLoadedCard(data) {
+    const dropzone = document.getElementById('csv-dropzone');
+    const loadedCard = document.getElementById('csv-file-loaded-card');
+    const filenameElem = document.getElementById('csv-loaded-filename');
+    const badgeElem = document.getElementById('csv-loaded-badge');
+    const sizeElem = document.getElementById('csv-loaded-size');
+    const typeTextElem = document.getElementById('csv-loaded-type-text');
+    const sheetElem = document.getElementById('csv-loaded-sheet');
+    const optPersonnel = document.getElementById('csv-options-personnel');
+    const fileIcon = document.getElementById('csv-file-icon');
+
+    if (dropzone) dropzone.classList.add('hidden');
+    if (loadedCard) loadedCard.classList.remove('hidden');
+
+    if (filenameElem) filenameElem.textContent = data.fileName || 'Archivo cargado';
+    if (badgeElem) badgeElem.textContent = data.fileExt || 'DOC';
+
+    const sizeKb = Math.round((data.fileSize || 0) / 1024);
+    if (sizeElem) sizeElem.textContent = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+    const typeLabel = data.detectedType === 'attendance' ? 'Asistencias y Novedades' : 'Planta Funcional';
+    if (typeTextElem) typeTextElem.textContent = `Tipo: ${typeLabel} (${data.totalRows} filas)`;
+
+    if (sheetElem) {
+        if (data.sheetName) {
+            sheetElem.textContent = `• Hoja: "${data.sheetName}"`;
+            sheetElem.classList.remove('hidden');
+        } else {
+            sheetElem.classList.add('hidden');
+        }
+    }
+
+    if (optPersonnel) {
+        if (data.detectedType === 'personnel') {
+            optPersonnel.classList.remove('hidden');
+        } else {
+            optPersonnel.classList.add('hidden');
+        }
+    }
+
+    if (fileIcon) {
+        const ext = (data.fileExt || '').toLowerCase();
+        if (ext.includes('xls')) {
+            fileIcon.className = 'w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-300 dark:border-emerald-800';
+            fileIcon.innerHTML = '<i data-lucide="file-spreadsheet" class="w-5 h-5"></i>';
+        } else if (ext.includes('doc')) {
+            fileIcon.className = 'w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-300 dark:border-blue-800';
+            fileIcon.innerHTML = '<i data-lucide="file-text" class="w-5 h-5"></i>';
+        } else {
+            fileIcon.className = 'w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-300 dark:border-cyan-800';
+            fileIcon.innerHTML = '<i data-lucide="file-code" class="w-5 h-5"></i>';
+        }
+    }
+
+    const modeBadge = document.getElementById('csv-mode-badge');
+    const modeBadgeText = document.getElementById('csv-mode-badge-text');
+    if (modeBadge && modeBadgeText) {
+        modeBadge.classList.remove('hidden');
+        modeBadge.classList.add('flex');
+        modeBadgeText.textContent = `Detectado: ${typeLabel}`;
+    }
+
+    initLucideIcons();
+}
+
+function clearCsvImportState() {
+    AppState.csvLoadedFile = null;
+    AppState.csvText = '';
+    AppState.csvPreviewData = null;
+    AppState.csvDetectedType = 'personnel';
+
+    const fileInput = document.getElementById('csv-file-input');
+    if (fileInput) fileInput.value = '';
+
+    const dropzone = document.getElementById('csv-dropzone');
+    const loadedCard = document.getElementById('csv-file-loaded-card');
+    const previewPanel = document.getElementById('csv-preview-panel');
+    const errorsBox = document.getElementById('csv-errors-box');
+    const errorsList = document.getElementById('csv-errors-list');
+    const modeBadge = document.getElementById('csv-mode-badge');
+
+    if (dropzone) dropzone.classList.remove('hidden');
+    if (loadedCard) loadedCard.classList.add('hidden');
+    if (previewPanel) previewPanel.classList.add('hidden');
+    if (errorsBox) errorsBox.classList.add('hidden');
+    if (errorsList) errorsList.innerHTML = '';
+    if (modeBadge) {
+        modeBadge.classList.add('hidden');
+        modeBadge.classList.remove('flex');
+    }
+
+    const statTotal = document.getElementById('csv-stat-total');
+    const statValid = document.getElementById('csv-stat-valid');
+    const statInvalid = document.getElementById('csv-stat-invalid');
+    const statExisting = document.getElementById('csv-stat-existing');
+    if (statTotal) statTotal.textContent = '0';
+    if (statValid) statValid.textContent = '0';
+    if (statInvalid) statInvalid.textContent = '0';
+    if (statExisting) statExisting.textContent = '0';
+
+    const thead = document.getElementById('thead-csv-preview');
+    const tbody = document.getElementById('tbody-csv-preview');
+    if (thead) thead.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+
+    showToast('Archivo descartado. Puede cargar uno nuevo.', 'info');
+    initLucideIcons();
+}
+
+async function handleCsvPreview() {
+    if (!AppState.csvText) {
+        showToast('Por favor cargue un archivo antes de previsualizar y validar.', 'warning');
+        return;
+    }
+
+    const mode = (AppState.csvExplicitMode && AppState.csvExplicitMode !== 'auto')
+        ? AppState.csvExplicitMode
+        : (AppState.csvDetectedType || 'personnel');
+
+    const btnPreview = document.getElementById('btn-csv-preview');
+    if (btnPreview) {
+        btnPreview.disabled = true;
+        btnPreview.innerHTML = `<span>Validando registros...</span>`;
+    }
+
+    try {
+        let res;
+        if (mode === 'personnel') {
+            res = await window.sigetApi.csv.previewPersonnel(AppState.csvText);
+        } else {
+            res = await window.sigetApi.csv.previewAttendance(AppState.csvText);
+        }
+
+        if (btnPreview) {
+            btnPreview.disabled = false;
+            btnPreview.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i><span>Previsualizar y Validar Datos</span>`;
+        }
+
+        if (!res || !res.success) {
+            showToast((res && res.message) ? res.message : 'Error al procesar el archivo.', 'error');
+            return;
+        }
+
+        AppState.csvPreviewData = res;
+
+        // 1. Métricas
+        document.getElementById('csv-stat-total').textContent = res.totalRows || 0;
+        document.getElementById('csv-stat-valid').textContent = res.validRows || 0;
+        document.getElementById('csv-stat-invalid').textContent = res.invalidRows || 0;
+        
+        const existingCount = (res.preview || []).filter(p => p.existsInDb).length;
+        document.getElementById('csv-stat-existing').textContent = existingCount;
+
+        // 2. Caja de Inconsistencias
+        const errorsBox = document.getElementById('csv-errors-box');
+        const errorsList = document.getElementById('csv-errors-list');
+        if (res.errors && res.errors.length > 0) {
+            errorsBox.classList.remove('hidden');
+            errorsList.innerHTML = res.errors.map(err => `
+                <li><strong>Línea ${err.line} (DNI ${err.dni || '-'}):</strong> ${(err.errors || []).join(', ')}</li>
+            `).join('');
+        } else {
+            errorsBox.classList.add('hidden');
+            errorsList.innerHTML = '';
+        }
+
+        // 3. Tabla de Previsualización
+        const thead = document.getElementById('thead-csv-preview');
+        const tbody = document.getElementById('tbody-csv-preview');
+
+        if (mode === 'personnel') {
+            thead.innerHTML = `
+                <tr>
+                    <th class="w-14 text-center">LÍN.</th>
+                    <th class="w-24 text-center">ESTADO</th>
+                    <th class="w-24 text-center">DNI</th>
+                    <th class="w-48">DOCENTE</th>
+                    <th class="w-24 text-center">REVISTA</th>
+                    <th class="w-44">CÁTEDRA</th>
+                    <th class="w-20 text-center">HORAS</th>
+                    <th class="w-24 text-center">PROYECTADAS</th>
+                    <th>DETALLE VALIDACIÓN</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = (res.preview || []).map(r => `
+                <tr class="border-b border-slate-100 dark:border-zinc-800 text-xs ${r.status === 'VÁLIDO' ? 'hover:bg-slate-50 dark:hover:bg-zinc-800/40' : 'bg-rose-50/40 dark:bg-rose-950/20'}">
+                    <td class="py-2 px-2 text-center font-mono font-bold text-slate-500">${r.line}</td>
+                    <td class="py-2 px-2 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'VÁLIDO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
+                            ${r.status}
+                        </span>
+                    </td>
+                    <td class="py-2 px-2 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${escapeHtml(r.dni)}</td>
+                    <td class="py-2 px-2 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(r.fullName)}</td>
+                    <td class="py-2 px-2 text-center text-slate-600 dark:text-zinc-300">${escapeHtml(r.revista)}</td>
+                    <td class="py-2 px-2 text-slate-700 dark:text-zinc-200">${escapeHtml(r.catedra)}</td>
+                    <td class="py-2 px-2 text-center font-bold text-slate-700 dark:text-zinc-300">${r.horas} hs</td>
+                    <td class="py-2 px-2 text-center font-bold ${r.projectedHours > 30 ? 'text-rose-600' : 'text-slate-800 dark:text-zinc-200'}">${r.projectedHours} / 30 hs</td>
+                    <td class="py-2 px-2 text-[11px] ${r.status === 'VÁLIDO' ? 'text-slate-400' : 'text-rose-600 font-medium'}">${escapeHtml(r.errorMessages || (r.existsInDb ? 'Docente ya registrado (se actualizará)' : 'Nuevo docente para alta'))}</td>
+                </tr>
+            `).join('');
+        } else {
+            thead.innerHTML = `
+                <tr>
+                    <th class="w-14 text-center">LÍN.</th>
+                    <th class="w-24 text-center">ESTADO</th>
+                    <th class="w-24 text-center">DNI</th>
+                    <th class="w-48">DOCENTE</th>
+                    <th class="w-24 text-center">FECHA</th>
+                    <th class="w-28 text-center">MARCA</th>
+                    <th class="w-20 text-center">HORAS</th>
+                    <th>OBSERVACIONES / ERRORES</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = (res.preview || []).map(r => `
+                <tr class="border-b border-slate-100 dark:border-zinc-800 text-xs ${r.status === 'VÁLIDO' ? 'hover:bg-slate-50 dark:hover:bg-zinc-800/40' : 'bg-rose-50/40 dark:bg-rose-950/20'}">
+                    <td class="py-2 px-2 text-center font-mono font-bold text-slate-500">${r.line}</td>
+                    <td class="py-2 px-2 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'VÁLIDO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
+                            ${r.status}
+                        </span>
+                    </td>
+                    <td class="py-2 px-2 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${escapeHtml(r.dni)}</td>
+                    <td class="py-2 px-2 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(r.teacherName)}</td>
+                    <td class="py-2 px-2 text-center font-mono text-slate-700 dark:text-zinc-300">${escapeHtml(r.fecha)}</td>
+                    <td class="py-2 px-2 text-center font-bold text-slate-800 dark:text-zinc-200">${escapeHtml(r.estado)}</td>
+                    <td class="py-2 px-2 text-center font-bold text-slate-700 dark:text-zinc-300">${r.horas} hs</td>
+                    <td class="py-2 px-2 text-[11px] ${r.status === 'VÁLIDO' ? 'text-slate-500' : 'text-rose-600 font-medium'}">${escapeHtml(r.errorMessages || r.observaciones || 'OK')}</td>
+                </tr>
+            `).join('');
+        }
+
+        const previewPanel = document.getElementById('csv-preview-panel');
+        if (previewPanel) previewPanel.classList.remove('hidden');
+        initLucideIcons();
+        showToast(`Previsualización completada: ${res.validRows} registros listos para importar.`, 'success');
+    } catch (err) {
+        console.error('Error al previsualizar CSV:', err);
+        showToast('Error al previsualizar datos: ' + err.message, 'error');
+    }
+}
+
+async function handleCsvCommit() {
+    if (!AppState.csvPreviewData) {
+        showToast('Primero debe previsualizar y validar los datos.', 'warning');
+        return;
+    }
+
+    if (AppState.csvPreviewData.validRows === 0) {
+        showToast('No existen registros válidos para importar.', 'error');
+        return;
+    }
+
+    const mode = (AppState.csvExplicitMode && AppState.csvExplicitMode !== 'auto')
+        ? AppState.csvExplicitMode
+        : (AppState.csvDetectedType || 'personnel');
+
+    if (!confirm(`¿Desea confirmar la importación definitiva de ${AppState.csvPreviewData.validRows} registros a la base de datos?`)) {
+        return;
+    }
+
+    const btnCommit = document.getElementById('btn-csv-commit');
+    if (btnCommit) {
+        btnCommit.disabled = true;
+        btnCommit.innerHTML = `<span>Importando registros en base de datos...</span>`;
+    }
+
+    try {
+        let res;
+        if (mode === 'personnel') {
+            const updateExisting = document.getElementById('csv-opt-update') ? document.getElementById('csv-opt-update').checked : true;
+            const createDesignations = document.getElementById('csv-opt-desigs') ? document.getElementById('csv-opt-desigs').checked : true;
+            res = await window.sigetApi.csv.importPersonnel({
+                csvText: AppState.csvText,
+                updateExisting,
+                createDesignations
+            });
+        } else {
+            res = await window.sigetApi.csv.importAttendance(AppState.csvText);
+        }
+
+        if (btnCommit) {
+            btnCommit.disabled = false;
+            btnCommit.innerHTML = `<i data-lucide="database" class="w-4 h-4"></i><span>Confirmar e Importar a Base de Datos</span>`;
+        }
+
+        if (res && res.success) {
+            showToast(res.message || 'Importación completada con éxito.', 'success');
+            AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
+            clearCsvImportState();
+        } else {
+            showToast((res && res.message) ? res.message : 'Error durante la persistencia de datos.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al persistir importación CSV:', err);
+        showToast('Error al persistir importación: ' + err.message, 'error');
+        if (btnCommit) {
+            btnCommit.disabled = false;
+            btnCommit.innerHTML = `<i data-lucide="database" class="w-4 h-4"></i><span>Confirmar e Importar a Base de Datos</span>`;
+        }
+    }
+}
+window.initCsvImport = initCsvImport;
+window.initCsvImportEvents = initCsvImportEvents;
+window.handleFileSelected = handleFileSelected;
+window.clearCsvImportState = clearCsvImportState;
+window.handleCsvPreview = handleCsvPreview;
+window.handleCsvCommit = handleCsvCommit;
 
 // ============================================================================
 // 13. REPORTES EXCEL Y GENERACIÓN MENSUAL OFICIAL CON PREVISUALIZACIÓN

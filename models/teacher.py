@@ -21,7 +21,7 @@ class TeacherService:
                     (Teacher.dni.ilike(term)) |
                     (Teacher.legajo.ilike(term))
                 )
-            teachers = query.order_by(Teacher.last_name, Teacher.first_name).all()
+            teachers = query.order_by(Teacher.last_name.asc(), Teacher.first_name.asc()).all()
             
             # Map with active hours
             results = []

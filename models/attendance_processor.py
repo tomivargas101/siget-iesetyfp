@@ -15,8 +15,18 @@ Implementa la lógica central con Pandas para el procesamiento mensual de noveda
 
 from datetime import datetime, date, timedelta
 from typing import Optional, Union
+import unicodedata
 import pandas as pd
 from sqlalchemy.orm import Session
+
+SPANISH_DAYS: list[str] = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+def _normalize_day(d_name: str) -> str:
+    if not d_name:
+        return ""
+    nfkd = unicodedata.normalize('NFKD', str(d_name))
+    no_accents = "".join([c for c in nfkd if not unicodedata.combining(c)])
+    return no_accents.strip().lower()
 
 from database.connection import get_db_session
 from database.schema import Teacher, Designation, Attendance, Substitution, Subject, Career
@@ -314,21 +324,28 @@ class AttendanceProcessor:
                         raw_records_by_teacher[t.id].append(rec)
                     curr_d += timedelta(days=1)
 
-            # 4. Procesar y agrupar días consecutivos por docente
+            # 4. Procesar y agrupar días consecutivos por docente con desglose por materia (RF-12, RN-10)
             rows_dl01: list[dict] = []
             rows_dl02: list[dict] = []
+            disposicion_counter = 1
 
             for tid, t_records in raw_records_by_teacher.items():
+                t = session.query(Teacher).get(tid)
+                teacher_active_desigs = [d for d in t.designations if d.is_active] if t else []
+
                 # Separar los registros del docente por tabla de destino
-                recs_dl01 = [r for r in t_records if r["target_table"] == "DL-01"]
-                recs_dl02 = [r for r in t_records if r["target_table"] == "DL-02"]
+                recs_dl01 = [r for r in t_records if r["target_table"] in ("DL-01", "IL-01")]
+                recs_dl02 = [r for r in t_records if r["target_table"] in ("DL-02", "IL-02")]
 
                 # Agrupación inteligente de días consecutivos
                 grouped_01 = cls.group_consecutive_days(recs_dl01, bridge_weekends=True)
                 grouped_02 = cls.group_consecutive_days(recs_dl02, bridge_weekends=True)
 
-                # Construir filas para DL-01 (RN-04)
+                # Construir filas para DL-01 / IL-01 (RN-04)
                 for g in grouped_01:
+                    disp_str = f"Disp. N° {disposicion_counter:03d}/{report_year}"
+                    disposicion_counter += 1
+
                     rows_dl01.append({
                         "Oficina": office_code,  # RN-07: 1452
                         "Año": report_year,      # RN-08: Año actual
@@ -341,11 +358,17 @@ class AttendanceProcessor:
                         "Desde": g["date_from"],  # Formato texto 'DD/MM/YYYY'
                         "Hasta": g["date_to"],    # Formato texto 'DD/MM/YYYY'
                         "Total Días": int(g["total_days"]),
-                        "Diagnóstico / Observaciones": g["observations"]
+                        "Diagnóstico / Observaciones": g["observations"],
+                        "N° Disposición": disp_str,
+                        "Hs Cátedra": int(g.get("hours", 4)),
+                        "Código": "114A"
                     })
 
-                # Construir filas para DL-02 (RN-05 & RN-06)
+                # Construir filas para DL-02 / IL-02 (RN-05 & RN-06: 1 fila por inasistencia de 1 día)
                 for g in grouped_02:
+                    disp_str = f"Disp. N° {disposicion_counter:03d}/{report_year}"
+                    disposicion_counter += 1
+
                     rows_dl02.append({
                         "Oficina": office_code,  # RN-07: 1452
                         "Año": report_year,      # RN-08: Año actual
@@ -358,19 +381,24 @@ class AttendanceProcessor:
                         "Desde": g["date_from"],  # Formato texto 'DD/MM/YYYY'
                         "Hasta": g["date_to"],    # Formato texto 'DD/MM/YYYY' (igual a Desde si inasistencia)
                         "Total Días": int(g["total_days"]),
-                        "Observaciones / Justificación": g["observations"]
+                        "Observaciones / Justificación": g["observations"],
+                        "N° Disposición": disp_str,
+                        "Hs Cátedra": int(g.get("hours", 4)),
+                        "Código": "115" if "permiso" in str(g["reason"]).lower() else "I"
                     })
 
             # 5. Generar DataFrames con Pandas garantizando dtypes y estructura
             cols_dl01 = [
                 "Oficina", "Año", "Mes", "DNI", "Apellido y Nombres",
                 "Situación de Revista", "Cargo / Cátedra", "Artículo / Motivo",
-                "Desde", "Hasta", "Total Días", "Diagnóstico / Observaciones"
+                "Desde", "Hasta", "Total Días", "Diagnóstico / Observaciones",
+                "N° Disposición", "Hs Cátedra", "Código"
             ]
             cols_dl02 = [
                 "Oficina", "Año", "Mes", "DNI", "Apellido y Nombres",
                 "Situación de Revista", "Cargo / Cátedra", "Tipo Novedad / Motivo",
-                "Desde", "Hasta", "Total Días", "Observaciones / Justificación"
+                "Desde", "Hasta", "Total Días", "Observaciones / Justificación",
+                "N° Disposición", "Hs Cátedra", "Código"
             ]
 
             df_dl01 = pd.DataFrame(rows_dl01, columns=cols_dl01)
@@ -394,3 +422,30 @@ class AttendanceProcessor:
         finally:
             if close_session_at_end:
                 session.close()
+
+    @classmethod
+    def process_monthly_records(
+        cls,
+        month: int,
+        year: Optional[int] = None,
+        career_id: Optional[int] = None,
+        session: Optional[Session] = None
+    ) -> dict:
+        """
+        Retorna la estructura unificada con DataFrames y listas de registros para IL-01 / IL-02 y DL-01 / DL-02.
+        """
+        df_01, df_02 = cls.process_monthly_attendance(month=month, year=year, career_id=career_id, session=session)
+        return {
+            "il01": df_01.to_dict(orient="records"),
+            "il02": df_02.to_dict(orient="records"),
+            "dl01": df_01.to_dict(orient="records"),
+            "dl02": df_02.to_dict(orient="records"),
+            "df_il01": df_01,
+            "df_il02": df_02,
+            "df_dl01": df_01,
+            "df_dl02": df_02,
+            "stats": {
+                "total_il01": len(df_01),
+                "total_il02": len(df_02)
+            }
+        }

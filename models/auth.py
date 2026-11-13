@@ -54,7 +54,7 @@ class CurrentSession:
 
     @classmethod
     def is_rector(cls) -> bool:
-        return cls.has_role("RECTOR")
+        return False
 
     @classmethod
     def is_bedel(cls) -> bool:
@@ -160,15 +160,15 @@ class AuthService:
 
     @staticmethod
     def check_first_run() -> dict:
-        """Verifica si la base de datos de usuarios está vacía o sin rector activo."""
+        """Verifica si la base de datos de usuarios está vacía o sin Secretaría activa."""
         session = get_db_session()
         try:
             total_users = session.query(User).filter(User.is_active == True).count()
             if total_users == 0:
                 return {"is_first_run": True, "reason": "NO_USERS"}
-            rector_count = session.query(User).filter(User.role == "RECTOR", User.is_active == True).count()
-            if rector_count == 0:
-                return {"is_first_run": True, "reason": "NO_ACTIVE_RECTOR"}
+            sec_count = session.query(User).filter(User.role == "SECRETARIA", User.is_active == True).count()
+            if sec_count == 0:
+                return {"is_first_run": True, "reason": "NO_ACTIVE_SECRETARIA"}
             return {"is_first_run": False, "count": total_users}
         except Exception as e:
             return {"is_first_run": False, "error": str(e)}
@@ -188,7 +188,7 @@ class AuthService:
         """
         Registra una nueva cuenta institucional en la base de datos.
         Hashea la contraseña y respuesta de seguridad con bcrypt.
-        Si el rol es RECTOR, genera una Master Recovery Key alfanumérica única.
+        Si el rol es SECRETARIA, genera una Master Recovery Key alfanumérica única.
         """
         if not full_name or not username or not password or not security_question or not security_answer:
             return False, "Todos los campos obligatorios deben completarse.", None
@@ -196,10 +196,10 @@ class AuthService:
             return False, "La contraseña debe tener al menos 6 caracteres.", None
 
         clean_role = (role or "BEDEL").strip().upper()
-        if clean_role == "SECRETARIO":
+        if clean_role in ["SECRETARIO", "RECTOR", "RECTORA", "ADMIN"]:
             clean_role = "SECRETARIA"
-        if clean_role not in ["RECTOR", "SECRETARIA", "BEDEL"]:
-            return False, "Rol institucional no válido. Debe ser RECTOR, SECRETARIA o BEDEL.", None
+        if clean_role not in ["SECRETARIA", "BEDEL"]:
+            return False, "Rol institucional no válido. Debe ser SECRETARIA o BEDEL.", None
 
         session = get_db_session()
         try:
@@ -213,7 +213,7 @@ class AuthService:
             master_key = None
             key_hash = None
 
-            if clean_role == "RECTOR":
+            if clean_role == "SECRETARIA":
                 master_key = AuthService.generate_master_recovery_key()
                 key_hash = hash_password(master_key)
 

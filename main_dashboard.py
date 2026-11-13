@@ -14,7 +14,8 @@ from models.auth import CurrentSession, AuthService
 from views.theme import Theme, apply_window_icon, get_asset_path
 from views.dashboard_view import DashboardView
 from views.teachers_view import TeachersView
-from views.students_view import StudentsView
+from views.calendar_view import CalendarView
+from views.csv_import_view import CsvImportView
 from views.designations_view import DesignationsView
 from views.reports_view import ReportsView
 from views.attendance_view import AttendanceView
@@ -42,8 +43,8 @@ class MainDashboardWindow(ctk.CTk):
 
     def _configure_window(self):
         user = CurrentSession.user
-        is_rector = CurrentSession.is_rector()
-        role_title = "Rector / Directivo - Acceso Total" if is_rector else "Bedelía / Operativo"
+        is_secretaria = CurrentSession.is_secretaria()
+        role_title = "Secretaría - Gestión Administrativa" if is_secretaria else "Bedelía - Operativo"
         self.title(f"SIGET - Panel Institucional [{role_title}]")
         self.geometry("1280x820")
         self.minsize(1050, 700)
@@ -146,7 +147,7 @@ class MainDashboardWindow(ctk.CTk):
 
         # Tarjeta del Usuario y Rol
         user = CurrentSession.user
-        is_rector = CurrentSession.is_rector()
+        is_secretaria = CurrentSession.is_secretaria()
 
         user_card = ctk.CTkFrame(
             self.sidebar,
@@ -167,7 +168,7 @@ class MainDashboardWindow(ctk.CTk):
         ).pack(anchor="w", padx=12, pady=(10, 2))
 
         # Rol Badge resaltado con Dorado Institucional (#E0C45D)
-        role_name = "RECTOR / DIRECTIVO" if is_rector else "BEDELÍA / OPERATIVO"
+        role_name = "SECRETARÍA / GESTIÓN" if is_secretaria else "BEDELÍA / OPERATIVO"
         badge_bg = ("#2B2B2B", "#1A1A1A")
         badge_fg = Theme.GOLD_ACCENT
 
@@ -187,21 +188,22 @@ class MainDashboardWindow(ctk.CTk):
         nav_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         nav_box.pack(fill="x", padx=12, pady=5)
 
-        if is_rector:
+        if is_secretaria:
             nav_items = [
                 ("dashboard", "Dashboard General", True),
-                ("teachers", "Docentes", True),
+                ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Cátedras y Suplencias", True),
+                ("calendar", "Calendario", True),
+                ("csv_import", "Carga CSV", True),
                 ("reports", "Reportes y Planillas Excel", True),
-                ("students", "Matrícula de Alumnos", True),
                 ("config", "Configuración de BD", True),
             ]
         else:
             nav_items = [
                 ("dashboard", "Dashboard Operativo", True),
-                ("teachers", "Docentes", True),
+                ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Consulta de Cátedras", True),
-                ("students", "Inscripciones y Alumnos", True),
+                ("calendar", "Calendario", True),
             ]
 
         for key, text, allowed in nav_items:
@@ -297,7 +299,7 @@ class MainDashboardWindow(ctk.CTk):
         )
         self.lbl_view_title.pack(side="left")
 
-        role_badge_text = "Rectoría • Supervisión y Normativa" if is_rector else "Bedelía • Operativa y Alumnado"
+        role_badge_text = "Secretaría • Gestión Administrativa" if is_secretaria else "Bedelía • Control de Asistencias"
         self.lbl_top_info = ctk.CTkLabel(
             bar_content,
             text=f"Instituto Terciario | {role_badge_text}",
@@ -335,9 +337,10 @@ class MainDashboardWindow(ctk.CTk):
 
         # Título dinámico sin emojis
         titles = {
-            "dashboard": "Panel de Control y Estadísticas Globales" if CurrentSession.is_rector() else "Panel Operativo de Bedelía",
+            "dashboard": "Panel de Control y Estadísticas Globales" if CurrentSession.is_secretaria() else "Panel Operativo de Bedelía",
             "teachers": "Gestión Integral de Docentes: Planta Funcional y Asistencias",
-            "students": "Matrícula y Legajos de Alumnos",
+            "calendar": "Calendario Institucional del Profesorado: Licencias y Suplencias",
+            "csv_import": "Módulo de Carga Masiva por Archivos CSV",
             "designations": "Designaciones de Cátedras y Registro de Suplencias",
             "reports": "Reportes Oficiales y Planilla de Estadísticas (Excel)",
             "attendance": "Gestión Integral de Docentes: Planta Funcional y Asistencias"
@@ -353,8 +356,10 @@ class MainDashboardWindow(ctk.CTk):
             elif view_name == "attendance":
                 # Abre el módulo de docentes directamente posicionado en Asistencias
                 self.current_view = TeachersView(self.view_container, default_tab="attendance")
-            elif view_name == "students":
-                self.current_view = StudentsView(self.view_container)
+            elif view_name == "calendar":
+                self.current_view = CalendarView(self.view_container)
+            elif view_name == "csv_import":
+                self.current_view = CsvImportView(self.view_container)
             elif view_name == "designations":
                 self.current_view = DesignationsView(self.view_container)
             elif view_name == "reports":
@@ -407,9 +412,9 @@ if __name__ == "__main__":
     cfg = load_config()
     init_db(cfg)
 
-    # Iniciar con Rector para prueba si no hay sesión
+    # Iniciar con Secretaría para prueba si no hay sesión
     if not CurrentSession.is_authenticated():
-        AuthService.login("rector", "rector123")
+        AuthService.login("secretaria", "secretaria123")
 
     app = MainDashboardWindow()
     app.mainloop()

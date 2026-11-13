@@ -9,7 +9,8 @@ const { UserService } = require('../services/userService');
 const { TeacherService } = require('../services/teacherService');
 const { DesignationService } = require('../services/designationService');
 const { AttendanceService } = require('../services/attendanceService');
-const { StudentService } = require('../services/studentService');
+const { CsvImportService } = require('../services/csvImportService');
+const { TeacherCalendarService } = require('../services/teacherCalendarService');
 const { DashboardService } = require('../services/dashboardService');
 const { ReportService } = require('../services/reportService');
 const { AuditService } = require('../services/auditService');
@@ -55,7 +56,7 @@ function registerIpcHandlers() {
     });
 
     // -------------------------------------------------------------
-    // GESTIÓN DE USUARIOS Y ROLES SECUNDARIOS (RECTOR)
+    // GESTIÓN DE USUARIOS Y ROLES (SECRETARÍA ADMINISTRATIVA)
     // -------------------------------------------------------------
     ipcMain.handle('users:getAll', () => {
         return UserService.getAllUsers();
@@ -191,27 +192,44 @@ function registerIpcHandlers() {
         return NormativeService.getArticleDetails(key);
     });
 
+    ipcMain.handle('normative:getCalendarDayInfo', (event, dateStr) => {
+        const { NormativeService } = require('../services/normativeService');
+        return NormativeService.getCalendarDayInfo(dateStr);
+    });
+
     // -------------------------------------------------------------
-    // ALUMNOS E INSCRIPCIONES
+    // IMPORTACIÓN MASIVA CSV Y FORMATOS UNIVERSALES (PERSONAL Y ASISTENCIAS)
     // -------------------------------------------------------------
-    ipcMain.handle('students:getAll', (event, filters) => {
-        return StudentService.getAll(filters);
+    ipcMain.handle('csv:parseUniversalFile', async (event, { fileBufferBase64, fileName, explicitType }) => {
+        const fileBuffer = fileBufferBase64 ? Buffer.from(fileBufferBase64, 'base64') : Buffer.alloc(0);
+        return await CsvImportService.parseUniversalFile({ fileBuffer, fileName, explicitType });
     });
 
-    ipcMain.handle('students:getById', (event, id) => {
-        return StudentService.getById(id);
+    ipcMain.handle('csv:previewPersonnel', (event, csvText) => {
+        return CsvImportService.previewPersonnel(csvText);
     });
 
-    ipcMain.handle('students:save', (event, payload) => {
-        return StudentService.save(payload);
+    ipcMain.handle('csv:importPersonnel', (event, { csvText, updateExisting, createDesignations }) => {
+        return CsvImportService.importPersonnel(csvText, { updateExisting, createDesignations });
     });
 
-    ipcMain.handle('students:toggleActive', (event, id) => {
-        return StudentService.toggleActive(id);
+    ipcMain.handle('csv:previewAttendance', (event, csvText) => {
+        return CsvImportService.previewAttendance(csvText);
     });
 
-    ipcMain.handle('students:delete', (event, id) => {
-        return StudentService.delete(id);
+    ipcMain.handle('csv:importAttendance', (event, csvText) => {
+        return CsvImportService.importAttendance(csvText);
+    });
+
+    // -------------------------------------------------------------
+    // CALENDARIO INSTITUCIONAL DEL PROFESORADO
+    // -------------------------------------------------------------
+    ipcMain.handle('calendar:getTeacherTimeline', (event, params) => {
+        return TeacherCalendarService.getTeacherTimeline(params);
+    });
+
+    ipcMain.handle('calendar:getInstitutionalOverview', (event, params) => {
+        return TeacherCalendarService.getInstitutionalOverview(params);
     });
 
     // -------------------------------------------------------------

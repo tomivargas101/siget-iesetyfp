@@ -41,7 +41,7 @@ class ApplicationController:
         """
         Ciclo de vida principal continuo y fluido:
         1. Presenta la ventana de acceso (LoginWindow) con icono oficial y tema claro.
-        2. Al autenticar (o usar botón de prueba Rector / Bedel), la ventana de Login se destruye
+        2. Al autenticar (o usar botón de prueba Secretaría / Bedel), la ventana de Login se destruye
            y da paso al Dashboard Principal correspondiente sin cerrar la aplicación.
         3. Si se solicita 'Cerrar Sesión', el Dashboard se destruye y vuelve al Login.
         4. Si el usuario cierra con la 'X', la aplicación termina limpiamente.

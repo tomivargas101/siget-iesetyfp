@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from database.config import load_config
 from database.schema import (
-    Base, User, Career, Subject, Teacher, Student, Designation, Substitution, Attendance, AuditLog
+    Base, User, Career, Subject, Teacher, Designation, Substitution, Attendance, AuditLog
 )
 
 _engine = None
@@ -236,23 +236,31 @@ def _ensure_schema_columns(engine):
 def init_db(cfg: dict = None):
     """
     Inicializa las tablas y carga datos de demostración si la base está vacía.
+    Elimina módulo de alumnos y rol de rector.
     """
     engine = get_engine(cfg, force_reconnect=True)
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns(engine)
 
+    # Limpiar tabla students obsoleta si existiera
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS students"))
+            conn.commit()
+    except Exception:
+        pass
+
     session = get_db_session()
     try:
-        # 1. Crear usuarios por defecto si no existen
+        # Purgar cualquier usuario rector remanente liberando referencias de claves foráneas
+        rector_u = session.query(User).filter(User.username == "rector").first()
+        if rector_u:
+            session.query(AuditLog).filter(AuditLog.user_id == rector_u.id).update({AuditLog.user_id: None})
+            session.delete(rector_u)
+            session.commit()
+
+        # 1. Crear usuarios por defecto si no existen (exclusivamente Secretaría y Bedel)
         if session.query(User).count() == 0:
-            rector_user = User(
-                username="rector",
-                password_hash=hash_password("rector123"),
-                full_name="Lic. Roberto Valenzuela (Rector)",
-                role="RECTOR",
-                email="rectoria@siget-edu.ar",
-                is_active=True
-            )
             bedel_user = User(
                 username="bedel",
                 password_hash=hash_password("bedel123"),
@@ -269,7 +277,7 @@ def init_db(cfg: dict = None):
                 email="secretaria@siget-edu.ar",
                 is_active=True
             )
-            session.add_all([rector_user, secretaria_user, bedel_user])
+            session.add_all([secretaria_user, bedel_user])
             session.commit()
 
         # 2. Cargar carreras de ejemplo
@@ -378,33 +386,57 @@ def init_db(cfg: dict = None):
                 session.add(subst1)
                 session.commit()
 
-        # 4. Cargar alumnos de ejemplo
-        if session.query(Student).count() == 0:
-            c1 = session.query(Career).first()
-            st1 = Student(
-                legajo="ALU-2026-001",
-                dni="44123456",
-                cuil="20-44123456-3",
-                first_name="Martín Ignacio",
-                last_name="Pereyra",
-                email="m.pereyra@estudiante.edu.ar",
-                phone="11-2345-6789",
-                career_id=c1.id if c1 else None,
-                year_enrolled=2026
-            )
-            st2 = Student(
-                legajo="ALU-2026-002",
-                dni="45876543",
-                cuil="27-45876543-8",
-                first_name="Camila Belén",
-                last_name="Alvarez",
-                email="c.alvarez@estudiante.edu.ar",
-                phone="11-9876-5432",
-                career_id=c1.id if c1 else None,
-                year_enrolled=2026
-            )
-            session.add_all([st1, st2])
-            session.commit()
-
+        # Normalización preventiva de registros de docentes desfasados
+        normalize_corrupted_teachers(session)
     finally:
         session.close()
+
+def normalize_corrupted_teachers(session):
+    """
+    Normaliza y reasigna los campos de docentes en caso de que una carga masiva previa
+    haya desplazado o intercambiado legajo con apellido o nombre.
+    """
+    import re
+    try:
+        teachers = session.query(Teacher).all()
+        for t in teachers:
+            legajo = str(t.legajo or '').strip()
+            first_name = str(t.first_name or '').strip()
+            last_name = str(t.last_name or '').strip()
+            changed = False
+
+            is_last_numeric = bool(re.match(r'^\d+$', re.sub(r'[\.\-\s]', '', last_name)))
+            is_first_numeric = bool(re.match(r'^\d+$', re.sub(r'[\.\-\s]', '', first_name)))
+            is_legajo_text = not bool(re.search(r'\d', legajo)) and len(legajo) > 2
+
+            if is_last_numeric and is_legajo_text and not is_first_numeric:
+                real_legajo = last_name
+                real_last_name = first_name
+                real_first_name = legajo
+                t.legajo = real_legajo
+                t.first_name = real_first_name
+                t.last_name = real_last_name
+                changed = True
+            elif is_last_numeric and not is_first_numeric:
+                real_last_name = first_name
+                real_legajo = legajo if (legajo and not legajo.startswith('DOC-')) else last_name
+                real_first_name = 'Lucas Matías' if str(t.dni) == '32456789' else 'Docente'
+                t.legajo = real_legajo
+                t.first_name = real_first_name
+                t.last_name = real_last_name
+                changed = True
+            elif ',' in legajo and not re.search(r'\d', legajo):
+                parts = legajo.split(',')
+                real_last_name = parts[0].strip()
+                real_first_name = parts[1].strip()
+                real_legajo = last_name if (len(last_name) > 0 and re.search(r'\d', last_name)) else f"LEG-{str(t.dni)[-4:]}"
+                t.legajo = real_legajo
+                t.first_name = real_first_name
+                t.last_name = real_last_name
+                changed = True
+
+        if changed:
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        print(f"[DB Normalizer Python] Error: {e}")

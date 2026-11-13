@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from datetime import datetime, date
 from database.connection import get_db_session
-from database.schema import Teacher, Student, Subject, Designation, Substitution, AuditLog, Attendance
+from database.schema import Teacher, Subject, Designation, Substitution, AuditLog, Attendance
 from models.auth import CurrentSession
 from views.theme import Theme
 
@@ -24,8 +24,6 @@ class DashboardView(ctk.CTkScrollableFrame):
             self.provisionales = session.query(Teacher).filter(Teacher.is_active == True, Teacher.revista == "Provisional").count()
             self.interinos = session.query(Teacher).filter(Teacher.is_active == True, Teacher.revista == "Interino").count()
             self.suplentes = session.query(Teacher).filter(Teacher.is_active == True, Teacher.revista == "Suplente").count()
-
-            self.total_students = session.query(Student).filter(Student.is_active == True).count()
             
             designations = session.query(Designation).filter(Designation.is_active == True).all()
             self.total_designations = len(designations)
@@ -81,26 +79,15 @@ class DashboardView(ctk.CTkScrollableFrame):
             self.today_licencias = sum(1 for a in today_atts if a.status == "Licencia")
             self.today_sin_registrar = max(0, self.total_teachers - len(today_atts))
 
-            # Alumnos inscriptos recientemente
-            raw_students = session.query(Student).filter(Student.is_active == True).order_by(Student.created_at.desc()).limit(5).all()
-            self.recent_students = []
-            for st in raw_students:
-                self.recent_students.append({
-                    "legajo": st.legajo,
-                    "full_name": st.full_name,
-                    "career_name": st.career.name if st.career else "Sin Carrera",
-                    "year_enrolled": st.year_enrolled
-                })
-
         finally:
             session.close()
 
     def _build_ui(self):
         user = CurrentSession.user
-        is_rector = CurrentSession.is_rector()
+        is_secretaria = CurrentSession.is_secretaria()
 
         # 1. Saludo y Encabezado de Rol
-        role_label = "Rector / Directivo (Acceso Total a Planta Funcional y Reportes)" if is_rector else "Bedel / Administrativo (Acceso Operativo a Asistencias e Inscripciones)"
+        role_label = "Secretaría (Gestión Administrativa, Cátedras y Reportes)" if is_secretaria else "Bedelía (Operativa Diaria de Asistencias y Calendario)"
 
         header_frame = ctk.CTkFrame(
             self,
@@ -133,18 +120,18 @@ class DashboardView(ctk.CTkScrollableFrame):
         kpi_container.pack(fill="x", pady=(0, 20))
         kpi_container.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="kpi")
 
-        if is_rector:
+        if is_secretaria:
             cards_data = [
                 ("Planta Docente", str(self.total_teachers), f"Titulares: {self.titulares} | Suplentes: {self.suplentes}", "#8C6F00"),
-                ("Alumnos Regulares", str(self.total_students), "Matrícula total activa", "#059669"),
-                ("Cátedras Asignadas", str(self.total_designations), f"Horas cátedra: {self.total_weekly_hours} hs/sem", "#7C3AED"),
+                ("Carga Horaria Semanal", f"{self.total_weekly_hours} hs", "Total horas cátedra activas", "#059669"),
+                ("Cátedras Asignadas", str(self.total_designations), "Materias con profesor asignado", "#7C3AED"),
                 ("Suplencias Vigentes", str(len(self.active_substitutions)), "Docentes reemplazados", "#D97706"),
             ]
         else:
             cards_data = [
                 ("Asistencia Docente Hoy", f"{self.today_presentes} / {self.total_teachers}", f"Ausentes: {self.today_ausentes} | Licencias: {self.today_licencias}", "#8C6F00"),
-                ("Alumnos Registrados", str(self.total_students), "Padrón general de estudiantes", "#059669"),
-                ("Cátedras Activas", str(self.total_designations), f"Total carga semanal: {self.total_weekly_hours} hs", "#7C3AED"),
+                ("Carga Horaria Semanal", f"{self.total_weekly_hours} hs", "Total horas institucionales", "#059669"),
+                ("Cátedras Activas", str(self.total_designations), "Cátedras en planta", "#7C3AED"),
                 ("Suplencias en Horario", str(len(self.active_substitutions)), "Reemplazos y licencias vigentes", "#F59E0B"),
             ]
 
@@ -187,18 +174,18 @@ class DashboardView(ctk.CTkScrollableFrame):
         cols_frame.pack(fill="both", expand=True, pady=(0, 20))
         cols_frame.grid_columnconfigure((0, 1), weight=1, uniform="sub")
 
-        if is_rector:
-            self._build_rector_panels(cols_frame)
+        if is_secretaria:
+            self._build_secretaria_panels(cols_frame)
         else:
             self._build_bedel_panels(cols_frame)
 
-        # 4. Sección adicional: Auditoría para Rector o Acciones rápidas para Bedel
-        if is_rector:
+        # 4. Sección adicional: Auditoría para Secretaría o Acciones rápidas para Bedel
+        if is_secretaria:
             self._build_audit_section()
         else:
             self._build_quick_actions_bar()
 
-    def _build_rector_panels(self, parent):
+    def _build_secretaria_panels(self, parent):
         # Columna Izquierda: Alertas de Tope Horario Normativo
         left_sub = ctk.CTkFrame(
             parent,
@@ -386,57 +373,46 @@ class DashboardView(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             right_sub,
-            text="Últimos Alumnos Matriculados",
+            text="Herramientas y Accesos Rápidos de Secretaría",
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=Theme.SUCCESS_TEXT
         ).pack(anchor="w", padx=20, pady=(15, 10))
 
-        if self.recent_students:
-            for st in self.recent_students:
-                s_item = ctk.CTkFrame(
-                    right_sub,
-                    fg_color=Theme.BG_CARD_SUB,
-                    corner_radius=8,
-                    border_width=1,
-                    border_color=Theme.BORDER_SUB
-                )
-                s_item.pack(fill="x", padx=15, pady=4)
-
-                sub_box = ctk.CTkFrame(s_item, fg_color="transparent")
-                sub_box.pack(side="left", padx=10, pady=6)
-
-                ctk.CTkLabel(
-                    sub_box,
-                    text=f"{st['full_name']} ({st['legajo']})",
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    text_color=Theme.TEXT_PRIMARY
-                ).pack(anchor="w")
-
-                ctk.CTkLabel(
-                    sub_box,
-                    text=f"Carrera: {st['career_name']} • Cohorte {st['year_enrolled']}",
-                    font=ctk.CTkFont(size=10),
-                    text_color=Theme.TEXT_MUTED
-                ).pack(anchor="w")
-        else:
-            ctk.CTkLabel(
-                right_sub,
-                text="No hay alumnos registrados recientemente.",
-                font=ctk.CTkFont(size=12),
-                text_color=Theme.TEXT_MUTED
-            ).pack(anchor="w", padx=20, pady=15)
-
-        btn_go_stu = ctk.CTkButton(
+        btn_cal = ctk.CTkButton(
             right_sub,
-            text="Ir a Gestión de Alumnos e Inscripciones",
+            text="📅 Calendario Institucional de Docentes (Licencias y Suplencias)",
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=Theme.SECONDARY,
             hover_color=Theme.SECONDARY_HOVER,
             text_color=Theme.SECONDARY_TEXT,
-            height=34,
-            command=lambda: self.on_navigate("students") if self.on_navigate else None
+            height=36,
+            command=lambda: self.on_navigate("calendar") if self.on_navigate else None
         )
-        btn_go_stu.pack(fill="x", padx=15, pady=(10, 15))
+        btn_cal.pack(fill="x", padx=15, pady=6)
+
+        btn_csv = ctk.CTkButton(
+            right_sub,
+            text="📁 Módulo de Carga Masiva CSV (Personal y Asistencias)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=Theme.SECONDARY,
+            hover_color=Theme.SECONDARY_HOVER,
+            text_color=Theme.SECONDARY_TEXT,
+            height=36,
+            command=lambda: self.on_navigate("csv_import") if self.on_navigate else None
+        )
+        btn_csv.pack(fill="x", padx=15, pady=6)
+
+        btn_rep = ctk.CTkButton(
+            right_sub,
+            text="📊 Generación Oficial de Planillas Mensuales Excel",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=Theme.SECONDARY,
+            hover_color=Theme.SECONDARY_HOVER,
+            text_color=Theme.SECONDARY_TEXT,
+            height=36,
+            command=lambda: self.on_navigate("reports") if self.on_navigate else None
+        )
+        btn_rep.pack(fill="x", padx=15, pady=(6, 15))
 
     def _build_audit_section(self):
         if not self.recent_audits:
@@ -501,17 +477,17 @@ class DashboardView(ctk.CTkScrollableFrame):
         )
         btn_att.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
-        btn_stu = ctk.CTkButton(
+        btn_cal = ctk.CTkButton(
             btn_box,
-            text="Inscripciones y Alumnos",
+            text="Calendario",
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=Theme.SECONDARY,
             hover_color=Theme.SECONDARY_HOVER,
             text_color=Theme.SECONDARY_TEXT,
             height=38,
-            command=lambda: self.on_navigate("students") if self.on_navigate else None
+            command=lambda: self.on_navigate("calendar") if self.on_navigate else None
         )
-        btn_stu.pack(side="left", fill="x", expand=True, padx=6)
+        btn_cal.pack(side="left", fill="x", expand=True, padx=6)
 
         btn_des = ctk.CTkButton(
             btn_box,

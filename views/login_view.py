@@ -371,7 +371,7 @@ class LoginWindow(ctk.CTk):
 
         self.entry_username = ctk.CTkEntry(
             form_frame,
-            placeholder_text="Ej. rector o bedel",
+            placeholder_text="Ej. secretaria o bedel",
             height=38,
             font=ctk.CTkFont(size=13),
             fg_color=Theme.BG_INPUT,
@@ -472,17 +472,17 @@ class LoginWindow(ctk.CTk):
         quick_btns_frame = ctk.CTkFrame(demo_frame, fg_color="transparent")
         quick_btns_frame.pack(fill="x", padx=12, pady=(0, 8))
 
-        self.btn_fill_rector = ctk.CTkButton(
+        self.btn_fill_secretaria = ctk.CTkButton(
             quick_btns_frame,
-            text="Rector (Acceso Total)",
+            text="Secretaría (Gestión)",
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=Theme.SECONDARY,
             hover_color=Theme.SECONDARY_HOVER,
             text_color=Theme.SECONDARY_TEXT,
             height=30,
-            command=lambda: self._quick_login("rector", "rector123")
+            command=lambda: self._quick_login("secretaria", "secretaria123")
         )
-        self.btn_fill_rector.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        self.btn_fill_secretaria.pack(side="left", expand=True, fill="x", padx=(0, 4))
 
         self.btn_fill_bedel = ctk.CTkButton(
             quick_btns_frame,
@@ -618,7 +618,7 @@ class LoginWindow(ctk.CTk):
             self.on_login_success(user)
 
     def _check_first_run_on_startup(self):
-        """Si la base de datos de usuarios está vacía, activa obligatoriamente la Configuración Inicial de Rector."""
+        """Si la base de datos de usuarios está vacía, activa obligatoriamente la Configuración Inicial de Secretaría."""
         try:
             status = AuthService.check_first_run()
             if status.get("is_first_run"):

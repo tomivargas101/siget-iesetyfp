@@ -29,12 +29,12 @@
             </div>
 
             <h2 class="text-lg font-semibold text-slate-800 mb-1">Acceso Institucional</h2>
-            <p class="text-xs text-slate-500 mb-4">Ingrese sus credenciales de Rector, Secretaría o Bedelía para continuar.</p>
+            <p class="text-xs text-slate-500 mb-4">Ingrese sus credenciales de Secretaría o Bedelía para continuar.</p>
 
             <form id="login-form" class="space-y-3.5">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Usuario</label>
-                    <input type="text" id="login-username" required placeholder="rector, secretaria o bedel"
+                    <input type="text" id="login-username" required placeholder="secretaria o bedel"
                         class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent">
                 </div>
 
@@ -58,20 +58,15 @@
                 <!-- Roles Oficiales del Sistema (Acceso Rápido) -->
                 <div class="pt-1">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 text-center">Roles Oficiales del Sistema</div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button type="button" id="btn-demo-rector" title="Completar credenciales de Rector"
-                            class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-gold text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
-                            <span class="text-slate-900 font-extrabold">Rector</span>
-                            <span class="text-[9px] text-slate-400 font-mono">rector123</span>
-                        </button>
+                    <div class="grid grid-cols-2 gap-2">
                         <button type="button" id="btn-demo-secretaria" title="Completar credenciales de Secretaría"
-                            class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-purple-300 text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
-                            <span class="text-purple-700 font-extrabold">Secretaría</span>
+                            class="p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-gold text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
+                            <span class="text-gold-text font-extrabold text-xs">Secretaría</span>
                             <span class="text-[9px] text-slate-400 font-mono">secretaria123</span>
                         </button>
                         <button type="button" id="btn-demo-bedel" title="Completar credenciales de Bedelía"
-                            class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-blue-300 text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
-                            <span class="text-blue-700 font-extrabold">Bedelía</span>
+                            class="p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-blue-300 text-[11px] font-bold text-slate-700 flex flex-col items-center transition">
+                            <span class="text-blue-700 font-extrabold text-xs">Bedelía</span>
                             <span class="text-[9px] text-slate-400 font-mono">bedel123</span>
                         </button>
                     </div>
@@ -124,29 +119,29 @@
                 </div>
             </div>
 
-            <!-- PASO 1: Formulario de Creación de Rector -->
+            <!-- PASO 1: Formulario de Creación de Secretaría -->
             <div id="first-run-step-form" class="mt-6 space-y-4">
                 <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
-                    <strong>Bienvenido/a a SIGET.</strong> Se ha detectado la primera ejecución del sistema. Por normativa de seguridad institucional, debe crear la cuenta maestra de <strong>Rector</strong> con una pregunta de seguridad y una Clave Maestra de Rescate.
+                    <strong>Bienvenido/a a SIGET.</strong> Se ha detectado la primera ejecución del sistema. Por normativa de seguridad institucional, debe crear la cuenta de administración de <strong>Secretaría</strong> con una pregunta de seguridad y una Clave Maestra de Rescate.
                 </div>
 
                 <form id="first-run-form" class="space-y-3.5">
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre Completo *</label>
-                            <input type="text" id="first-run-fullname" required placeholder="Lic. Roberto Valenzuela"
+                            <input type="text" id="first-run-fullname" required placeholder="Secretario/a Académico/a"
                                 class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Usuario Rector *</label>
-                            <input type="text" id="first-run-username" required value="rector"
+                            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Usuario Secretaría *</label>
+                            <input type="text" id="first-run-username" required value="secretaria"
                                 class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Correo Electrónico Institucional</label>
-                        <input type="email" id="first-run-email" placeholder="rectoria@instituto.edu.ar"
+                        <input type="email" id="first-run-email" placeholder="secretaria@instituto.edu.ar"
                             class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
                     </div>
 
@@ -201,7 +196,7 @@
                 <div class="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
                     <i data-lucide="check" class="w-8 h-8"></i>
                 </div>
-                <h3 class="text-base font-bold text-slate-900">¡Cuenta de Rector Configurada Exitosamente!</h3>
+                <h3 class="text-base font-bold text-slate-900">¡Cuenta de Secretaría Configurada Exitosamente!</h3>
                 <p class="text-xs text-slate-500 max-w-md mx-auto">
                     El sistema ha generado automáticamente su <strong>Clave Maestra de Rescate (Master Recovery Key)</strong>. Esta clave es única y le permitirá restablecer el acceso institucional si alguna vez olvida su contraseña.
                 </p>
@@ -271,7 +266,6 @@
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Rol Institucional *</label>
                         <select id="register-role" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold font-medium">
-                            <option value="RECTOR">Rector</option>
                             <option value="SECRETARIA">Secretaría</option>
                             <option value="BEDEL">Bedelía</option>
                         </select>
@@ -325,14 +319,14 @@
                     </div>
                 </div>
 
-                <!-- Aviso dinámico si es Rector -->
+                <!-- Aviso dinámico si es Secretaría -->
                 <div id="register-rector-hint" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
                     <div class="font-bold flex items-center space-x-1.5">
                         <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
-                        <span>Privilegios de Rector:</span>
+                        <span>Privilegios de Administración (Secretaría):</span>
                     </div>
                     <p class="text-[11px] text-amber-800 mt-1">
-                        Al registrar el perfil con rol <strong>Rector</strong>, el sistema generará automáticamente una <strong>Master Recovery Key</strong> única para emergencias offline definitivas.
+                        Al registrar el perfil con rol <strong>Secretaría</strong>, el sistema generará automáticamente una <strong>Master Recovery Key</strong> única para emergencias offline.
                     </p>
                 </div>
 
@@ -352,7 +346,7 @@
                 </div>
             </form>
 
-            <!-- Banner de éxito cuando un Rector se registra y se le emite la Master Recovery Key -->
+            <!-- Banner de éxito cuando una Secretaría se registra y se le emite la Master Recovery Key -->
             <div id="register-rector-key-result" class="hidden mt-5 space-y-4">
                 <div class="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-2 text-left">
                     <div class="text-[11px] font-black text-amber-900 uppercase tracking-wider flex items-center space-x-1.5">
@@ -463,13 +457,13 @@
             <!-- MÉTODO B: MASTER RECOVERY KEY -->
             <div id="recov-panel-key" class="hidden space-y-3.5">
                 <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900">
-                    Use la Clave Maestra de Rescate generada durante la instalación para restablecer la cuenta de Rector de forma inmediata.
+                    Use la Clave Maestra de Rescate generada durante la instalación para restablecer la cuenta de Secretaría de forma inmediata.
                 </div>
 
                 <form id="recov-key-form" class="space-y-3">
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Usuario</label>
-                        <input type="text" id="recov-k-username" value="rector" required
+                        <input type="text" id="recov-k-username" value="secretaria" required
                             class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
                     </div>
 
@@ -575,20 +569,26 @@
                         <span>Cátedras y Suplencias</span>
                     </button>
 
-                    <!-- Botón Alumnos -->
-                    <button data-view="students" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
-                        <i data-lucide="graduation-cap" class="w-4 h-4"></i>
-                        <span>Alumnos e Inscripciones</span>
+                    <!-- Botón Calendario Institucional del Profesorado -->
+                    <button data-view="calendar" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
+                        <i data-lucide="calendar" class="w-4 h-4 text-purple-600"></i>
+                        <span>Calendario</span>
                     </button>
 
-                    <!-- Botón Reportes Excel (Solo Rector) -->
-                    <button data-view="reports" id="nav-btn-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                    <!-- Botón Carga Masiva CSV (Secretaría) -->
+                    <button data-view="csv-import" id="nav-btn-csv" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
+                        <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-600"></i>
+                        <span>Carga CSV</span>
+                    </button>
+
+                    <!-- Botón Reportes Excel (Secretaría) -->
+                    <button data-view="reports" id="nav-btn-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
                         <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
                         <span>Planillas Excel</span>
                     </button>
 
-                    <!-- Botón Gestión de Usuarios (Solo Rector) -->
-                    <button data-view="users" id="nav-btn-users" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100">
+                    <!-- Botón Gestión de Usuarios (Secretaría) -->
+                    <button data-view="users" id="nav-btn-users" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
                         <i data-lucide="shield-check" class="w-4 h-4 text-gold"></i>
                         <span>Gestión de Usuarios</span>
                     </button>
@@ -804,6 +804,15 @@
                             </div>
                         </div>
 
+                        <!-- Banner Informativo de Calendario Escolar y Días Inhábiles (RF-10) -->
+                        <div id="att-calendar-notice" class="hidden p-3 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 text-xs font-semibold flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5">
+                                <span class="text-base">📅</span>
+                                <span id="att-calendar-notice-text">Día Inhábil Escolar</span>
+                            </div>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100">Calendario Oficial RF-10</span>
+                        </div>
+
                         <!-- 2. RESUMEN DE ESTADO Y KPIS DEL DÍA EN TIEMPO REAL -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div class="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-between">
@@ -980,42 +989,323 @@
                     </div>
                 </section>
 
-                <!-- VISTA 4: ALUMNOS -->
-                <section id="view-students" class="view-panel hidden space-y-4">
-                    <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                        <div class="flex items-center space-x-3 flex-1 min-w-[280px]">
-                            <div class="relative flex-1">
-                                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
-                                <input type="text" id="student-search" placeholder="Buscar por Apellido, Nombre, DNI o Legajo..."
-                                    class="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold">
+                <!-- VISTA 4: CALENDARIO INSTITUCIONAL DEL PROFESORADO -->
+                <section id="view-calendar" class="view-panel hidden space-y-6">
+                    <!-- Barra de Selección y Filtro Cronológico -->
+                    <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+                        <div class="flex flex-wrap items-center gap-4 flex-1">
+                            <div class="min-w-[280px] flex-1">
+                                <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Docente Institucional</label>
+                                <select id="calendar-teacher-select" class="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-lg font-medium text-slate-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
+                                    <option value="">Seleccione un Docente...</option>
+                                </select>
                             </div>
-                            <select id="student-filter-career" class="px-3 py-2 text-xs border border-slate-200 rounded-lg font-medium text-slate-700 min-w-[240px]">
-                                <option value="0">Todas las Carreras</option>
-                            </select>
+                            <div class="w-40">
+                                <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Desde</label>
+                                <input type="date" id="calendar-start-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
+                            </div>
+                            <div class="w-40">
+                                <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Hasta</label>
+                                <input type="date" id="calendar-end-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
+                            </div>
+                            <div class="pt-5">
+                                <button id="btn-load-calendar" class="btn-gold px-5 py-2.5 text-xs font-bold flex items-center space-x-2 shadow-sm rounded-lg hover:shadow transition">
+                                    <i data-lucide="search" class="w-4 h-4"></i>
+                                    <span>Consultar Cronograma</span>
+                                </button>
+                            </div>
                         </div>
-                        <button id="btn-new-student" class="btn-gold px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-                            <i data-lucide="user-plus" class="w-4 h-4"></i>
-                            <span>Nuevo Alumno</span>
-                        </button>
                     </div>
 
-                    <div class="excel-table-container bg-white shadow-xs max-h-[600px]">
-                        <table class="w-full border-collapse text-left" id="table-students">
-                            <thead class="excel-header sticky top-0">
-                                <tr>
-                                    <th class="w-28 text-center">LEGAJO</th>
-                                    <th class="w-64">ALUMNO (APELLIDO Y NOMBRES)</th>
-                                    <th class="w-28 text-center">DNI</th>
-                                    <th class="w-64">CARRERA</th>
-                                    <th class="w-28 text-center">COHORTE</th>
-                                    <th class="w-24 text-center">ESTADO</th>
-                                    <th class="w-36 text-center">ACCIONES</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbody-students">
-                                <!-- Render -->
-                            </tbody>
-                        </table>
+                    <!-- Ficha del Docente y Topes Legales -->
+                    <div id="calendar-teacher-header" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6 my-6">
+                        <!-- Perfil y Carga Horaria -->
+                        <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800/80">
+                                    <h3 id="cal-docente-name" class="text-sm font-black text-gray-100">Apellido, Nombre</h3>
+                                    <span id="cal-avail-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black border">Disponible</span>
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                                    <span>DNI: <strong id="cal-docente-dni" class="text-gray-200 font-semibold">-</strong></span>
+                                    <span>•</span>
+                                    <span>Legajo: <strong id="cal-docente-legajo" class="text-gray-200 font-semibold">-</strong></span>
+                                    <span>•</span>
+                                    <span>Revista: <strong id="cal-docente-revista" class="text-gray-200 font-semibold">-</strong></span>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800">
+                                <div class="flex justify-between text-xs mb-1.5">
+                                    <span class="font-bold text-gray-400">Carga Horaria Semanal</span>
+                                    <span id="cal-hours-text" class="font-bold text-gray-100">0 / 30 hs</span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-zinc-700 rounded-full h-2.5 overflow-hidden">
+                                    <div id="cal-hours-bar" class="h-full bg-gold rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Topes Anuales Estatutarios -->
+                        <div class="lg:col-span-2 bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-3.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">Seguimiento Anual de Límites (Ciclo Lectivo)</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <!-- Inasistencias Injustificadas -->
+                                <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
+                                    <div class="flex justify-between items-center text-xs mb-1.5">
+                                        <span class="font-bold text-gray-200">Inasistencias (I)</span>
+                                        <span id="cal-stat-i-text" class="font-bold text-rose-400">0 / 5</span>
+                                    </div>
+                                    <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                                        <div id="cal-stat-i-bar" class="h-full bg-rose-500 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 5 anuales</div>
+                                </div>
+
+                                <!-- Permisos Art. 115 -->
+                                <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
+                                    <div class="flex justify-between items-center text-xs mb-1.5">
+                                        <span class="font-bold text-gray-200">Permisos (P 115)</span>
+                                        <span id="cal-stat-p-text" class="font-bold text-amber-400">0 / 6</span>
+                                    </div>
+                                    <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                                        <div id="cal-stat-p-bar" class="h-full bg-amber-500 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 6 anuales</div>
+                                </div>
+
+                                <!-- Licencias Médicas Art. 114 a -->
+                                <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
+                                    <div class="flex justify-between items-center text-xs mb-1.5">
+                                        <span class="font-bold text-gray-200">Lic. Médica (114 a)</span>
+                                        <span id="cal-stat-lic-text" class="font-bold text-purple-400">0 / 25</span>
+                                    </div>
+                                    <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                                        <div id="cal-stat-lic-bar" class="h-full bg-purple-500 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 25 días/año</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Cátedras y Suplencias en Curso -->
+                    <div id="calendar-details-panel" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6 my-6">
+                        <!-- Cátedras Activas -->
+                        <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-100 flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                                <i data-lucide="book-open" class="w-4 h-4 text-gold"></i>
+                                <span>Cátedras y Horarios Asignados</span>
+                            </h4>
+                            <div id="cal-designations-list" class="space-y-3 text-xs flex-1">
+                                <!-- Render cátedras -->
+                            </div>
+                        </div>
+
+                        <!-- Suplencias Activas -->
+                        <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-100 flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                                <i data-lucide="user-check" class="w-4 h-4 text-purple-400"></i>
+                                <span>Suplencias en Curso (Titular / Suplente)</span>
+                            </h4>
+                            <div id="cal-substitutions-list" class="space-y-3 text-xs flex-1">
+                                <!-- Render suplencias -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cronograma / Historial de Novedades y Asistencias -->
+                    <div id="calendar-timeline-container" class="mt-6 mb-8 bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30">
+                            <h4 class="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider flex items-center space-x-2">
+                                <i data-lucide="clock" class="w-4 h-4 text-slate-500"></i>
+                                <span>Línea de Tiempo de Novedades y Asistencias</span>
+                            </h4>
+                            <span id="cal-events-count" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-700/60 text-slate-600 dark:text-zinc-300">0 registros</span>
+                        </div>
+                        <div class="excel-table-container max-h-[480px]">
+                            <table class="w-full border-collapse text-left" id="table-calendar-events">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-28 text-center">FECHA</th>
+                                        <th class="w-44 text-center">ESTADO / MARCA</th>
+                                        <th class="w-20 text-center">HORAS</th>
+                                        <th class="w-60">CÁTEDRA</th>
+                                        <th>OBSERVACIONES / MOTIVO</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-calendar-events">
+                                    <tr>
+                                        <td colspan="5" class="py-10 text-center text-xs text-slate-400">
+                                            Seleccione un docente y presione Consultar para visualizar su cronograma institucional.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA 5: CARGA MASIVA DE ARCHIVOS (UNIFICADA) -->
+                <section id="view-csv-import" class="view-panel hidden space-y-5">
+                    <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="w-10 h-10 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-200 dark:border-cyan-800">
+                                <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Módulo de Carga Masiva de Archivos</h3>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400">Importación unificada para Planta Docente ("Datos del personal") y Asistencias con detección dinámica de formato.</p>
+                            </div>
+                        </div>
+
+                        <!-- Selector Unificado de Tipo de Ingesta -->
+                        <div class="mb-5 p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300">Tipo de Ingesta:</span>
+                                <div class="inline-flex rounded-lg bg-slate-200 dark:bg-zinc-800 p-0.5" id="csv-type-selector">
+                                    <button type="button" id="btn-mode-auto" data-mode="auto" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs transition">
+                                        Auto-Detectar
+                                    </button>
+                                    <button type="button" id="btn-mode-personnel" data-mode="personnel" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
+                                        Planta Funcional
+                                    </button>
+                                    <button type="button" id="btn-mode-attendance" data-mode="attendance" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
+                                        Asistencias y Novedades
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="csv-mode-badge" class="hidden items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
+                                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                                <span id="csv-mode-badge-text">Auto-detección activa</span>
+                            </div>
+                        </div>
+
+                        <!-- Zona de Carga Universal Drag & Drop (Sin Textarea manual) -->
+                        <div id="csv-dropzone" class="border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-gold dark:hover:border-gold bg-slate-50/60 dark:bg-zinc-900/40 rounded-xl p-8 text-center transition cursor-pointer flex flex-col items-center justify-center space-y-3">
+                            <input type="file" id="csv-file-input" accept=".csv,.txt,.xlsx,.xls,.docx,.doc" class="hidden">
+                            <div class="w-14 h-14 rounded-full bg-gold/10 dark:bg-gold/20 flex items-center justify-center text-gold border border-gold/30">
+                                <i data-lucide="upload-cloud" class="w-7 h-7"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-sm font-bold text-slate-800 dark:text-zinc-200">
+                                    Arrastre y suelte su archivo aquí o <span class="text-gold underline hover:text-gold-hover">examine en su equipo</span>
+                                </p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400">
+                                    Formatos admitidos: Planillas Excel (<code class="font-mono text-emerald-600 dark:text-emerald-400">.xlsx, .xls</code>), Word (<code class="font-mono text-blue-600 dark:text-blue-400">.docx, .doc</code>), <code class="font-mono text-cyan-600 dark:text-cyan-400">.csv</code> y <code class="font-mono text-amber-600 dark:text-amber-400">.txt</code>
+                                </p>
+                            </div>
+                            <div class="flex items-center space-x-2 text-[11px] text-slate-400 dark:text-zinc-500 pt-1">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+                                <span>Detección automática de hojas institucionales ("Datos del personal", "Asistencia Julio") y validación atómica</span>
+                            </div>
+                        </div>
+
+                        <!-- Tarjeta de Archivo Cargado (Se muestra al seleccionar/soltar un archivo) -->
+                        <div id="csv-file-loaded-card" class="hidden bg-slate-50 dark:bg-zinc-900/80 p-4 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex items-center space-x-3">
+                                    <div id="csv-file-icon" class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
+                                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <span id="csv-loaded-filename" class="text-sm font-bold text-slate-900 dark:text-zinc-100">archivo.xlsx</span>
+                                            <span id="csv-loaded-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 uppercase">EXCEL</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500 dark:text-zinc-400 flex items-center space-x-2 mt-0.5">
+                                            <span id="csv-loaded-size">0 KB</span>
+                                            <span>•</span>
+                                            <span id="csv-loaded-type-text">Tipo: Planta Funcional</span>
+                                            <span id="csv-loaded-sheet" class="hidden">• Hoja: "Datos del personal"</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Botón Descartar / Limpiar Archivo -->
+                                <button type="button" id="btn-csv-clear" class="px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center space-x-1.5 transition">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    <span>Descartar / Limpiar</span>
+                                </button>
+                            </div>
+
+                            <!-- Opciones para Planta Funcional -->
+                            <div id="csv-options-personnel" class="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-zinc-400 pt-2 border-t border-slate-200 dark:border-zinc-800">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" id="csv-opt-update" checked class="rounded border-slate-300 text-gold focus:ring-gold">
+                                    <span>Actualizar datos si el docente (DNI) ya existe</span>
+                                </label>
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" id="csv-opt-desigs" checked class="rounded border-slate-300 text-gold focus:ring-gold">
+                                    <span>Crear asignaciones de cátedras informadas (hasta 30hs)</span>
+                                </label>
+                            </div>
+
+                            <div class="pt-2 flex justify-end">
+                                <button id="btn-csv-preview" class="btn-gold px-5 py-2.5 text-xs font-bold flex items-center space-x-2 shadow-sm">
+                                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                                    <span>Previsualizar y Validar Datos</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Previsualización y Validación -->
+                    <div id="csv-preview-panel" class="hidden space-y-4">
+                        <!-- Tarjetas de Resumen -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="bg-white dark:bg-[#282828] p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+                                <div class="text-[10px] font-bold text-slate-400 uppercase">Total Registros</div>
+                                <div id="csv-stat-total" class="text-xl font-black text-slate-900 dark:text-zinc-100 mt-0.5">0</div>
+                            </div>
+                            <div class="bg-white dark:bg-[#282828] p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+                                <div class="text-[10px] font-bold text-emerald-600 uppercase">Registros Válidos</div>
+                                <div id="csv-stat-valid" class="text-xl font-black text-emerald-600 mt-0.5">0</div>
+                            </div>
+                            <div class="bg-white dark:bg-[#282828] p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+                                <div class="text-[10px] font-bold text-rose-600 uppercase">Inconsistencias / Errores</div>
+                                <div id="csv-stat-invalid" class="text-xl font-black text-rose-600 mt-0.5">0</div>
+                            </div>
+                            <div class="bg-white dark:bg-[#282828] p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+                                <div class="text-[10px] font-bold text-blue-600 uppercase">Docentes Existentes</div>
+                                <div id="csv-stat-existing" class="text-xl font-black text-blue-600 mt-0.5">0</div>
+                            </div>
+                        </div>
+
+                        <!-- Lista de Inconsistencias (si existen) -->
+                        <div id="csv-errors-box" class="hidden p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-2">
+                            <div class="flex items-center space-x-2 text-xs font-bold text-rose-800 dark:text-rose-300">
+                                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+                                <span>Inconsistencias detectadas en el archivo:</span>
+                            </div>
+                            <ul id="csv-errors-list" class="text-xs text-rose-700 dark:text-rose-400 list-disc list-inside space-y-1 max-h-36 overflow-y-auto">
+                            </ul>
+                        </div>
+
+                        <!-- Tabla Previsualización -->
+                        <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide">Filas Validadas para Ingesta</h4>
+                                <span class="text-[11px] text-slate-400">Mostrando primeras filas de muestra</span>
+                            </div>
+                            <div class="excel-table-container max-h-[420px]">
+                                <table class="w-full border-collapse text-left" id="table-csv-preview">
+                                    <thead class="excel-header sticky top-0" id="thead-csv-preview">
+                                        <!-- Dinámico -->
+                                    </thead>
+                                    <tbody id="tbody-csv-preview">
+                                        <!-- Dinámico -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Botón Confirmación -->
+                        <div class="flex justify-end pt-2">
+                            <button id="btn-csv-commit" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-md transition flex items-center space-x-2">
+                                <i data-lucide="database" class="w-4 h-4"></i>
+                                <span>Confirmar e Importar a Base de Datos</span>
+                            </button>
+                        </div>
                     </div>
                 </section>
 

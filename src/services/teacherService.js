@@ -46,7 +46,7 @@ class TeacherService {
                 params.push(term, term, term, term);
             }
 
-            sql += ' ORDER BY t.last_name ASC, t.first_name ASC';
+            sql += ' ORDER BY t.last_name COLLATE NOCASE ASC, t.first_name COLLATE NOCASE ASC';
 
             const rows = db.prepare(sql).all(...params);
             return rows.map(r => ({
