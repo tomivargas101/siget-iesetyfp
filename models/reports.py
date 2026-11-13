@@ -89,7 +89,10 @@ class ReportService:
         styles = cls._create_styles()
 
         # 1. Título y Subtítulo
-        last_col_letter = get_column_letter(total_cols)
+        actual_total_cols = len(df.columns) if (df is not None and not df.empty) else total_cols
+        actual_days_col_idx = (list(df.columns).index("Total Días") + 1) if (df is not None and "Total Días" in df.columns) else days_col_idx
+
+        last_col_letter = get_column_letter(actual_total_cols)
         ws.merge_cells(f"A1:{last_col_letter}1")
         top_title = ws["A1"]
         top_title.value = title_text
@@ -127,25 +130,25 @@ class ReportService:
             # Caso sin novedades: Fila informativa sin romper fórmulas
             cur_row = start_row
             ws.row_dimensions[cur_row].height = 22
-            ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=total_cols)
+            ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=actual_total_cols)
             msg_cell = ws.cell(row=cur_row, column=1, value="Sin registros de novedades para el período analizado.")
             msg_cell.font = Font(name="Calibri", size=10, italic=True, color="718096")
             msg_cell.alignment = Alignment(horizontal="center", vertical="center")
-            for c_idx in range(1, total_cols + 1):
+            for c_idx in range(1, actual_total_cols + 1):
                 ws.cell(row=cur_row, column=c_idx).border = styles["border"]
 
             tot_row = start_row + 1
             ws.row_dimensions[tot_row].height = 24
-            ws.merge_cells(start_row=tot_row, start_column=1, end_row=tot_row, end_column=days_col_idx - 1)
+            ws.merge_cells(start_row=tot_row, start_column=1, end_row=tot_row, end_column=actual_days_col_idx - 1)
             lbl_tot = ws.cell(row=tot_row, column=1, value=total_label)
             lbl_tot.font = styles["bold_font"]
             lbl_tot.alignment = Alignment(horizontal="right", vertical="center")
 
-            c_val = ws.cell(row=tot_row, column=days_col_idx, value=0)
+            c_val = ws.cell(row=tot_row, column=actual_days_col_idx, value=0)
             c_val.font = styles["bold_font"]
             c_val.alignment = Alignment(horizontal="right", vertical="center")
 
-            for c_idx in range(1, total_cols + 1):
+            for c_idx in range(1, actual_total_cols + 1):
                 ws.cell(row=tot_row, column=c_idx).border = styles["border"]
                 ws.cell(row=tot_row, column=c_idx).fill = styles["zebra_fill"]
         else:
@@ -162,9 +165,9 @@ class ReportService:
                     if headers[col_idx - 1] == "DNI":
                         cell.number_format = "@"
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-                    elif headers[col_idx - 1] in ("Oficina", "Año", "Mes", "Situación de Revista", "Desde", "Hasta"):
+                    elif headers[col_idx - 1] in ("Oficina", "Año", "Mes", "Situación de Revista", "Desde", "Hasta", "N° Disposición", "Código"):
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-                    elif headers[col_idx - 1] in ("Total Días", "Hs Semanales", "Hs Mes"):
+                    elif headers[col_idx - 1] in ("Total Días", "Hs Semanales", "Hs Mes", "Hs Cátedra"):
                         cell.alignment = Alignment(horizontal="right", vertical="center")
                         cell.number_format = "#,##0"
                     else:
@@ -177,23 +180,23 @@ class ReportService:
             # 4. Fila de Totales con fórmula oficial de administración openpyxl
             tot_row = start_row + rows_count
             ws.row_dimensions[tot_row].height = 24
-            ws.merge_cells(start_row=tot_row, start_column=1, end_row=tot_row, end_column=days_col_idx - 1)
+            ws.merge_cells(start_row=tot_row, start_column=1, end_row=tot_row, end_column=actual_days_col_idx - 1)
             lbl_tot = ws.cell(row=tot_row, column=1, value=total_label)
             lbl_tot.font = styles["bold_font"]
             lbl_tot.alignment = Alignment(horizontal="right", vertical="center")
 
-            days_col_letter = get_column_letter(days_col_idx)
+            days_col_letter = get_column_letter(actual_days_col_idx)
             # Fórmula oficial en openpyxl que se evalúa automáticamente en Excel
             c_tot = ws.cell(
                 row=tot_row,
-                column=days_col_idx,
+                column=actual_days_col_idx,
                 value=f"=SUM({days_col_letter}{start_row}:{days_col_letter}{tot_row - 1})"
             )
             c_tot.font = styles["bold_font"]
             c_tot.alignment = Alignment(horizontal="right", vertical="center")
             c_tot.number_format = "#,##0"
 
-            for c_idx in range(1, total_cols + 1):
+            for c_idx in range(1, actual_total_cols + 1):
                 ws.cell(row=tot_row, column=c_idx).border = styles["border"]
                 ws.cell(row=tot_row, column=c_idx).fill = styles["zebra_fill"]
 
@@ -422,7 +425,7 @@ class ReportService:
                 subtitle_text=f"Período: {month:02d}/{year} - Licencias Médicas, Art. 48, Salud Docente (Normativa RN-04 / RN-07: Oficina 1452 / RN-08: Año {year})",
                 total_label="TOTAL DÍAS LICENCIA MÉDICA",
                 days_col_idx=11,
-                total_cols=12
+                total_cols=len(df_dl01.columns)
             )
 
             # --- HOJA 3: Cuadro DL-02 (Inasistencias y Otras Licencias - RN-05 & RN-06) ---
@@ -434,7 +437,31 @@ class ReportService:
                 subtitle_text=f"Período: {month:02d}/{year} - Inasistencias de 1 día (RN-06), Permisos y Otras Licencias no Médicas (RN-05 / RN-07 / RN-08)",
                 total_label="TOTAL DÍAS INASISTENCIAS Y PERMISOS",
                 days_col_idx=11,
-                total_cols=12
+                total_cols=len(df_dl02.columns)
+            )
+
+            # --- HOJA 4: Cuadro IL-01 (Nomenclatura Versión 2.0) ---
+            ws_il01 = wb.create_sheet(title="Cuadro IL-01")
+            cls.dump_dataframe_to_sheet(
+                ws=ws_il01,
+                df=df_dl01,
+                title_text="SIGET - CUADRO IL-01: LICENCIAS POR ENFERMEDAD (OFICINA 1452)",
+                subtitle_text=f"Período: {month:02d}/{year} - Licencias Médicas (Normativa v2.0 / RN-04 / RN-07 / RN-08)",
+                total_label="TOTAL DÍAS LICENCIA MÉDICA",
+                days_col_idx=11,
+                total_cols=len(df_dl01.columns)
+            )
+
+            # --- HOJA 5: Cuadro IL-02 (Nomenclatura Versión 2.0) ---
+            ws_il02 = wb.create_sheet(title="Cuadro IL-02")
+            cls.dump_dataframe_to_sheet(
+                ws=ws_il02,
+                df=df_dl02,
+                title_text="SIGET - CUADRO IL-02: INASISTENCIAS, PERMISOS Y OTRAS LICENCIAS (OFICINA 1452)",
+                subtitle_text=f"Período: {month:02d}/{year} - Inasistencias y Permisos (Normativa v2.0 / RN-05 / RN-06 / RN-07 / RN-08)",
+                total_label="TOTAL DÍAS INASISTENCIAS Y PERMISOS",
+                days_col_idx=11,
+                total_cols=len(df_dl02.columns)
             )
 
             # Guardar archivo completo

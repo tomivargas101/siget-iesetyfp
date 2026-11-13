@@ -191,6 +191,11 @@ function registerIpcHandlers() {
         return NormativeService.getArticleDetails(key);
     });
 
+    ipcMain.handle('normative:getCalendarDayInfo', (event, dateStr) => {
+        const { NormativeService } = require('../services/normativeService');
+        return NormativeService.getCalendarDayInfo(dateStr);
+    });
+
     // -------------------------------------------------------------
     // ALUMNOS E INSCRIPCIONES
     // -------------------------------------------------------------

@@ -266,6 +266,39 @@ const ABSENCE_KEYWORDS = [
     'inasistencia', 'falta', 'ausente', 'no asistió', 'no asistio', 'sin aviso', 'con aviso'
 ];
 
+// ==============================================================================
+// CALENDARIO ESCOLAR INSTITUCIONAL Y FERIADOS (RF-10)
+// ==============================================================================
+const ACADEMIC_CALENDAR_HOLIDAYS = [
+    { date: '01-01', name: 'Año Nuevo', type: 'Feriado Nacional Inamovible' },
+    { date: '03-24', name: 'Día Nacional de la Memoria por la Verdad y la Justicia', type: 'Feriado Nacional Inamovible' },
+    { date: '04-02', name: 'Día del Veterano y de los Caídos en Malvinas', type: 'Feriado Nacional Inamovible' },
+    { date: '05-01', name: 'Día del Trabajador', type: 'Feriado Nacional Inamovible' },
+    { date: '05-25', name: 'Día de la Revolución de Mayo', type: 'Feriado Nacional Inamovible' },
+    { date: '06-17', name: 'Paso a la Inmortalidad del Gral. Don Martín Miguel de Güemes', type: 'Feriado Nacional' },
+    { date: '06-20', name: 'Paso a la Inmortalidad del Gral. Manuel Belgrano (Día de la Bandera)', type: 'Feriado Nacional Inamovible' },
+    { date: '07-09', name: 'Día de la Independencia', type: 'Feriado Nacional Inamovible' },
+    // Receso Escolar de Invierno (Julio institucional)
+    { date: '07-13', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-14', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-15', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-16', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-17', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-20', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-21', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-22', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-23', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '07-24', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
+    { date: '08-17', name: 'Paso a la Inmortalidad del Gral. José de San Martín', type: 'Feriado Nacional' },
+    { date: '08-25', name: 'Día de la Autonomía de Catamarca', type: 'Feriado Provincial' },
+    { date: '09-11', name: 'Día del Maestro', type: 'Asueto Escolar Docente' },
+    { date: '09-21', name: 'Día del Estudiante', type: 'Asueto Nivel Terciario' },
+    { date: '10-12', name: 'Día del Respeto a la Diversidad Cultural', type: 'Feriado Nacional' },
+    { date: '11-20', name: 'Día de la Soberanía Nacional', type: 'Feriado Nacional' },
+    { date: '12-08', name: 'Inmaculada Concepción de María (Virgen del Valle)', type: 'Feriado Provincial y Nacional' },
+    { date: '12-25', name: 'Navidad', type: 'Feriado Nacional Inamovible' }
+];
+
 const INSTITUTIONAL_OFFICE = 1452; // RN-07: Código oficial
 
 class NormativeService {
@@ -466,12 +499,71 @@ class NormativeService {
     static getClosedStatusCodes() {
         return ['PR', 'I', 'P', 'LIC', 'LT'];
     }
+
+    /**
+     * Retorna todos los feriados y asuetos del calendario académico escolar (RF-10).
+     */
+    static getCalendarHolidays() {
+        return ACADEMIC_CALENDAR_HOLIDAYS;
+    }
+
+    /**
+     * Determina si una fecha corresponde a un día inhábil escolar (feriado, asueto, receso invernal o fin de semana)
+     * para propósitos visuales y organizativos en la interfaz de carga (RF-10).
+     */
+    static getCalendarDayInfo(dateStr) {
+        if (!dateStr) {
+            return { isNonWorking: false, reason: null, type: null, isWeekend: false, badge: null };
+        }
+        const parts = String(dateStr).split('-');
+        if (parts.length !== 3) {
+            return { isNonWorking: false, reason: null, type: null, isWeekend: false, badge: null };
+        }
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        const dt = new Date(y, m - 1, d);
+        const dayOfWeek = dt.getDay(); // 0: Domingo, 6: Sábado
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const mmdd = `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+        const holiday = ACADEMIC_CALENDAR_HOLIDAYS.find(h => h.date === mmdd);
+        if (holiday) {
+            return {
+                isNonWorking: true,
+                reason: holiday.name,
+                type: holiday.type,
+                isWeekend,
+                badge: `${holiday.name} (${holiday.type})`
+            };
+        }
+
+        if (isWeekend) {
+            const dayName = dayOfWeek === 0 ? 'Domingo' : 'Sábado';
+            return {
+                isNonWorking: true,
+                reason: dayName,
+                type: 'Fin de Semana',
+                isWeekend: true,
+                badge: `${dayName} (Fin de Semana - Sin actividad áulica regular)`
+            };
+        }
+
+        return {
+            isNonWorking: false,
+            reason: null,
+            type: null,
+            isWeekend: false,
+            badge: null
+        };
+    }
 }
 
 module.exports = {
     NormativeService,
     MASTER_LICENSE_CATALOG,
     NORMATIVE_CATALOG: MASTER_LICENSE_CATALOG,
+    ACADEMIC_CALENDAR_HOLIDAYS,
     MEDICAL_KEYWORDS,
     ABSENCE_KEYWORDS,
     INSTITUTIONAL_OFFICE

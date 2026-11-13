@@ -63,10 +63,11 @@ contextBridge.exposeInMainWorld('sigetApi', {
         getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr)
     },
 
-    // Catálogo Maestro Normativo (IL-01 / IL-02)
+    // Catálogo Maestro Normativo (IL-01 / IL-02) y Calendario Escolar (RF-10)
     normative: {
         getMasterCatalog: () => ipcRenderer.invoke('normative:getMasterCatalog'),
-        getArticleDetails: (key) => ipcRenderer.invoke('normative:getArticleDetails', key)
+        getArticleDetails: (key) => ipcRenderer.invoke('normative:getArticleDetails', key),
+        getCalendarDayInfo: (dateStr) => ipcRenderer.invoke('normative:getCalendarDayInfo', dateStr)
     },
 
     // Alumnos e Inscripciones

@@ -2128,6 +2128,25 @@ async function loadDailyAttendance() {
             dateBadge.textContent = formatFriendlyDate(AppState.attendanceDate);
         }
 
+        // Validación y visualización del Calendario Escolar / Días Inhábiles (RF-10)
+        try {
+            if (window.sigetApi && window.sigetApi.normative && window.sigetApi.normative.getCalendarDayInfo) {
+                const calInfo = await window.sigetApi.normative.getCalendarDayInfo(AppState.attendanceDate);
+                const noticeBox = document.getElementById('att-calendar-notice');
+                const noticeText = document.getElementById('att-calendar-notice-text');
+                if (noticeBox && noticeText) {
+                    if (calInfo && calInfo.isNonWorking) {
+                        noticeText.textContent = `${calInfo.reason} — ${calInfo.type} (Jornada Inhábil Escolar)`;
+                        noticeBox.classList.remove('hidden');
+                    } else {
+                        noticeBox.classList.add('hidden');
+                    }
+                }
+            }
+        } catch (calErr) {
+            console.warn('Error verificando calendario escolar:', calErr);
+        }
+
         const records = await window.sigetApi.attendance.getDaily(AppState.attendanceDate);
         AppState.attendanceRecordsCache = records || [];
 
