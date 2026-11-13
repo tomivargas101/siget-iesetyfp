@@ -3696,105 +3696,274 @@ window.initTeacherCalendar = initTeacherCalendar;
 window.loadTeacherCalendar = loadTeacherCalendar;
 
 // ============================================================================
-// 12.B MÓDULO: IMPORTACIÓN MASIVA POR ARCHIVOS CSV
+// 12.B MÓDULO: IMPORTACIÓN MASIVA UNIFICADA DE ARCHIVOS
 // ============================================================================
-AppState.csvMode = 'personnel'; // 'personnel' | 'attendance'
+AppState.csvExplicitMode = 'auto'; // 'auto' | 'personnel' | 'attendance'
+AppState.csvDetectedType = 'personnel';
+AppState.csvLoadedFile = null;
+AppState.csvText = '';
 AppState.csvPreviewData = null;
 
 function initCsvImport() {
-    AppState.csvPreviewData = null;
-    const previewPanel = document.getElementById('csv-preview-panel');
-    if (previewPanel) previewPanel.classList.add('hidden');
-    switchCsvTab(AppState.csvMode);
     initLucideIcons();
 }
 
 function initCsvImportEvents() {
-    const tabPersonnel = document.getElementById('tab-csv-personnel');
-    const tabAttendance = document.getElementById('tab-csv-attendance');
+    const dropzone = document.getElementById('csv-dropzone');
     const fileInput = document.getElementById('csv-file-input');
+    const btnClear = document.getElementById('btn-csv-clear');
     const btnPreview = document.getElementById('btn-csv-preview');
     const btnCommit = document.getElementById('btn-csv-commit');
 
-    if (tabPersonnel) {
-        tabPersonnel.addEventListener('click', () => switchCsvTab('personnel'));
-    }
-    if (tabAttendance) {
-        tabAttendance.addEventListener('click', () => switchCsvTab('attendance'));
-    }
+    const btnAuto = document.getElementById('btn-mode-auto');
+    const btnPersonnel = document.getElementById('btn-mode-personnel');
+    const btnAttendance = document.getElementById('btn-mode-attendance');
 
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+    if (btnAuto) btnAuto.addEventListener('click', () => setCsvExplicitMode('auto'));
+    if (btnPersonnel) btnPersonnel.addEventListener('click', () => setCsvExplicitMode('personnel'));
+    if (btnAttendance) btnAttendance.addEventListener('click', () => setCsvExplicitMode('attendance'));
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const textInput = document.getElementById('csv-text-input');
-                if (textInput) {
-                    textInput.value = event.target.result;
-                    showToast(`Archivo "${file.name}" cargado exitosamente.`, 'success');
-                }
-            };
-            reader.readAsText(file, 'UTF-8');
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('border-gold', 'bg-gold/5');
         });
+
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-gold', 'bg-gold/5');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-gold', 'bg-gold/5');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFileSelected(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFileSelected(e.target.files[0]);
+            }
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', clearCsvImportState);
     }
 
     if (btnPreview) {
         btnPreview.addEventListener('click', handleCsvPreview);
     }
+
     if (btnCommit) {
         btnCommit.addEventListener('click', handleCsvCommit);
     }
 }
 
-function switchCsvTab(mode) {
-    AppState.csvMode = mode;
-    const tabPersonnel = document.getElementById('tab-csv-personnel');
-    const tabAttendance = document.getElementById('tab-csv-attendance');
+function setCsvExplicitMode(mode) {
+    AppState.csvExplicitMode = mode;
+    const btnAuto = document.getElementById('btn-mode-auto');
+    const btnPersonnel = document.getElementById('btn-mode-personnel');
+    const btnAttendance = document.getElementById('btn-mode-attendance');
     const optPersonnel = document.getElementById('csv-options-personnel');
-    const textInput = document.getElementById('csv-text-input');
-    const previewPanel = document.getElementById('csv-preview-panel');
 
-    if (previewPanel) previewPanel.classList.add('hidden');
-    AppState.csvPreviewData = null;
+    const activeClasses = 'px-3 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs transition';
+    const inactiveClasses = 'px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition';
 
-    if (mode === 'personnel') {
-        if (tabPersonnel) {
-            tabPersonnel.className = 'px-4 py-2 text-xs font-bold border-b-2 border-gold text-slate-900 dark:text-gold transition';
+    if (btnAuto) btnAuto.className = mode === 'auto' ? activeClasses : inactiveClasses;
+    if (btnPersonnel) btnPersonnel.className = mode === 'personnel' ? activeClasses : inactiveClasses;
+    if (btnAttendance) btnAttendance.className = mode === 'attendance' ? activeClasses : inactiveClasses;
+
+    if (optPersonnel) {
+        if (mode === 'attendance') {
+            optPersonnel.classList.add('hidden');
+        } else {
+            optPersonnel.classList.remove('hidden');
         }
-        if (tabAttendance) {
-            tabAttendance.className = 'px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition';
-        }
-        if (optPersonnel) optPersonnel.classList.remove('hidden');
-        if (textInput && !textInput.value.trim()) {
-            textInput.placeholder = 'Pegue aquí registros de personal. Formato: DNI, Legajo, Apellido, Nombre, Revista, Horas, Catedra, Carrera, Dia, Horario, Resolucion';
-        }
-    } else {
-        if (tabPersonnel) {
-            tabPersonnel.className = 'px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition';
-        }
-        if (tabAttendance) {
-            tabAttendance.className = 'px-4 py-2 text-xs font-bold border-b-2 border-gold text-slate-900 dark:text-gold transition';
-        }
-        if (optPersonnel) optPersonnel.classList.add('hidden');
-        if (textInput && !textInput.value.trim()) {
-            textInput.placeholder = 'Pegue aquí registros de asistencia. Formato: DNI, Fecha (AAAA-MM-DD), Estado (PR, I, P, LIC, LT), Horas, Observaciones';
-        }
+    }
+
+    if (AppState.csvLoadedFile) {
+        handleFileSelected(AppState.csvLoadedFile);
     }
 }
 
-async function handleCsvPreview() {
-    const textInput = document.getElementById('csv-text-input');
-    const previewPanel = document.getElementById('csv-preview-panel');
-    const btnPreview = document.getElementById('btn-csv-preview');
+async function handleFileSelected(file) {
+    if (!file) return;
 
-    if (!textInput || !textInput.value.trim()) {
-        showToast('Por favor ingrese o pegue el contenido CSV antes de validar.', 'warning');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const validExts = ['csv', 'txt', 'xlsx', 'xls', 'docx', 'doc'];
+    if (!validExts.includes(ext)) {
+        showToast(`Formato de archivo .${ext} no admitido. Formatos válidos: .xlsx, .xls, .docx, .doc, .csv, .txt`, 'error');
         return;
     }
 
-    const csvText = textInput.value.trim();
+    showToast(`Cargando archivo "${file.name}"...`, 'info');
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const dataUrl = e.target.result;
+            const base64 = dataUrl.split(',')[1];
+
+            const res = await window.sigetApi.csv.parseUniversalFile({
+                fileBufferBase64: base64,
+                fileName: file.name,
+                explicitType: AppState.csvExplicitMode
+            });
+
+            if (!res || !res.success) {
+                showToast(res && res.message ? res.message : 'Error al procesar el archivo.', 'error');
+                return;
+            }
+
+            AppState.csvLoadedFile = file;
+            AppState.csvText = res.csvText || '';
+            AppState.csvDetectedType = res.detectedType || 'personnel';
+            AppState.csvPreviewData = null;
+
+            updateFileLoadedCard(res);
+            showToast(res.message || `Archivo "${file.name}" cargado exitosamente.`, 'success');
+
+            // Previsualización y validación inmediata
+            await handleCsvPreview();
+        } catch (err) {
+            console.error('Error procesando archivo:', err);
+            showToast('Error procesando archivo: ' + err.message, 'error');
+        }
+    };
+    reader.onerror = () => {
+        showToast('No se pudo leer el archivo seleccionado.', 'error');
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateFileLoadedCard(data) {
+    const dropzone = document.getElementById('csv-dropzone');
+    const loadedCard = document.getElementById('csv-file-loaded-card');
+    const filenameElem = document.getElementById('csv-loaded-filename');
+    const badgeElem = document.getElementById('csv-loaded-badge');
+    const sizeElem = document.getElementById('csv-loaded-size');
+    const typeTextElem = document.getElementById('csv-loaded-type-text');
+    const sheetElem = document.getElementById('csv-loaded-sheet');
+    const optPersonnel = document.getElementById('csv-options-personnel');
+    const fileIcon = document.getElementById('csv-file-icon');
+
+    if (dropzone) dropzone.classList.add('hidden');
+    if (loadedCard) loadedCard.classList.remove('hidden');
+
+    if (filenameElem) filenameElem.textContent = data.fileName || 'Archivo cargado';
+    if (badgeElem) badgeElem.textContent = data.fileExt || 'DOC';
+
+    const sizeKb = Math.round((data.fileSize || 0) / 1024);
+    if (sizeElem) sizeElem.textContent = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+
+    const typeLabel = data.detectedType === 'attendance' ? 'Asistencias y Novedades' : 'Planta Funcional';
+    if (typeTextElem) typeTextElem.textContent = `Tipo: ${typeLabel} (${data.totalRows} filas)`;
+
+    if (sheetElem) {
+        if (data.sheetName) {
+            sheetElem.textContent = `• Hoja: "${data.sheetName}"`;
+            sheetElem.classList.remove('hidden');
+        } else {
+            sheetElem.classList.add('hidden');
+        }
+    }
+
+    if (optPersonnel) {
+        if (data.detectedType === 'personnel') {
+            optPersonnel.classList.remove('hidden');
+        } else {
+            optPersonnel.classList.add('hidden');
+        }
+    }
+
+    if (fileIcon) {
+        const ext = (data.fileExt || '').toLowerCase();
+        if (ext.includes('xls')) {
+            fileIcon.className = 'w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-300 dark:border-emerald-800';
+            fileIcon.innerHTML = '<i data-lucide="file-spreadsheet" class="w-5 h-5"></i>';
+        } else if (ext.includes('doc')) {
+            fileIcon.className = 'w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-300 dark:border-blue-800';
+            fileIcon.innerHTML = '<i data-lucide="file-text" class="w-5 h-5"></i>';
+        } else {
+            fileIcon.className = 'w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-300 dark:border-cyan-800';
+            fileIcon.innerHTML = '<i data-lucide="file-code" class="w-5 h-5"></i>';
+        }
+    }
+
+    const modeBadge = document.getElementById('csv-mode-badge');
+    const modeBadgeText = document.getElementById('csv-mode-badge-text');
+    if (modeBadge && modeBadgeText) {
+        modeBadge.classList.remove('hidden');
+        modeBadge.classList.add('flex');
+        modeBadgeText.textContent = `Detectado: ${typeLabel}`;
+    }
+
+    initLucideIcons();
+}
+
+function clearCsvImportState() {
+    AppState.csvLoadedFile = null;
+    AppState.csvText = '';
+    AppState.csvPreviewData = null;
+    AppState.csvDetectedType = 'personnel';
+
+    const fileInput = document.getElementById('csv-file-input');
+    if (fileInput) fileInput.value = '';
+
+    const dropzone = document.getElementById('csv-dropzone');
+    const loadedCard = document.getElementById('csv-file-loaded-card');
+    const previewPanel = document.getElementById('csv-preview-panel');
+    const errorsBox = document.getElementById('csv-errors-box');
+    const errorsList = document.getElementById('csv-errors-list');
+    const modeBadge = document.getElementById('csv-mode-badge');
+
+    if (dropzone) dropzone.classList.remove('hidden');
+    if (loadedCard) loadedCard.classList.add('hidden');
+    if (previewPanel) previewPanel.classList.add('hidden');
+    if (errorsBox) errorsBox.classList.add('hidden');
+    if (errorsList) errorsList.innerHTML = '';
+    if (modeBadge) {
+        modeBadge.classList.add('hidden');
+        modeBadge.classList.remove('flex');
+    }
+
+    const statTotal = document.getElementById('csv-stat-total');
+    const statValid = document.getElementById('csv-stat-valid');
+    const statInvalid = document.getElementById('csv-stat-invalid');
+    const statExisting = document.getElementById('csv-stat-existing');
+    if (statTotal) statTotal.textContent = '0';
+    if (statValid) statValid.textContent = '0';
+    if (statInvalid) statInvalid.textContent = '0';
+    if (statExisting) statExisting.textContent = '0';
+
+    const thead = document.getElementById('thead-csv-preview');
+    const tbody = document.getElementById('tbody-csv-preview');
+    if (thead) thead.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+
+    showToast('Archivo descartado. Puede cargar uno nuevo.', 'info');
+    initLucideIcons();
+}
+
+async function handleCsvPreview() {
+    if (!AppState.csvText) {
+        showToast('Por favor cargue un archivo antes de previsualizar y validar.', 'warning');
+        return;
+    }
+
+    const mode = (AppState.csvExplicitMode && AppState.csvExplicitMode !== 'auto')
+        ? AppState.csvExplicitMode
+        : (AppState.csvDetectedType || 'personnel');
+
+    const btnPreview = document.getElementById('btn-csv-preview');
     if (btnPreview) {
         btnPreview.disabled = true;
         btnPreview.innerHTML = `<span>Validando registros...</span>`;
@@ -3802,10 +3971,10 @@ async function handleCsvPreview() {
 
     try {
         let res;
-        if (AppState.csvMode === 'personnel') {
-            res = await window.sigetApi.csv.previewPersonnel(csvText);
+        if (mode === 'personnel') {
+            res = await window.sigetApi.csv.previewPersonnel(AppState.csvText);
         } else {
-            res = await window.sigetApi.csv.previewAttendance(csvText);
+            res = await window.sigetApi.csv.previewAttendance(AppState.csvText);
         }
 
         if (btnPreview) {
@@ -3814,7 +3983,7 @@ async function handleCsvPreview() {
         }
 
         if (!res || !res.success) {
-            showToast((res && res.message) ? res.message : 'Error al procesar el archivo CSV.', 'error');
+            showToast((res && res.message) ? res.message : 'Error al procesar el archivo.', 'error');
             return;
         }
 
@@ -3845,7 +4014,7 @@ async function handleCsvPreview() {
         const thead = document.getElementById('thead-csv-preview');
         const tbody = document.getElementById('tbody-csv-preview');
 
-        if (AppState.csvMode === 'personnel') {
+        if (mode === 'personnel') {
             thead.innerHTML = `
                 <tr>
                     <th class="w-14 text-center">LÍN.</th>
@@ -3909,12 +4078,13 @@ async function handleCsvPreview() {
             `).join('');
         }
 
+        const previewPanel = document.getElementById('csv-preview-panel');
         if (previewPanel) previewPanel.classList.remove('hidden');
         initLucideIcons();
         showToast(`Previsualización completada: ${res.validRows} registros listos para importar.`, 'success');
     } catch (err) {
         console.error('Error al previsualizar CSV:', err);
-        showToast('Error al previsualizar CSV: ' + err.message, 'error');
+        showToast('Error al previsualizar datos: ' + err.message, 'error');
     }
 }
 
@@ -3929,14 +4099,15 @@ async function handleCsvCommit() {
         return;
     }
 
-    const textInput = document.getElementById('csv-text-input');
-    const btnCommit = document.getElementById('btn-csv-commit');
-    const csvText = textInput ? textInput.value.trim() : '';
+    const mode = (AppState.csvExplicitMode && AppState.csvExplicitMode !== 'auto')
+        ? AppState.csvExplicitMode
+        : (AppState.csvDetectedType || 'personnel');
 
     if (!confirm(`¿Desea confirmar la importación definitiva de ${AppState.csvPreviewData.validRows} registros a la base de datos?`)) {
         return;
     }
 
+    const btnCommit = document.getElementById('btn-csv-commit');
     if (btnCommit) {
         btnCommit.disabled = true;
         btnCommit.innerHTML = `<span>Importando registros en base de datos...</span>`;
@@ -3944,12 +4115,16 @@ async function handleCsvCommit() {
 
     try {
         let res;
-        if (AppState.csvMode === 'personnel') {
+        if (mode === 'personnel') {
             const updateExisting = document.getElementById('csv-opt-update') ? document.getElementById('csv-opt-update').checked : true;
             const createDesignations = document.getElementById('csv-opt-desigs') ? document.getElementById('csv-opt-desigs').checked : true;
-            res = await window.sigetApi.csv.importPersonnel({ csvText, updateExisting, createDesignations });
+            res = await window.sigetApi.csv.importPersonnel({
+                csvText: AppState.csvText,
+                updateExisting,
+                createDesignations
+            });
         } else {
-            res = await window.sigetApi.csv.importAttendance(csvText);
+            res = await window.sigetApi.csv.importAttendance(AppState.csvText);
         }
 
         if (btnCommit) {
@@ -3959,12 +4134,8 @@ async function handleCsvCommit() {
 
         if (res && res.success) {
             showToast(res.message || 'Importación completada con éxito.', 'success');
-            // Limpiar formulario y caché
             AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
-            if (textInput) textInput.value = '';
-            const previewPanel = document.getElementById('csv-preview-panel');
-            if (previewPanel) previewPanel.classList.add('hidden');
-            AppState.csvPreviewData = null;
+            clearCsvImportState();
         } else {
             showToast((res && res.message) ? res.message : 'Error durante la persistencia de datos.', 'error');
         }
@@ -3979,6 +4150,8 @@ async function handleCsvCommit() {
 }
 window.initCsvImport = initCsvImport;
 window.initCsvImportEvents = initCsvImportEvents;
+window.handleFileSelected = handleFileSelected;
+window.clearCsvImportState = clearCsvImportState;
 window.handleCsvPreview = handleCsvPreview;
 window.handleCsvCommit = handleCsvCommit;
 

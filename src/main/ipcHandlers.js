@@ -198,8 +198,13 @@ function registerIpcHandlers() {
     });
 
     // -------------------------------------------------------------
-    // IMPORTACIÓN MASIVA CSV (PERSONAL Y ASISTENCIAS)
+    // IMPORTACIÓN MASIVA CSV Y FORMATOS UNIVERSALES (PERSONAL Y ASISTENCIAS)
     // -------------------------------------------------------------
+    ipcMain.handle('csv:parseUniversalFile', async (event, { fileBufferBase64, fileName, explicitType }) => {
+        const fileBuffer = fileBufferBase64 ? Buffer.from(fileBufferBase64, 'base64') : Buffer.alloc(0);
+        return await CsvImportService.parseUniversalFile({ fileBuffer, fileName, explicitType });
+    });
+
     ipcMain.handle('csv:previewPersonnel', (event, csvText) => {
         return CsvImportService.previewPersonnel(csvText);
     });

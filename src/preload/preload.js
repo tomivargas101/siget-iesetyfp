@@ -70,8 +70,9 @@ contextBridge.exposeInMainWorld('sigetApi', {
         getCalendarDayInfo: (dateStr) => ipcRenderer.invoke('normative:getCalendarDayInfo', dateStr)
     },
 
-    // Importación Masiva CSV
+    // Importación Masiva CSV y Archivos Universales
     csv: {
+        parseUniversalFile: (payload) => ipcRenderer.invoke('csv:parseUniversalFile', payload),
         previewPersonnel: (csvText) => ipcRenderer.invoke('csv:previewPersonnel', csvText),
         importPersonnel: (payload) => ipcRenderer.invoke('csv:importPersonnel', payload),
         previewAttendance: (csvText) => ipcRenderer.invoke('csv:previewAttendance', csvText),

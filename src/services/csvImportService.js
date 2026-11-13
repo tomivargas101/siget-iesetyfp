@@ -16,6 +16,261 @@ const { AttendanceService } = require('./attendanceService');
 
 class CsvImportService {
     /**
+     * Parsea un archivo universal (.xlsx, .xls, .docx, .doc, .csv, .txt) y devuelve
+     * el tipo detectado ('personnel' o 'attendance'), el nombre de hoja (si aplica)
+     * y el contenido tabular normalizado en formato CSV para su posterior previsualización.
+     */
+    static async parseUniversalFile({ fileBuffer, fileName = '', explicitType = 'auto' }) {
+        if (!fileBuffer || fileBuffer.length === 0) {
+            return { success: false, message: 'El archivo está vacío o no se recibieron datos.' };
+        }
+
+        const ext = (fileName.split('.').pop() || '').toLowerCase();
+        let csvText = '';
+        let detectedType = explicitType;
+        let sheetName = null;
+
+        try {
+            if (ext === 'xlsx' || ext === 'xls') {
+                const ExcelJS = require('exceljs');
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(fileBuffer);
+
+                if (!workbook.worksheets || workbook.worksheets.length === 0) {
+                    return { success: false, message: 'El archivo Excel no contiene hojas de cálculo legibles.' };
+                }
+
+                let targetSheet = null;
+                if (explicitType === 'personnel') {
+                    targetSheet = workbook.worksheets.find(w => /datos.*personal|personal|docentes|planta/i.test(w.name)) || workbook.worksheets[0];
+                    detectedType = 'personnel';
+                } else if (explicitType === 'attendance') {
+                    targetSheet = workbook.worksheets.find(w => /asistencia|novedad/i.test(w.name)) || workbook.worksheets[0];
+                    detectedType = 'attendance';
+                } else {
+                    // Auto-detección por nombre de hojas institucionales
+                    const persSheet = workbook.worksheets.find(w => /datos.*personal|personal|docentes|planta/i.test(w.name));
+                    const attSheet = workbook.worksheets.find(w => /asistencia|novedad/i.test(w.name));
+
+                    if (persSheet) {
+                        targetSheet = persSheet;
+                        detectedType = 'personnel';
+                    } else if (attSheet) {
+                        targetSheet = attSheet;
+                        detectedType = 'attendance';
+                    } else {
+                        targetSheet = workbook.worksheets[0];
+                    }
+                }
+
+                sheetName = targetSheet.name;
+
+                // Extraer filas de la hoja seleccionada
+                const rawRows = [];
+                targetSheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                    const values = Array.isArray(row.values) ? row.values.slice(1).map(v => {
+                        if (v === null || v === undefined) return '';
+                        if (typeof v === 'object' && v.text) return String(v.text).trim();
+                        if (typeof v === 'object' && v.result !== undefined) return String(v.result).trim();
+                        return String(v).trim();
+                    }) : [];
+
+                    if (values.some(v => v !== '')) {
+                        rawRows.push({ line: rowNumber, values });
+                    }
+                });
+
+                if (rawRows.length === 0) {
+                    return { success: false, message: `La hoja "${sheetName}" del archivo Excel no contiene datos legibles.` };
+                }
+
+                // Identificar fila de cabecera
+                let headerRowIndex = 0;
+                for (let i = 0; i < Math.min(5, rawRows.length); i++) {
+                    const lineVals = rawRows[i].values.map(v => v.toLowerCase());
+                    if (lineVals.some(v => v.includes('dni') || v.includes('legajo') || v.includes('apellido') || v.includes('agente') || v.includes('fecha'))) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+
+                const headers = rawRows[headerRowIndex].values;
+                const dataRows = rawRows.slice(headerRowIndex + 1);
+
+                // Si aún es 'auto', resolver según las cabeceras
+                if (detectedType === 'auto') {
+                    const hStr = headers.join(' ').toLowerCase();
+                    if (hStr.includes('asistencia') || hStr.includes('lic') || hStr.includes('fecha')) {
+                        detectedType = 'attendance';
+                    } else {
+                        detectedType = 'personnel';
+                    }
+                }
+
+                // Verificar si es una hoja de asistencia tipo grilla mensual (días 1 a 31 en columnas)
+                const isGridAttendance = detectedType === 'attendance' && headers.some(h => /^[1-9]$|^[12][0-9]$|^3[01]$/.test(String(h).trim()));
+
+                if (isGridAttendance) {
+                    let dniColIdx = headers.findIndex(h => /dni|documento/i.test(String(h)));
+                    if (dniColIdx === -1) dniColIdx = 2; // Default posición institucional
+                    
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    let monthNum = now.getMonth() + 1;
+                    const monthMap = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+                    for (const [mName, mVal] of Object.entries(monthMap)) {
+                        if (sheetName.toLowerCase().includes(mName)) {
+                            monthNum = mVal;
+                            break;
+                        }
+                    }
+                    const monthStr = String(monthNum).padStart(2, '0');
+
+                    const unpivotedRows = [['DNI', 'Fecha', 'Estado', 'Horas', 'Observaciones']];
+                    for (const r of dataRows) {
+                        const dniVal = (r.values[dniColIdx] || '').replace(/\D/g, '');
+                        if (!dniVal) continue;
+
+                        for (let col = 0; col < headers.length; col++) {
+                            const headerTitle = String(headers[col] || '').trim();
+                            if (/^[1-9]$|^[12][0-9]$|^3[01]$/.test(headerTitle)) {
+                                const dayVal = headerTitle.padStart(2, '0');
+                                const cellMark = (r.values[col] || '').trim().toUpperCase();
+                                if (['PR', 'I', 'P', 'LIC', 'LT'].includes(cellMark)) {
+                                    const dateIso = `${year}-${monthStr}-${dayVal}`;
+                                    unpivotedRows.push([dniVal, dateIso, cellMark, '4', `Carga desde planilla ${sheetName}`]);
+                                }
+                            }
+                        }
+                    }
+                    csvText = unpivotedRows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+                } else {
+                    // Formato tabular regular (Planta Funcional o Asistencias)
+                    const allRows = [headers, ...dataRows.map(r => r.values)];
+                    csvText = allRows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+                }
+
+            } else if (ext === 'docx') {
+                const zlib = require('node:zlib');
+                let docxXml = null;
+                let offset = 0;
+
+                while (offset < fileBuffer.length - 30) {
+                    if (fileBuffer.readUInt32LE(offset) === 0x04034b50) {
+                        const compMethod = fileBuffer.readUInt16LE(offset + 8);
+                        const compSize = fileBuffer.readUInt32LE(offset + 18);
+                        const nameLen = fileBuffer.readUInt16LE(offset + 26);
+                        const extraLen = fileBuffer.readUInt16LE(offset + 28);
+                        const entryName = fileBuffer.toString('utf8', offset + 30, offset + 30 + nameLen);
+                        const dataStart = offset + 30 + nameLen + extraLen;
+
+                        if (entryName === 'word/document.xml') {
+                            const compData = fileBuffer.subarray(dataStart, dataStart + compSize);
+                            docxXml = compMethod === 8 ? zlib.inflateRawSync(compData).toString('utf8') : compData.toString('utf8');
+                            break;
+                        }
+                        offset = dataStart + compSize;
+                    } else {
+                        offset++;
+                    }
+                }
+
+                if (!docxXml) {
+                    return { success: false, message: 'No se pudo leer la estructura del documento Word (.docx).' };
+                }
+
+                // Extraer filas si hay tablas (<w:tr>)
+                const trRegex = /<w:tr[\s>][\s\S]*?<\/w:tr>/g;
+                const trMatches = docxXml.match(trRegex);
+
+                if (trMatches && trMatches.length > 0) {
+                    const tableLines = [];
+                    for (const tr of trMatches) {
+                        const tcRegex = /<w:tc[\s>][\s\S]*?<\/w:tc>/g;
+                        const tcMatches = tr.match(tcRegex) || [];
+                        const rowVals = tcMatches.map(tc => {
+                            const tMatches = tc.match(/<w:t[\s>][\s\S]*?<\/w:t>/g) || [];
+                            return tMatches.map(t => t.replace(/<[^>]+>/g, '')).join('').trim();
+                        });
+                        if (rowVals.some(v => v !== '')) {
+                            tableLines.push(rowVals.map(v => `"${v.replace(/"/g, '""')}"`).join(','));
+                        }
+                    }
+                    csvText = tableLines.join('\n');
+                } else {
+                    // Párrafos <w:p>
+                    const pRegex = /<w:p[\s>][\s\S]*?<\/w:p>/g;
+                    const pMatches = docxXml.match(pRegex) || [];
+                    const pLines = [];
+                    for (const p of pMatches) {
+                        const tMatches = p.match(/<w:t[\s>][\s\S]*?<\/w:t>/g) || [];
+                        const text = tMatches.map(t => t.replace(/<[^>]+>/g, '')).join('').trim();
+                        if (text) pLines.push(text);
+                    }
+                    csvText = pLines.join('\n');
+                }
+
+                if (detectedType === 'auto') {
+                    const firstLines = csvText.toLowerCase().substring(0, 500);
+                    if (firstLines.includes('fecha') || firstLines.includes('asistencia') || firstLines.includes('lic')) {
+                        detectedType = 'attendance';
+                    } else {
+                        detectedType = 'personnel';
+                    }
+                }
+
+            } else if (ext === 'doc') {
+                // Word binario: extraer cadenas de texto legibles
+                const strAscii = fileBuffer.toString('binary');
+                const cleanLines = strAscii.replace(/[^\x20-\x7E\t\r\n\xC0-\xFF]/g, ' ')
+                    .split(/\r?\n/)
+                    .map(l => l.trim())
+                    .filter(l => l.length > 4 && (l.includes(',') || l.includes(';') || l.includes('\t')));
+                
+                if (cleanLines.length === 0) {
+                    return { success: false, message: 'No se encontraron tablas ni registros estructurados legibles en el archivo .doc.' };
+                }
+                csvText = cleanLines.join('\n');
+                if (detectedType === 'auto') {
+                    detectedType = csvText.toLowerCase().includes('fecha') ? 'attendance' : 'personnel';
+                }
+
+            } else {
+                // CSV o TXT plano
+                csvText = fileBuffer.toString('utf8');
+                if (detectedType === 'auto') {
+                    const firstLines = csvText.toLowerCase().substring(0, 500);
+                    if (firstLines.includes('fecha') || firstLines.includes('asistencia') || firstLines.includes('lic')) {
+                        detectedType = 'attendance';
+                    } else {
+                        detectedType = 'personnel';
+                    }
+                }
+            }
+
+            const { rows } = this.parseCsv(csvText);
+            return {
+                success: true,
+                fileName,
+                fileSize: fileBuffer.length,
+                fileExt: ext.toUpperCase(),
+                detectedType: detectedType === 'auto' ? 'personnel' : detectedType,
+                sheetName,
+                csvText,
+                totalRows: rows.length,
+                message: `Archivo "${fileName}" cargado correctamente (${rows.length} filas detectadas).`
+            };
+
+        } catch (error) {
+            console.error('[CsvImportService] Error parseando archivo universal:', error);
+            return {
+                success: false,
+                message: `Error al procesar el archivo: ${error.message}`
+            };
+        }
+    }
+
+    /**
      * Parsea texto CSV admitiendo separador por coma, punto y coma o tabulación,
      * y respetando cadenas entre comillas.
      */

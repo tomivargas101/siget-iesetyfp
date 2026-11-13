@@ -1145,7 +1145,7 @@
                     </div>
                 </section>
 
-                <!-- VISTA 5: CARGA MASIVA CSV -->
+                <!-- VISTA 5: CARGA MASIVA DE ARCHIVOS (UNIFICADA) -->
                 <section id="view-csv-import" class="view-panel hidden space-y-5">
                     <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
                         <div class="flex items-center space-x-3 mb-4">
@@ -1153,35 +1153,83 @@
                                 <i data-lucide="upload-cloud" class="w-5 h-5"></i>
                             </div>
                             <div>
-                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Módulo de Importación Masiva por Archivos CSV</h3>
-                                <p class="text-xs text-slate-500 dark:text-zinc-400">Precarga masiva de planta docente ("Datos del personal") y registros históricos de asistencia con validación atómica.</p>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Módulo de Carga Masiva de Archivos</h3>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400">Importación unificada para Planta Docente ("Datos del personal") y Asistencias con detección dinámica de formato.</p>
                             </div>
                         </div>
 
-                        <!-- Selector de Modo / Pestañas -->
-                        <div class="flex border-b border-slate-200 dark:border-zinc-700 mb-4">
-                            <button id="tab-csv-personnel" class="px-4 py-2 text-xs font-bold border-b-2 border-gold text-slate-900 dark:text-gold transition">
-                                Planta Funcional (Datos del personal)
-                            </button>
-                            <button id="tab-csv-attendance" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition">
-                                Asistencias y Novedades Diarias
-                            </button>
+                        <!-- Selector Unificado de Tipo de Ingesta -->
+                        <div class="mb-5 p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300">Tipo de Ingesta:</span>
+                                <div class="inline-flex rounded-lg bg-slate-200 dark:bg-zinc-800 p-0.5" id="csv-type-selector">
+                                    <button type="button" id="btn-mode-auto" data-mode="auto" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs transition">
+                                        Auto-Detectar
+                                    </button>
+                                    <button type="button" id="btn-mode-personnel" data-mode="personnel" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
+                                        Planta Funcional
+                                    </button>
+                                    <button type="button" id="btn-mode-attendance" data-mode="attendance" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
+                                        Asistencias y Novedades
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="csv-mode-badge" class="hidden items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
+                                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                                <span id="csv-mode-badge-text">Auto-detección activa</span>
+                            </div>
                         </div>
 
-                        <!-- Área de Carga / Pegado de CSV -->
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between">
-                                <label class="text-xs font-bold text-slate-700 dark:text-zinc-300">Pegar Contenido CSV o Seleccionar Archivo (.csv, .txt):</label>
-                                <label class="cursor-pointer px-3 py-1 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-bold rounded flex items-center space-x-1.5 transition">
-                                    <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
-                                    <span>Examinar Archivo...</span>
-                                    <input type="file" id="csv-file-input" accept=".csv,.txt" class="hidden">
-                                </label>
+                        <!-- Zona de Carga Universal Drag & Drop (Sin Textarea manual) -->
+                        <div id="csv-dropzone" class="border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-gold dark:hover:border-gold bg-slate-50/60 dark:bg-zinc-900/40 rounded-xl p-8 text-center transition cursor-pointer flex flex-col items-center justify-center space-y-3">
+                            <input type="file" id="csv-file-input" accept=".csv,.txt,.xlsx,.xls,.docx,.doc" class="hidden">
+                            <div class="w-14 h-14 rounded-full bg-gold/10 dark:bg-gold/20 flex items-center justify-center text-gold border border-gold/30">
+                                <i data-lucide="upload-cloud" class="w-7 h-7"></i>
                             </div>
-                            <textarea id="csv-text-input" rows="7" placeholder="Pegue aquí el texto copiado de Excel o del archivo CSV. Formato con comas (,) o punto y coma (;)..."
-                                class="w-full p-3 font-mono text-xs border border-slate-300 dark:border-zinc-700 rounded-lg dark:bg-zinc-900 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold"></textarea>
+                            <div class="space-y-1">
+                                <p class="text-sm font-bold text-slate-800 dark:text-zinc-200">
+                                    Arrastre y suelte su archivo aquí o <span class="text-gold underline hover:text-gold-hover">examine en su equipo</span>
+                                </p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400">
+                                    Formatos admitidos: Planillas Excel (<code class="font-mono text-emerald-600 dark:text-emerald-400">.xlsx, .xls</code>), Word (<code class="font-mono text-blue-600 dark:text-blue-400">.docx, .doc</code>), <code class="font-mono text-cyan-600 dark:text-cyan-400">.csv</code> y <code class="font-mono text-amber-600 dark:text-amber-400">.txt</code>
+                                </p>
+                            </div>
+                            <div class="flex items-center space-x-2 text-[11px] text-slate-400 dark:text-zinc-500 pt-1">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+                                <span>Detección automática de hojas institucionales ("Datos del personal", "Asistencia Julio") y validación atómica</span>
+                            </div>
+                        </div>
 
-                            <div id="csv-options-personnel" class="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-zinc-400 pt-1">
+                        <!-- Tarjeta de Archivo Cargado (Se muestra al seleccionar/soltar un archivo) -->
+                        <div id="csv-file-loaded-card" class="hidden bg-slate-50 dark:bg-zinc-900/80 p-4 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex items-center space-x-3">
+                                    <div id="csv-file-icon" class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
+                                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <span id="csv-loaded-filename" class="text-sm font-bold text-slate-900 dark:text-zinc-100">archivo.xlsx</span>
+                                            <span id="csv-loaded-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 uppercase">EXCEL</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500 dark:text-zinc-400 flex items-center space-x-2 mt-0.5">
+                                            <span id="csv-loaded-size">0 KB</span>
+                                            <span>•</span>
+                                            <span id="csv-loaded-type-text">Tipo: Planta Funcional</span>
+                                            <span id="csv-loaded-sheet" class="hidden">• Hoja: "Datos del personal"</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Botón Descartar / Limpiar Archivo -->
+                                <button type="button" id="btn-csv-clear" class="px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center space-x-1.5 transition">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    <span>Descartar / Limpiar</span>
+                                </button>
+                            </div>
+
+                            <!-- Opciones para Planta Funcional -->
+                            <div id="csv-options-personnel" class="flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-zinc-400 pt-2 border-t border-slate-200 dark:border-zinc-800">
                                 <label class="flex items-center space-x-2 cursor-pointer">
                                     <input type="checkbox" id="csv-opt-update" checked class="rounded border-slate-300 text-gold focus:ring-gold">
                                     <span>Actualizar datos si el docente (DNI) ya existe</span>

@@ -10,7 +10,9 @@ RN-03 (tope de 30 horas semanales), prevención de duplicados e informe de incon
 
 import csv
 import io
+import os
 import re
+import zipfile
 from datetime import datetime
 from typing import Dict, List, Any, Tuple, Optional
 from database.connection import get_db_session
@@ -19,6 +21,235 @@ from models.security import SecurityGuard
 from models.auth import CurrentSession, AuthService
 
 class CsvImportServicePy:
+    @staticmethod
+    def parse_universal_file(file_source: Any, filename: str = "", explicit_type: str = "auto") -> Dict[str, Any]:
+        """
+        Parsea un archivo universal (.xlsx, .xls, .docx, .doc, .csv, .txt) ya sea pasando
+        la ruta al archivo o un buffer de bytes, y devuelve el tipo detectado ('personnel' o 'attendance'),
+        nombre de hoja y el contenido CSV normalizado.
+        """
+        if not file_source:
+            return {"success": False, "message": "No se recibieron datos de archivo."}
+
+        # Obtener bytes y nombre de archivo
+        if isinstance(file_source, str) and os.path.exists(file_source):
+            if not filename:
+                filename = os.path.basename(file_source)
+            with open(file_source, "rb") as f:
+                raw_bytes = f.read()
+        elif isinstance(file_source, (bytes, bytearray)):
+            raw_bytes = bytes(file_source)
+        else:
+            return {"success": False, "message": "Origen de archivo no válido."}
+
+        if len(raw_bytes) == 0:
+            return {"success": False, "message": "El archivo está vacío."}
+
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ""
+        detected_type = explicit_type
+        sheet_name = None
+        csv_text = ""
+
+        try:
+            if ext in ["xlsx", "xls"]:
+                import openpyxl
+                wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+                if not wb.sheetnames:
+                    return {"success": False, "message": "El archivo Excel no contiene hojas de cálculo legibles."}
+
+                target_sheet = None
+                if explicit_type == "personnel":
+                    for name in wb.sheetnames:
+                        if re.search(r'datos.*personal|personal|docentes|planta', name, re.IGNORECASE):
+                            target_sheet = wb[name]
+                            break
+                    if not target_sheet:
+                        target_sheet = wb.active
+                    detected_type = "personnel"
+                elif explicit_type == "attendance":
+                    for name in wb.sheetnames:
+                        if re.search(r'asistencia|novedad', name, re.IGNORECASE):
+                            target_sheet = wb[name]
+                            break
+                    if not target_sheet:
+                        target_sheet = wb.active
+                    detected_type = "attendance"
+                else:
+                    pers_sheet = None
+                    att_sheet = None
+                    for name in wb.sheetnames:
+                        if re.search(r'datos.*personal|personal|docentes|planta', name, re.IGNORECASE):
+                            pers_sheet = wb[name]
+                        elif re.search(r'asistencia|novedad', name, re.IGNORECASE):
+                            att_sheet = wb[name]
+
+                    if pers_sheet:
+                        target_sheet = pers_sheet
+                        detected_type = "personnel"
+                    elif att_sheet:
+                        target_sheet = att_sheet
+                        detected_type = "attendance"
+                    else:
+                        target_sheet = wb.active
+
+                sheet_name = target_sheet.title
+
+                raw_rows = []
+                for row in target_sheet.iter_rows(values_only=True):
+                    str_vals = [str(c).strip() if c is not None else "" for c in row]
+                    if any(v != "" for v in str_vals):
+                        raw_rows.append(str_vals)
+
+                if not raw_rows:
+                    return {"success": False, "message": f"La hoja '{sheet_name}' no contiene filas con datos."}
+
+                # Buscar fila de cabecera
+                header_idx = 0
+                for i, r in enumerate(raw_rows[:6]):
+                    r_lower = " ".join(r).lower()
+                    if any(k in r_lower for k in ["dni", "legajo", "apellido", "agente", "fecha"]):
+                        header_idx = i
+                        break
+
+                headers = raw_rows[header_idx]
+                data_rows = raw_rows[header_idx + 1:]
+
+                if detected_type == "auto":
+                    h_lower = " ".join(headers).lower()
+                    if any(k in h_lower for k in ["asistencia", "lic", "fecha"]):
+                        detected_type = "attendance"
+                    else:
+                        detected_type = "personnel"
+
+                # Grilla mensual de asistencia
+                is_grid = detected_type == "attendance" and any(re.match(r'^[1-9]$|^[12][0-9]$|^3[01]$', str(h).strip()) for h in headers)
+                if is_grid:
+                    dni_col = 2
+                    for col_i, h in enumerate(headers):
+                        if re.search(r'dni|documento', str(h), re.IGNORECASE):
+                            dni_col = col_i
+                            break
+
+                    now = datetime.now()
+                    year = now.year
+                    month_num = now.month
+                    months = {"enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6, "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12}
+                    for m_name, m_val in months.items():
+                        if m_name in sheet_name.lower():
+                            month_num = m_val
+                            break
+
+                    month_str = str(month_num).zfill(2)
+                    unpivoted = [["DNI", "Fecha", "Estado", "Horas", "Observaciones"]]
+
+                    for r in data_rows:
+                        dni_val = re.sub(r'\D', '', r[dni_col] if dni_col < len(r) else "")
+                        if not dni_val:
+                            continue
+                        for col_i, h in enumerate(headers):
+                            day_str = str(h).strip()
+                            if re.match(r'^[1-9]$|^[12][0-9]$|^3[01]$', day_str):
+                                mark = r[col_i].strip().upper() if col_i < len(r) else ""
+                                if mark in ["PR", "I", "P", "LIC", "LT"]:
+                                    date_iso = f"{year}-{month_str}-{day_str.zfill(2)}"
+                                    unpivoted.append([dni_val, date_iso, mark, "4", f"Carga desde planilla {sheet_name}"])
+
+                    out = io.StringIO()
+                    writer = csv.writer(out)
+                    for r in unpivoted:
+                        writer.writerow(r)
+                    csv_text = out.getvalue()
+                else:
+                    out = io.StringIO()
+                    writer = csv.writer(out)
+                    writer.writerow(headers)
+                    for r in data_rows:
+                        writer.writerow(r)
+                    csv_text = out.getvalue()
+
+            elif ext == "docx":
+                with zipfile.ZipFile(io.BytesIO(raw_bytes)) as z:
+                    xml_content = z.read("word/document.xml").decode("utf-8", errors="ignore")
+
+                # Tablas
+                tr_list = re.findall(r'<w:tr[\s>][\s\S]*?<\/w:tr>', xml_content)
+                if tr_list:
+                    table_rows = []
+                    for tr in tr_list:
+                        tc_list = re.findall(r'<w:tc[\s>][\s\S]*?<\/w:tc>', tr)
+                        row_vals = []
+                        for tc in tc_list:
+                            t_list = re.findall(r'<w:t[\s>][\s\S]*?<\/w:t>', tc)
+                            text = "".join(re.sub(r'<[^>]+>', '', t) for t in t_list).strip()
+                            row_vals.append(text)
+                        if any(v != "" for v in row_vals):
+                            table_rows.append(row_vals)
+
+                    out = io.StringIO()
+                    writer = csv.writer(out)
+                    for r in table_rows:
+                        writer.writerow(r)
+                    csv_text = out.getvalue()
+                else:
+                    # Párrafos
+                    p_list = re.findall(r'<w:p[\s>][\s\S]*?<\/w:p>', xml_content)
+                    lines = []
+                    for p in p_list:
+                        t_list = re.findall(r'<w:t[\s>][\s\S]*?<\/w:t>', p)
+                        text = "".join(re.sub(r'<[^>]+>', '', t) for t in t_list).strip()
+                        if text:
+                            lines.append(text)
+                    csv_text = "\n".join(lines)
+
+                if detected_type == "auto":
+                    first_chars = csv_text[:500].lower()
+                    if any(k in first_chars for k in ["fecha", "asistencia", "lic"]):
+                        detected_type = "attendance"
+                    else:
+                        detected_type = "personnel"
+
+            elif ext == "doc":
+                # Extracción de cadenas legibles
+                text_latin = raw_bytes.decode("latin1", errors="ignore")
+                lines = [l.strip() for l in text_latin.splitlines() if len(l.strip()) > 5 and (',' in l or ';' in l or '\t' in l)]
+                if not lines:
+                    return {"success": False, "message": "No se encontraron tablas estructuradas legibles en el archivo .doc."}
+                csv_text = "\n".join(lines)
+                if detected_type == "auto":
+                    detected_type = "attendance" if "fecha" in csv_text[:400].lower() else "personnel"
+
+            else:
+                # CSV o TXT
+                try:
+                    csv_text = raw_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    csv_text = raw_bytes.decode("latin1", errors="ignore")
+
+                if detected_type == "auto":
+                    first_chars = csv_text[:500].lower()
+                    if any(k in first_chars for k in ["fecha", "asistencia", "lic"]):
+                        detected_type = "attendance"
+                    else:
+                        detected_type = "personnel"
+
+            _, parsed_rows = CsvImportServicePy.parse_csv(csv_text)
+            return {
+                "success": True,
+                "file_name": filename,
+                "file_size": len(raw_bytes),
+                "file_ext": ext.upper(),
+                "detected_type": "personnel" if detected_type == "auto" else detected_type,
+                "sheet_name": sheet_name,
+                "csv_text": csv_text,
+                "total_rows": len(parsed_rows),
+                "message": f"Archivo '{filename}' cargado correctamente ({len(parsed_rows)} registros detectados)."
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Error al procesar el archivo: {str(e)}"
+            }
     @staticmethod
     def _normalize_header(header: str) -> str:
         if not header:
