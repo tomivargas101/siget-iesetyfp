@@ -309,14 +309,14 @@ function setupEventListeners() {
     });
 
     // -------------------------------------------------------------
-    // Sub-solapas del Módulo Docentes
+    // Sub-solapas del Módulo Docentes (Legajos, Asistencias, Calendario)
     // -------------------------------------------------------------
     const tabLegajos = document.getElementById('tab-btn-legajos');
     const tabAsistencias = document.getElementById('tab-btn-asistencias');
-    if (tabLegajos && tabAsistencias) {
-        tabLegajos.addEventListener('click', () => switchTeacherSubtab('legajos'));
-        tabAsistencias.addEventListener('click', () => switchTeacherSubtab('asistencias'));
-    }
+    const tabCalendario = document.getElementById('tab-btn-calendario');
+    if (tabLegajos) tabLegajos.addEventListener('click', () => switchTeacherSubtab('legajos'));
+    if (tabAsistencias) tabAsistencias.addEventListener('click', () => switchTeacherSubtab('asistencias'));
+    if (tabCalendario) tabCalendario.addEventListener('click', () => switchTeacherSubtab('calendario'));
 
     // -------------------------------------------------------------
     // Sub-solapas del Módulo Cátedras
@@ -1097,6 +1097,13 @@ function navigateTo(viewName) {
         }
     });
 
+    // Si se invoca la ruta de calendario, redirigir fluidamente al interior de Docentes
+    if (viewName === 'calendar') {
+        navigateTo('teachers');
+        switchTeacherSubtab('calendario');
+        return;
+    }
+
     // Ocultar todas las vistas y mostrar la seleccionada
     document.querySelectorAll('.view-panel').forEach(panel => {
         panel.classList.add('hidden');
@@ -1112,7 +1119,6 @@ function navigateTo(viewName) {
         dashboard: 'Panel de Control y Métricas',
         teachers: 'Módulo de Docentes y Asistencias',
         designations: 'Gestión de Cátedras, Designaciones y Suplencias',
-        calendar: 'Calendario Institucional del Profesorado',
         'csv-import': 'Módulo de Carga Masiva por Archivos CSV',
         reports: 'Generación Oficial de Planillas Mensuales',
         users: 'Gestión de Usuarios y Accesos Institucionales'
@@ -1128,8 +1134,10 @@ function navigateTo(viewName) {
         case 'teachers':
             if (AppState.currentTeacherSubtab === 'legajos') {
                 loadTeachers();
-            } else {
+            } else if (AppState.currentTeacherSubtab === 'asistencias') {
                 loadDailyAttendance();
+            } else if (AppState.currentTeacherSubtab === 'calendario') {
+                initTeacherCalendar();
             }
             break;
         case 'designations':
@@ -1138,9 +1146,6 @@ function navigateTo(viewName) {
             } else {
                 loadSubstitutions();
             }
-            break;
-        case 'calendar':
-            initTeacherCalendar();
             break;
         case 'csv-import':
             initCsvImport();
@@ -1160,21 +1165,28 @@ function switchTeacherSubtab(tabName) {
     AppState.currentTeacherSubtab = tabName;
     const btnLegajos = document.getElementById('tab-btn-legajos');
     const btnAsist = document.getElementById('tab-btn-asistencias');
+    const btnCal = document.getElementById('tab-btn-calendario');
     const subtabLegajos = document.getElementById('subtab-legajos');
     const subtabAsist = document.getElementById('subtab-asistencias');
+    const subtabCal = document.getElementById('subtab-calendario');
+
+    const activeClasses = 'tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold dark:bg-gold dark:text-slate-900 transition';
+    const inactiveClasses = 'tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 transition';
+
+    if (btnLegajos) btnLegajos.className = (tabName === 'legajos') ? activeClasses : inactiveClasses;
+    if (btnAsist) btnAsist.className = (tabName === 'asistencias') ? activeClasses : inactiveClasses;
+    if (btnCal) btnCal.className = (tabName === 'calendario') ? activeClasses : inactiveClasses;
+
+    if (subtabLegajos) subtabLegajos.classList.toggle('hidden', tabName !== 'legajos');
+    if (subtabAsist) subtabAsist.classList.toggle('hidden', tabName !== 'asistencias');
+    if (subtabCal) subtabCal.classList.toggle('hidden', tabName !== 'calendario');
 
     if (tabName === 'legajos') {
-        btnLegajos.className = 'tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition';
-        btnAsist.className = 'tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition';
-        subtabLegajos.classList.remove('hidden');
-        subtabAsist.classList.add('hidden');
         loadTeachers();
-    } else {
-        btnLegajos.className = 'tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition';
-        btnAsist.className = 'tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition';
-        subtabLegajos.classList.add('hidden');
-        subtabAsist.classList.remove('hidden');
+    } else if (tabName === 'asistencias') {
         loadDailyAttendance();
+    } else if (tabName === 'calendario') {
+        initTeacherCalendar();
     }
     initLucideIcons();
 }
@@ -3481,9 +3493,7 @@ async function initTeacherCalendar() {
     if (!sel) return;
 
     try {
-        if (!AppState.teachersCache || AppState.teachersCache.length === 0) {
-            AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
-        }
+        AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
 
         const currentVal = sel.value;
         sel.innerHTML = '<option value="">Seleccione un Docente...</option>';

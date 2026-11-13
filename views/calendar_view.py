@@ -23,6 +23,11 @@ class CalendarView(ctk.CTkFrame):
         self._build_ui()
         self._load_teachers()
 
+    def refresh(self):
+        self._load_teachers()
+        if self.teachers_map:
+            self._load_timeline()
+
     def _build_ui(self):
         # Barra superior de filtros
         filter_card = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)

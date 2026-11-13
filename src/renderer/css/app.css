@@ -932,19 +932,22 @@ body.dark-mode .att-chip.active-lt,
    16. MÓDULO: CALENDARIO INSTITUCIONAL DEL PROFESORADO
    Espaciado y jerarquía visual de cuadros flotantes
    ========================================================================== */
-#view-calendar #calendar-teacher-header {
+#view-calendar #calendar-teacher-header,
+#subtab-calendario #calendar-teacher-header {
     margin-top: 1.25rem !important;
     margin-bottom: 1.5rem !important;
     gap: 1.25rem !important;
 }
 
-#view-calendar #calendar-details-panel {
+#view-calendar #calendar-details-panel,
+#subtab-calendario #calendar-details-panel {
     margin-top: 1.5rem !important;
     margin-bottom: 1.75rem !important;
     gap: 1.5rem !important;
 }
 
-#view-calendar #calendar-timeline-container {
+#view-calendar #calendar-timeline-container,
+#subtab-calendario #calendar-timeline-container {
     margin-top: 1.5rem !important;
     margin-bottom: 2.25rem !important;
 }
