@@ -74,56 +74,47 @@ function _ensureCleanOfficialSeed(db) {
         // Limpiar cualquier carrera fantasma de QA ('TEC-QA%' o 'Aseguramiento de Calidad')
         db.prepare("DELETE FROM careers WHERE code LIKE 'TEC-QA%' OR name LIKE '%Aseguramiento de Calidad%'").run();
 
-        // Limpiar cuenta 'admin' genérica
-        db.prepare("DELETE FROM users WHERE username = 'admin'").run();
+        // Limpiar cuenta 'admin' y 'rector' obsoletos liberando claves foráneas
+        db.prepare("UPDATE audit_logs SET user_id = NULL WHERE user_id IN (SELECT id FROM users WHERE username IN ('admin', 'rector') OR role = 'RECTOR')").run();
+        db.prepare("DELETE FROM users WHERE username = 'admin' OR username = 'rector' OR role = 'RECTOR'").run();
+
+        // Limpiar tabla students obsoleta si existiera
+        try {
+            db.exec('DROP TABLE IF EXISTS students;');
+        } catch (_) {}
 
         const defaultAnswerHash = bcrypt.hashSync('san martin', 10);
-        const defaultKey = 'SIGET-RECT-2026-ABCD-9999';
+        const defaultKey = 'SIGET-SEC-2026-ABCD-9999';
         const defaultKeyHash = bcrypt.hashSync(defaultKey, 10);
 
-        // 1. Rector (rector / rector123)
-        const rector = db.prepare("SELECT id, security_question, recovery_key FROM users WHERE username = 'rector'").get();
-        if (!rector) {
-            const rectorPassHash = bcrypt.hashSync('rector123', 12);
+        // 1. Secretaría (secretaria / secretaria123) - Prof. María Eva Duarte (Administración General)
+        const sec = db.prepare("SELECT id, role, security_question, recovery_key FROM users WHERE username = 'secretaria'").get();
+        if (!sec) {
+            const secPassHash = bcrypt.hashSync('secretaria123', 12);
             db.prepare(`
                 INSERT INTO users (
                     username, password_hash, full_name, role, email,
                     is_active, security_question, security_answer_hash,
                     recovery_key, recovery_key_hash, created_at
                 ) VALUES (
-                    'rector', ?, 'Lic. Roberto Valenzuela (Rector)', 'RECTOR', 'rectoria@siget-edu.ar',
+                    'secretaria', ?, 'Prof. María Eva Duarte (Secretaría)', 'SECRETARIA', 'secretaria@siget-edu.ar',
                     1, '¿Cuál fue el nombre de tu primera escuela?', ?, ?, ?, CURRENT_TIMESTAMP
                 )
-            `).run(rectorPassHash, defaultAnswerHash, defaultKey, defaultKeyHash);
-        } else if (!rector.security_question || !rector.recovery_key) {
+            `).run(secPassHash, defaultAnswerHash, defaultKey, defaultKeyHash);
+        } else if (!sec.recovery_key || !sec.security_question) {
             db.prepare(`
                 UPDATE users SET
+                    role = 'SECRETARIA',
+                    full_name = 'Prof. María Eva Duarte (Secretaría)',
                     security_question = '¿Cuál fue el nombre de tu primera escuela?',
                     security_answer_hash = ?,
                     recovery_key = ?,
                     recovery_key_hash = ?
                 WHERE id = ?
-            `).run(defaultAnswerHash, defaultKey, defaultKeyHash, rector.id);
+            `).run(defaultAnswerHash, defaultKey, defaultKeyHash, sec.id);
         }
 
-        // 2. Secretaría (secretaria / secretaria123) - Prof. María Eva Duarte
-        const sec = db.prepare("SELECT id, role FROM users WHERE username = 'secretaria'").get();
-        if (!sec) {
-            const secPassHash = bcrypt.hashSync('secretaria123', 12);
-            db.prepare(`
-                INSERT INTO users (
-                    username, password_hash, full_name, role, email,
-                    is_active, security_question, security_answer_hash, created_at
-                ) VALUES (
-                    'secretaria', ?, 'Prof. María Eva Duarte (Secretaría)', 'SECRETARIA', 'secretaria@siget-edu.ar',
-                    1, '¿Cuál fue el nombre de tu primera escuela?', ?, CURRENT_TIMESTAMP
-                )
-            `).run(secPassHash, defaultAnswerHash);
-        } else if (sec.role !== 'SECRETARIA') {
-            db.prepare("UPDATE users SET role = 'SECRETARIA', full_name = 'Prof. María Eva Duarte (Secretaría)' WHERE id = ?").run(sec.id);
-        }
-
-        // 3. Bedelía (bedel / bedel123) - María Eugenia Giménez
+        // 2. Bedelía (bedel / bedel123) - María Eugenia Giménez (Control Operativo)
         const bedel = db.prepare("SELECT id, role FROM users WHERE username = 'bedel'").get();
         if (!bedel) {
             const bedelPassHash = bcrypt.hashSync('bedel123', 12);

@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('sigetApi', {
         recoverByMasterKey: (payload) => ipcRenderer.invoke('auth:recoverByMasterKey', payload)
     },
 
-    // Gestión de Usuarios y Roles Secundarios (Rector)
+    // Gestión de Usuarios y Roles (Secretaría)
     users: {
         getAll: () => ipcRenderer.invoke('users:getAll'),
         getById: (id) => ipcRenderer.invoke('users:getById', id),
@@ -70,13 +70,18 @@ contextBridge.exposeInMainWorld('sigetApi', {
         getCalendarDayInfo: (dateStr) => ipcRenderer.invoke('normative:getCalendarDayInfo', dateStr)
     },
 
-    // Alumnos e Inscripciones
-    students: {
-        getAll: (filters) => ipcRenderer.invoke('students:getAll', filters),
-        getById: (id) => ipcRenderer.invoke('students:getById', id),
-        save: (payload) => ipcRenderer.invoke('students:save', payload),
-        toggleActive: (id) => ipcRenderer.invoke('students:toggleActive', id),
-        delete: (id) => ipcRenderer.invoke('students:delete', id)
+    // Importación Masiva CSV
+    csv: {
+        previewPersonnel: (csvText) => ipcRenderer.invoke('csv:previewPersonnel', csvText),
+        importPersonnel: (payload) => ipcRenderer.invoke('csv:importPersonnel', payload),
+        previewAttendance: (csvText) => ipcRenderer.invoke('csv:previewAttendance', csvText),
+        importAttendance: (csvText) => ipcRenderer.invoke('csv:importAttendance', csvText)
+    },
+
+    // Calendario Institucional del Profesorado
+    calendar: {
+        getTeacherTimeline: (params) => ipcRenderer.invoke('calendar:getTeacherTimeline', params),
+        getInstitutionalOverview: (params) => ipcRenderer.invoke('calendar:getInstitutionalOverview', params)
     },
 
     // Dashboard y Estadísticas

@@ -331,7 +331,7 @@ class DesignationService {
             const currentUser = AuthService.getCurrentUser();
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTORIA',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 'ALTA_CARRERA',
                 `Alta de carrera: ${cleanName} (${cleanCode}) - Res: ${cleanResolution || 'S/R'}`
             );
@@ -529,7 +529,7 @@ class DesignationService {
             const currentUser = AuthService.getCurrentUser();
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTORIA',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 'MODIFICAR_CARRERA',
                 `Modificada carrera ID ${careerId}: ${cleanName} (${cleanCode}) - Res: ${cleanResolution || 'S/R'}`
             );
@@ -575,24 +575,14 @@ class DesignationService {
                 };
             }
 
-            // 2. Validar si existen alumnos matriculados en esta carrera
-            const studentRow = db.prepare('SELECT COUNT(*) as count FROM students WHERE career_id = ?').get(cid);
-            const studentCount = studentRow ? studentRow.count : 0;
-            if (studentCount > 0) {
-                return {
-                    success: false,
-                    message: `No se puede eliminar la carrera "${career.name}": posee ${studentCount} alumno(s) matriculado(s). Reasigne a los alumnos antes de proceder.`
-                };
-            }
-
-            // 3. Proceder al borrado seguro (eliminar materias asociadas huérfanas y la carrera)
+            // 2. Proceder al borrado seguro (eliminar materias asociadas huérfanas y la carrera)
             db.prepare('DELETE FROM subjects WHERE career_id = ?').run(cid);
             db.prepare('DELETE FROM careers WHERE id = ?').run(cid);
 
             const currentUser = AuthService.getCurrentUser();
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTORIA',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 'ELIMINAR_CARRERA',
                 `Eliminada carrera ID ${cid}: ${career.name} (${career.code}) y sus materias asociadas.`
             );

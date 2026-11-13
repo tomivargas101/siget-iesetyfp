@@ -36,7 +36,7 @@ class AuthService {
 
     /**
      * Comprueba si la aplicación se ejecuta por primera vez
-     * (sin usuarios o sin cuenta activa de Rector)
+     * (sin usuarios o sin cuenta activa de Secretaría)
      */
     static checkFirstRun() {
         const db = getDatabase();
@@ -46,13 +46,13 @@ class AuthService {
                 return { isFirstRun: true, reason: 'NO_USERS' };
             }
 
-            const rectorCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'RECTOR' AND is_active = 1").get().count;
-            if (rectorCount === 0) {
-                return { isFirstRun: true, reason: 'NO_ACTIVE_RECTOR' };
+            const secCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'SECRETARIA' AND is_active = 1").get().count;
+            if (secCount === 0) {
+                return { isFirstRun: true, reason: 'NO_ACTIVE_SECRETARIA' };
             }
 
-            // Asegurar que el rector semilla tenga pregunta y clave maestra si es base previa
-            this.ensureDefaultSecurityForSeededRector();
+            // Asegurar que la cuenta de Secretaría tenga pregunta y clave maestra si es base previa
+            this.ensureDefaultSecurityForSeededSecretaria();
 
             return { isFirstRun: false, count: userCount };
         } catch (error) {
@@ -63,7 +63,7 @@ class AuthService {
 
     /**
      * Configuración Inicial Obligatoria (First-Run Setup)
-     * Crea la cuenta maestra de Rector con contraseña, pregunta de seguridad y Master Key.
+     * Crea la cuenta maestra de Secretaría con contraseña, pregunta de seguridad y Master Key.
      */
     static async firstRunSetup({ fullName, username, password, securityQuestion, securityAnswer, email = '' }) {
         const db = getDatabase();
@@ -76,7 +76,7 @@ class AuthService {
             }
 
             if (password.length < 6) {
-                return { success: false, message: 'La contraseña del Rector debe tener al menos 6 caracteres.' };
+                return { success: false, message: 'La contraseña de Secretaría debe tener al menos 6 caracteres.' };
             }
 
             const cleanUsername = username.trim().toLowerCase();
@@ -94,7 +94,7 @@ class AuthService {
                     username, password_hash, full_name, role, email,
                     is_active, security_question, security_answer_hash,
                     recovery_key, recovery_key_hash, created_at, last_login
-                ) VALUES (?, ?, ?, 'RECTOR', ?, 1, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, 'SECRETARIA', ?, 1, ?, ?, ?, ?, ?, ?)
             `).run(
                 cleanUsername,
                 passwordHash,
@@ -112,7 +112,7 @@ class AuthService {
                 id: result.lastInsertRowid,
                 username: cleanUsername,
                 fullName: fullName.trim(),
-                role: 'RECTOR',
+                role: 'SECRETARIA',
                 email: email ? email.trim() : ''
             };
 
@@ -120,12 +120,12 @@ class AuthService {
                 currentUser.id,
                 cleanUsername,
                 'CONFIGURACION_INICIAL',
-                'Instalación y configuración inicial de SIGET: Cuenta maestra de Rector creada'
+                'Instalación y configuración inicial de SIGET: Cuenta maestra de Secretaría creada'
             );
 
             return {
                 success: true,
-                message: 'Cuenta maestra de Rector configurada exitosamente.',
+                message: 'Cuenta maestra de Secretaría configurada exitosamente.',
                 user: currentUser,
                 masterRecoveryKey
             };
@@ -137,7 +137,7 @@ class AuthService {
 
     /**
      * Registro institucional de nueva cuenta de usuario
-     * Permite alta desde la pantalla de login con selección de rol (RECTOR, BEDEL, SECRETARIO)
+     * Permite alta con selección de rol institucional: Secretaría o Bedelía
      */
     static async registerUser({
         fullName,
@@ -156,10 +156,10 @@ class AuthService {
             return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
         }
 
-        const VALID_ROLES = ['RECTOR', 'SECRETARIA', 'BEDEL'];
+        const VALID_ROLES = ['SECRETARIA', 'BEDEL'];
         const normalizedRole = AuthService.normalizeRole(role);
         if (!VALID_ROLES.includes(normalizedRole)) {
-            return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Rector, Secretaría o Bedelía.` };
+            return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Secretaría o Bedelía.` };
         }
 
         const db = getDatabase();
@@ -177,7 +177,7 @@ class AuthService {
             let masterRecoveryKey = null;
             let recoveryKeyHash = null;
 
-            if (normalizedRole === 'RECTOR') {
+            if (normalizedRole === 'SECRETARIA') {
                 masterRecoveryKey = this.generateMasterRecoveryKey();
                 recoveryKeyHash = bcrypt.hashSync(masterRecoveryKey, 10);
             }
@@ -223,14 +223,14 @@ class AuthService {
     }
 
     /**
-     * Garantiza que el usuario rector existente en la base tenga pregunta y Master Key configurada
+     * Garantiza que la cuenta de Secretaría existente en la base tenga pregunta y Master Key configurada
      */
-    static ensureDefaultSecurityForSeededRector() {
+    static ensureDefaultSecurityForSeededSecretaria() {
         const db = getDatabase();
         try {
-            const rector = db.prepare("SELECT id, security_question, recovery_key FROM users WHERE username = 'rector'").get();
-            if (rector && (!rector.security_question || !rector.recovery_key)) {
-                const defaultKey = 'SIGET-RECT-2026-ABCD-9999';
+            const sec = db.prepare("SELECT id, security_question, recovery_key FROM users WHERE username = 'secretaria'").get();
+            if (sec && (!sec.security_question || !sec.recovery_key)) {
+                const defaultKey = 'SIGET-SEC-2026-ABCD-9999';
                 const keyHash = bcrypt.hashSync(defaultKey, 10);
                 const answerHash = bcrypt.hashSync('san martin', 10);
 
@@ -241,7 +241,7 @@ class AuthService {
                         recovery_key = ?,
                         recovery_key_hash = ?
                     WHERE id = ?
-                `).run(answerHash, defaultKey, keyHash, rector.id);
+                `).run(answerHash, defaultKey, keyHash, sec.id);
             }
         } catch (e) {
             // No interrumpir si falla
@@ -251,10 +251,9 @@ class AuthService {
     static normalizeRole(role) {
         if (!role) return 'BEDEL';
         const r = String(role).trim().toUpperCase();
-        if (r === 'RECTOR' || r === 'RECTORA') return 'RECTOR';
-        if (r === 'SECRETARIA' || r === 'SECRETARIO' || r === 'SECRETARÍA') return 'SECRETARIA';
+        if (r === 'SECRETARIA' || r === 'SECRETARIO' || r === 'SECRETARÍA' || r === 'RECTOR' || r === 'RECTORA' || r === 'ADMIN') return 'SECRETARIA';
         if (r === 'BEDEL' || r === 'BEDELIA' || r === 'BEDELÍA') return 'BEDEL';
-        return r;
+        return 'BEDEL';
     }
 
     /**

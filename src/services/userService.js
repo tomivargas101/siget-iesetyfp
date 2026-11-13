@@ -8,15 +8,23 @@ const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 
-const VALID_ROLES = ['RECTOR', 'SECRETARIA', 'BEDEL'];
+const VALID_ROLES = ['SECRETARIA', 'BEDEL'];
 
 function normalizeRole(role) {
     if (!role) return 'BEDEL';
     const r = String(role).trim().toUpperCase();
-    if (r === 'RECTOR' || r === 'RECTORA') return 'RECTOR';
-    if (r === 'SECRETARIA' || r === 'SECRETARIO' || r === 'SECRETARÍA') return 'SECRETARIA';
+    if (r === 'SECRETARIA' || r === 'SECRETARIO' || r === 'SECRETARÍA' || r === 'RECTOR' || r === 'RECTORA' || r === 'ADMIN') return 'SECRETARIA';
     if (r === 'BEDEL' || r === 'BEDELIA' || r === 'BEDELÍA') return 'BEDEL';
-    return r;
+    return 'BEDEL';
+}
+
+function canManageTargetRole(actorRole, targetRole) {
+    const normActor = normalizeRole(actorRole);
+    const normTarget = normalizeRole(targetRole);
+    // Solo Secretaría puede administrar usuarios
+    if (normActor !== 'SECRETARIA') return false;
+    // Secretaría administra Bedelía
+    return normTarget === 'BEDEL';
 }
 
 class UserService {
@@ -31,11 +39,10 @@ class UserService {
                 FROM users
                 ORDER BY 
                     CASE role 
-                        WHEN 'RECTOR' THEN 1 
-                        WHEN 'SECRETARIA' THEN 2 
-                        WHEN 'SECRETARIO' THEN 2 
-                        WHEN 'BEDEL' THEN 3 
-                        ELSE 4 
+                        WHEN 'SECRETARIA' THEN 1 
+                        WHEN 'SECRETARIO' THEN 1 
+                        WHEN 'BEDEL' THEN 2 
+                        ELSE 3 
                     END, 
                     full_name ASC
             `).all();
@@ -95,7 +102,7 @@ class UserService {
             const normalizedRole = normalizeRole(role);
 
             if (!VALID_ROLES.includes(normalizedRole)) {
-                return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Rector, Secretaría o Bedelía.` };
+                return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Secretaría o Bedelía.` };
             }
 
             if (password.length < 6) {
@@ -106,6 +113,11 @@ class UserService {
             const exists = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
             if (exists) {
                 return { success: false, message: `El usuario '${cleanUsername}' ya se encuentra registrado.` };
+            }
+
+            const currentUser = AuthService.getCurrentUser();
+            if (currentUser && currentUser.role !== 'SECRETARIA') {
+                return { success: false, message: 'Acceso denegado: Únicamente el perfil de Secretaría posee permisos para dar de alta usuarios.' };
             }
 
             const passwordHash = bcrypt.hashSync(password, 12);
@@ -132,10 +144,9 @@ class UserService {
                 now
             );
 
-            const currentUser = AuthService.getCurrentUser();
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTOR',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 'ALTA_USUARIO',
                 `Creación de nuevo usuario '${cleanUsername}' con rol '${normalizedRole}'`
             );
@@ -160,14 +171,18 @@ class UserService {
             }
 
             const currentUser = AuthService.getCurrentUser();
-            // Evitar que el rector se deshabilite a sí mismo
+            // Evitar que la secretaría se deshabilite a sí misma
             if (currentUser && currentUser.id === id && !isActive) {
-                return { success: false, message: 'No puede desactivar su propia cuenta activa de Rector.' };
+                return { success: false, message: 'No puede desactivar su propia cuenta activa de Secretaría.' };
+            }
+
+            if (currentUser && currentUser.role !== 'SECRETARIA') {
+                return { success: false, message: 'Acceso denegado: Se requiere rol de Secretaría para modificar usuarios.' };
             }
 
             const normalizedRole = normalizeRole(role || user.role);
             if (!VALID_ROLES.includes(normalizedRole)) {
-                return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Rector, Secretaría o Bedelía.` };
+                return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Secretaría o Bedelía.` };
             }
 
             db.prepare(`
@@ -187,7 +202,7 @@ class UserService {
 
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTOR',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 'MODIFICACION_USUARIO',
                 `Actualizados datos del usuario '${user.username}' (Rol: ${normalizedRole}, Activo: ${isActive})`
             );
@@ -200,7 +215,7 @@ class UserService {
     }
 
     /**
-     * Blanqueo / Restablecimiento inmediato de contraseña por parte del Rector
+     * Blanqueo / Restablecimiento inmediato de contraseña por parte de Secretaría
      */
     static resetPassword(userId, newPassword) {
         const db = getDatabase();
@@ -214,13 +229,17 @@ class UserService {
                 return { success: false, message: 'Usuario no encontrado.' };
             }
 
+            const currentUser = AuthService.getCurrentUser();
+            if (currentUser && currentUser.role !== 'SECRETARIA') {
+                return { success: false, message: 'Acceso denegado: Únicamente Secretaría posee privilegios para blanquear contraseñas.' };
+            }
+
             const passwordHash = bcrypt.hashSync(newPassword, 12);
             db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
 
-            const currentUser = AuthService.getCurrentUser();
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTOR',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 'BLANQUEO_CONTRASENA',
                 `Blanqueo de contraseña efectuado para el usuario '${user.username}' (${user.role})`
             );
@@ -238,7 +257,7 @@ class UserService {
     static toggleUserActive(id) {
         const db = getDatabase();
         try {
-            const user = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?').get(id);
+            const user = db.prepare('SELECT id, username, role, is_active FROM users WHERE id = ?').get(id);
             if (!user) {
                 return { success: false, message: 'Usuario no encontrado.' };
             }
@@ -248,12 +267,16 @@ class UserService {
                 return { success: false, message: 'No puede alterar el estado de su propia cuenta de sesión actual.' };
             }
 
+            if (currentUser && currentUser.role !== 'SECRETARIA') {
+                return { success: false, message: 'Acceso denegado: Se requiere rol de Secretaría para cambiar estado de usuarios.' };
+            }
+
             const newStatus = user.is_active ? 0 : 1;
             db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(newStatus, id);
 
             AuditService.log(
                 currentUser ? currentUser.id : null,
-                currentUser ? currentUser.username : 'RECTOR',
+                currentUser ? currentUser.username : 'SECRETARIA',
                 newStatus ? 'REACTIVACION_USUARIO' : 'BAJA_USUARIO',
                 `Usuario '${user.username}' ${newStatus ? 'reactivado' : 'dado de baja lógica'}`
             );

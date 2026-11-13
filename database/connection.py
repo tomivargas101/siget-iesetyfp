@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from database.config import load_config
 from database.schema import (
-    Base, User, Career, Subject, Teacher, Student, Designation, Substitution, Attendance, AuditLog
+    Base, User, Career, Subject, Teacher, Designation, Substitution, Attendance, AuditLog
 )
 
 _engine = None
@@ -236,23 +236,31 @@ def _ensure_schema_columns(engine):
 def init_db(cfg: dict = None):
     """
     Inicializa las tablas y carga datos de demostración si la base está vacía.
+    Elimina módulo de alumnos y rol de rector.
     """
     engine = get_engine(cfg, force_reconnect=True)
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns(engine)
 
+    # Limpiar tabla students obsoleta si existiera
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS students"))
+            conn.commit()
+    except Exception:
+        pass
+
     session = get_db_session()
     try:
-        # 1. Crear usuarios por defecto si no existen
+        # Purgar cualquier usuario rector remanente liberando referencias de claves foráneas
+        rector_u = session.query(User).filter(User.username == "rector").first()
+        if rector_u:
+            session.query(AuditLog).filter(AuditLog.user_id == rector_u.id).update({AuditLog.user_id: None})
+            session.delete(rector_u)
+            session.commit()
+
+        # 1. Crear usuarios por defecto si no existen (exclusivamente Secretaría y Bedel)
         if session.query(User).count() == 0:
-            rector_user = User(
-                username="rector",
-                password_hash=hash_password("rector123"),
-                full_name="Lic. Roberto Valenzuela (Rector)",
-                role="RECTOR",
-                email="rectoria@siget-edu.ar",
-                is_active=True
-            )
             bedel_user = User(
                 username="bedel",
                 password_hash=hash_password("bedel123"),
@@ -269,7 +277,7 @@ def init_db(cfg: dict = None):
                 email="secretaria@siget-edu.ar",
                 is_active=True
             )
-            session.add_all([rector_user, secretaria_user, bedel_user])
+            session.add_all([secretaria_user, bedel_user])
             session.commit()
 
         # 2. Cargar carreras de ejemplo
@@ -377,34 +385,6 @@ def init_db(cfg: dict = None):
                 )
                 session.add(subst1)
                 session.commit()
-
-        # 4. Cargar alumnos de ejemplo
-        if session.query(Student).count() == 0:
-            c1 = session.query(Career).first()
-            st1 = Student(
-                legajo="ALU-2026-001",
-                dni="44123456",
-                cuil="20-44123456-3",
-                first_name="Martín Ignacio",
-                last_name="Pereyra",
-                email="m.pereyra@estudiante.edu.ar",
-                phone="11-2345-6789",
-                career_id=c1.id if c1 else None,
-                year_enrolled=2026
-            )
-            st2 = Student(
-                legajo="ALU-2026-002",
-                dni="45876543",
-                cuil="27-45876543-8",
-                first_name="Camila Belén",
-                last_name="Alvarez",
-                email="c.alvarez@estudiante.edu.ar",
-                phone="11-9876-5432",
-                career_id=c1.id if c1 else None,
-                year_enrolled=2026
-            )
-            session.add_all([st1, st2])
-            session.commit()
 
     finally:
         session.close()

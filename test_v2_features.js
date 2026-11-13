@@ -20,6 +20,10 @@ const { AttendanceProcessor } = require('./src/services/attendanceProcessor');
 const { DashboardService } = require('./src/services/dashboardService');
 const { ReportService } = require('./src/services/reportService');
 const { DesignationService } = require('./src/services/designationService');
+const { CsvImportService } = require('./src/services/csvImportService');
+const { TeacherCalendarService } = require('./src/services/teacherCalendarService');
+const { UserService } = require('./src/services/userService');
+const { AuthService } = require('./src/services/authService');
 
 async function runTests() {
     console.log('========================================================');
@@ -178,7 +182,6 @@ async function runTests() {
     // 9. ABMC de Designaciones (Edición, Baja Lógica e Histórica)
     console.log('9. Verificando ABMC de Designaciones:');
     const { TeacherService } = require('./src/services/teacherService');
-    const { StudentService } = require('./src/services/studentService');
 
     const allDesigs = DesignationService.getAll();
     assert(allDesigs.length > 0, 'Debe haber al menos una designación');
@@ -263,60 +266,84 @@ async function runTests() {
     assert(delTeacherRes.success, 'Eliminación de docente sin historial debe ser exitosa');
     console.log(`   ✅ [PASS] Eliminación definitiva de docente sin dependencias completada`);
 
-    // 11. ABMC de Alumnos (Ciclo Completo: Alta, Consulta, Modificación, Baja)
-    console.log('11. Verificando ABMC de Alumnos:');
-    const studentDni = `88${randomSuffix}`;
-    const studentCreateRes = StudentService.save({
-        dni: studentDni,
-        legajo: `ALU-${randomSuffix}`,
-        lastName: 'ALUMNO_PRUEBA',
-        firstName: 'JUAN',
-        careerId: 1,
-        yearEnrolled: 2026,
-        cuil: `20-${studentDni}-1`,
-        email: 'alumno.test@siget.edu.ar',
-        phone: '3834112233'
+    // 11. Nuevos Módulos v2.0: Carga Masiva CSV, Calendario Docente y Jerarquía Secretaría/Bedelía
+    console.log('11. Verificando Carga Masiva CSV, Calendario Institucional y Jerarquía de Roles:');
+
+    // 11.1 Importación Masiva CSV de Personal ("Datos del personal")
+    const samplePersonnelCsv = `DNI,Apellido,Nombre,Revista,Horas,Catedra,Carrera,Dia,Horario,Resolucion
+30123456,PEREZ,Juan Carlos,Titular,4,Matemática I,Profesorado de Educación Secundaria,Lunes,18:00 a 20:00,Res. 100/2026
+30123457,LOPEZ,Ana Maria,Interino,6,Física I,Profesorado de Educación Secundaria,Martes,18:00 a 21:00,Res. 101/2026
+`;
+    const previewPersonnel = CsvImportService.previewPersonnel(samplePersonnelCsv);
+    assert(previewPersonnel.success, 'Previsualización de personal debe ser exitosa');
+    assert.strictEqual(previewPersonnel.validRows, 2, 'Debe haber 2 filas válidas');
+    assert.strictEqual(previewPersonnel.invalidRows, 0, 'No debe haber filas inválidas');
+    console.log(`   ✅ [PASS] Previsualización CSV de personal: ${previewPersonnel.validRows} filas válidas`);
+
+    const importPersonnelRes = CsvImportService.importPersonnel(samplePersonnelCsv);
+    assert(importPersonnelRes.success, 'Importación CSV de personal debe ser exitosa');
+    assert(importPersonnelRes.insertedTeachers >= 1 || importPersonnelRes.updatedTeachers >= 1, 'Debe insertar o actualizar docentes');
+    console.log(`   ✅ [PASS] Importación CSV de personal: ${importPersonnelRes.message}`);
+
+    // 11.2 Importación Masiva CSV de Asistencias Diarias ("Asistencia")
+    const sampleAttendanceCsv = `DNI,Fecha,Estado,Horas,Observaciones
+30123456,2026-10-18,PR,4,Presente normal
+30123457,2026-10-18,I,6,Inasistencia sin aviso
+30123457,2026-10-19,LIC,6,Licencia Art. 114 a
+`;
+    const previewAttendance = CsvImportService.previewAttendance(sampleAttendanceCsv);
+    assert(previewAttendance.success, 'Previsualización de asistencias debe ser exitosa');
+    assert.strictEqual(previewAttendance.validRows, 3, 'Debe haber 3 filas válidas');
+    console.log(`   ✅ [PASS] Previsualización CSV de asistencias: ${previewAttendance.validRows} filas válidas`);
+
+    const importAttendanceRes = CsvImportService.importAttendance(sampleAttendanceCsv);
+    assert(importAttendanceRes.success, 'Importación CSV de asistencias debe ser exitosa');
+    assert.strictEqual(importAttendanceRes.importedCount, 3, 'Deben importarse 3 asistencias');
+    console.log(`   ✅ [PASS] Importación CSV de asistencias: ${importAttendanceRes.importedCount} registros procesados`);
+
+    // 11.3 Calendario Institucional del Profesorado (Timeline y Topes)
+    const teacherPerez = db.prepare('SELECT id FROM teachers WHERE dni = ?').get('30123456');
+    assert(teacherPerez, 'Docente importado por CSV debe existir');
+
+    const timelineRes = TeacherCalendarService.getTeacherTimeline({
+        teacherId: teacherPerez.id,
+        startDate: '2026-10-01',
+        endDate: '2026-10-31'
     });
-    assert(studentCreateRes.success, 'Alta de alumno debe ser exitosa');
+    assert(timelineRes.success, 'Consulta de cronograma institucional debe ser exitosa');
+    assert(timelineRes.teacher && timelineRes.teacher.dni === '30123456', 'Datos del docente en calendario correctos');
+    assert(timelineRes.annualMetrics && typeof timelineRes.annualMetrics.inasistencias.count === 'number', 'Métricas anuales calculadas');
+    console.log(`   ✅ [PASS] Calendario Institucional: Historial y topes calculados para ${timelineRes.teacher.lastName}`);
 
-    const createdStudent = db.prepare('SELECT id FROM students WHERE dni = ?').get(studentDni);
-    assert(createdStudent, 'El alumno debe haberse insertado');
-
-    const studentDetail = StudentService.getById(createdStudent.id);
-    assert.strictEqual(studentDetail.dni, studentDni);
-    console.log(`   ✅ [PASS] Consulta de alumno por ID exitosa (${studentDetail.fullName})`);
-
-    // Modificar alumno
-    const studentUpdateRes = StudentService.save({
-        id: createdStudent.id,
-        dni: studentDni,
-        legajo: `ALU-${randomSuffix}-MOD`,
-        lastName: 'ALUMNO_MODIFICADO',
-        firstName: 'JUAN CARLOS',
-        careerId: 1,
-        yearEnrolled: 2025,
-        cuil: `20-${studentDni}-1`,
-        email: 'alumno.mod@siget.edu.ar',
-        phone: '3834998877'
+    // 11.4 Jerarquía Estricta de 2 Roles (Secretaría vs Bedelía - Eliminación de Rector)
+    // Autenticar como Bedel y verificar que no puede crear ni alterar cuentas
+    AuthService.login('bedel', 'bedel123');
+    const bedelTryCreate = UserService.createUser({
+        username: 'bedel_no_autorizado',
+        fullName: 'Intento Ilegal',
+        role: 'BEDEL',
+        password: 'password123'
     });
-    assert(studentUpdateRes.success, 'Modificación de alumno debe ser exitosa');
-    const updatedStudent = StudentService.getById(createdStudent.id);
-    assert.strictEqual(updatedStudent.lastName, 'ALUMNO_MODIFICADO');
-    assert.strictEqual(updatedStudent.firstName, 'JUAN CARLOS');
-    console.log(`   ✅ [PASS] Modificación de datos del alumno completada`);
+    assert(!bedelTryCreate.success, 'Bedelía NO debe tener permiso para crear usuarios');
+    assert(bedelTryCreate.message.includes('Acceso denegado') || bedelTryCreate.message.includes('Secretaría'), 'Mensaje de guarda jerárquica para Bedelía');
+    console.log(`   ✅ [PASS] Guarda de seguridad: Bedelía bloqueada para administración de usuarios (${bedelTryCreate.message})`);
 
-    // Eliminar alumno
-    const studentDeleteRes = StudentService.delete(createdStudent.id);
-    assert(studentDeleteRes.success, 'Eliminación de alumno debe ser exitosa');
-    const checkDeletedStudent = StudentService.getById(createdStudent.id);
-    assert(!checkDeletedStudent, 'El alumno eliminado no debe existir');
-    console.log(`   ✅ [PASS] Eliminación de alumno completada`);
+    // Autenticar como Secretaría y verificar que sí puede administrar cuentas
+    AuthService.login('secretaria', 'secretaria123');
+    const secCreate = UserService.createUser({
+        username: `bedel_autorizado_${randomSuffix}`,
+        fullName: 'Nuevo Bedel Autorizado',
+        role: 'BEDEL',
+        password: 'password123'
+    });
+    assert(secCreate.success, 'Secretaría debe poder crear usuarios de Bedelía');
+    console.log(`   ✅ [PASS] Secretaría autorizada para administración operativa de cuentas`);
 
     // 12. Integridad y Auditoría (Audit Logs)
-    console.log('12. Verificando Registro de Auditoría de Acciones ABMC:');
+    console.log('12. Verificando Registro de Auditoría de Acciones ABMC y Operativas:');
     const recentAuditLogs = db.prepare(`
         SELECT action, details, timestamp FROM audit_logs
-        ORDER BY id DESC LIMIT 15
+        ORDER BY id DESC LIMIT 20
     `).all();
 
     const loggedActions = recentAuditLogs.map(l => l.action);
@@ -325,9 +352,9 @@ async function runTests() {
     assert(loggedActions.includes('MODIFICAR_DESIGNACION'), 'Debe existir log de MODIFICAR_DESIGNACION');
     assert(loggedActions.includes('ELIMINAR_DESIGNACION') || loggedActions.includes('BAJA_LOGICA_DESIGNACION'), 'Debe existir log de baja/eliminación de designación');
     assert(loggedActions.includes('ELIMINAR_DOCENTE'), 'Debe existir log de ELIMINAR_DOCENTE');
-    assert(loggedActions.includes('MODIFICAR_ALUMNO'), 'Debe existir log de MODIFICAR_ALUMNO');
-    assert(loggedActions.includes('ELIMINAR_ALUMNO'), 'Debe existir log de ELIMINAR_ALUMNO');
-    console.log(`   ✅ [PASS] Todos los eventos de ABMC registrados en audit_logs (${recentAuditLogs.length} eventos verificados)`);
+    assert(loggedActions.includes('IMPORTACION_CSV_PERSONAL'), 'Debe existir log de IMPORTACION_CSV_PERSONAL');
+    assert(loggedActions.includes('IMPORTACION_CSV_ASISTENCIA'), 'Debe existir log de IMPORTACION_CSV_ASISTENCIA');
+    console.log(`   ✅ [PASS] Todos los eventos de ABMC y CSV registrados en audit_logs (${recentAuditLogs.length} eventos verificados)`);
 
     console.log('\n========================================================');
     console.log('   TODAS LAS PRUEBAS DE V2.0 Y ABMC FINALIZARON CON ÉXITO ');

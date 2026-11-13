@@ -22,7 +22,8 @@ const { UserService } = require('./src/services/userService');
 const { TeacherService } = require('./src/services/teacherService');
 const { DesignationService } = require('./src/services/designationService');
 const { AttendanceService } = require('./src/services/attendanceService');
-const { StudentService } = require('./src/services/studentService');
+const { CsvImportService } = require('./src/services/csvImportService');
+const { TeacherCalendarService } = require('./src/services/teacherCalendarService');
 const { DashboardService } = require('./src/services/dashboardService');
 const { ReportService } = require('./src/services/reportService');
 const { NormativeService } = require('./src/services/normativeService');
@@ -48,11 +49,11 @@ async function runTests() {
 
     const db = getDatabase();
 
-    // Normalizar credenciales de prueba del rector para asegurar idempotencia
+    // Normalizar credenciales de prueba de secretaría para asegurar idempotencia
     try {
-        const defaultPasswordHash = bcrypt.hashSync('rector123', 12);
+        const defaultPasswordHash = bcrypt.hashSync('secretaria123', 12);
         const defaultAnswerHash = bcrypt.hashSync('san martin', 10);
-        const defaultKey = 'SIGET-RECT-2026-ABCD-9999';
+        const defaultKey = 'SIGET-SEC-2026-ABCD-9999';
         const defaultKeyHash = bcrypt.hashSync(defaultKey, 10);
         db.prepare(`
             UPDATE users SET
@@ -62,7 +63,7 @@ async function runTests() {
                 recovery_key = ?,
                 recovery_key_hash = ?,
                 is_active = 1
-            WHERE username = 'rector'
+            WHERE username = 'secretaria'
         `).run(defaultPasswordHash, defaultAnswerHash, defaultKey, defaultKeyHash);
     } catch (e) {
         // En caso de que no exista aún
@@ -110,13 +111,13 @@ async function runTests() {
 
     // 4. AuthService Login
     try {
-        const rectorLogin = await AuthService.login('rector', 'rector123');
-        assert(rectorLogin.success === true && rectorLogin.user.role.toLowerCase() === 'rector', 'AuthService: Login exitoso para rector con bcrypt');
+        const secLogin = await AuthService.login('secretaria', 'secretaria123');
+        assert(secLogin.success === true && secLogin.user.role.toLowerCase() === 'secretaria', 'AuthService: Login exitoso para secretaria con bcrypt');
 
         const bedelLogin = await AuthService.login('bedel', 'bedel123');
         assert(bedelLogin.success === true && bedelLogin.user.role.toLowerCase() === 'bedel', 'AuthService: Login exitoso para bedel con bcrypt');
 
-        const badLogin = await AuthService.login('rector', 'clave_invalida');
+        const badLogin = await AuthService.login('secretaria', 'clave_invalida');
         assert(badLogin.success === false, 'AuthService: Rechazo correcto de contraseña inválida');
     } catch (err) {
         assert(false, `Error en AuthService login: ${err.message}`);
@@ -140,18 +141,18 @@ async function runTests() {
         const loginNewUser = await AuthService.login(testUserSec, 'secretPassword123');
         assert(loginNewUser.success === true && (loginNewUser.user.role === 'SECRETARIA' || loginNewUser.user.role === 'SECRETARIO'), 'Registro: Login exitoso con credenciales de cuenta recién registrada');
 
-        // Registro de Rector genera Master Recovery Key
-        const testUserRec = `rector_reg_${Date.now().toString().slice(-4)}`;
-        const regRecRes = await AuthService.registerUser({
-            fullName: 'Rector Adjunto Test',
-            username: testUserRec,
-            password: 'rectorPassword123',
-            role: 'RECTOR',
-            email: 'rector_adjunto@instituto.edu.ar',
+        // Registro de Secretaría genera Master Recovery Key
+        const testUserSecMaster = `sec_master_${Date.now().toString().slice(-4)}`;
+        const regSecMasterRes = await AuthService.registerUser({
+            fullName: 'Secretaria Adjunta Test',
+            username: testUserSecMaster,
+            password: 'secPassword123',
+            role: 'SECRETARIA',
+            email: 'sec_adjunta@instituto.edu.ar',
             securityQuestion: '¿Primera escuela?',
             securityAnswer: 'Colegio Nacional'
         });
-        assert(regRecRes.success === true && regRecRes.masterRecoveryKey && regRecRes.masterRecoveryKey.startsWith('SIGET-'), 'Registro: Rol Rector genera automáticamente Master Recovery Key');
+        assert(regSecMasterRes.success === true && regSecMasterRes.masterRecoveryKey && regSecMasterRes.masterRecoveryKey.startsWith('SIGET-'), 'Registro: Rol Secretaría genera automáticamente Master Recovery Key');
 
         // Rechazo de usuario duplicado
         const dupRes = await AuthService.registerUser({
@@ -181,36 +182,36 @@ async function runTests() {
     // 5. Offline Recovery (Pregunta de Seguridad y Master Key)
     try {
         // A) Pregunta de seguridad
-        const qRes = AuthService.getSecurityQuestion('rector');
-        assert(qRes.success === true && qRes.question.length > 5, `Recuperación: Pregunta obtenida para rector ('${qRes.question}')`);
+        const qRes = AuthService.getSecurityQuestion('secretaria');
+        assert(qRes.success === true && qRes.question.length > 5, `Recuperación: Pregunta obtenida para secretaria ('${qRes.question}')`);
 
-        const recovQBad = AuthService.recoverBySecurityAnswer('rector', 'respuesta_incorrecta', 'claveNueva123');
+        const recovQBad = AuthService.recoverBySecurityAnswer('secretaria', 'respuesta_incorrecta', 'claveNueva123');
         assert(recovQBad.success === false, 'Recuperación: Rechazo de respuesta secreta incorrecta');
 
-        const recovQGood = AuthService.recoverBySecurityAnswer('rector', 'san martin', 'rectorTemp123');
+        const recovQGood = AuthService.recoverBySecurityAnswer('secretaria', 'san martin', 'secTemp123');
         assert(recovQGood.success === true, 'Recuperación: Restablecimiento exitoso con respuesta secreta');
 
         // Verificar que la nueva clave funciona
-        const testLoginNew = await AuthService.login('rector', 'rectorTemp123');
+        const testLoginNew = await AuthService.login('secretaria', 'secTemp123');
         assert(testLoginNew.success === true, 'Recuperación: Login exitoso con nueva contraseña recuperada');
 
         // B) Master Recovery Key (Clave Maestra de Rescate)
-        const recovKeyBad = AuthService.recoverByMasterKey('rector', 'SIGET-CLAVE-INVALIDA-0000', 'rector123');
+        const recovKeyBad = AuthService.recoverByMasterKey('secretaria', 'SIGET-CLAVE-INVALIDA-0000', 'secretaria123');
         assert(recovKeyBad.success === false, 'Recuperación: Rechazo de Clave Maestra de Rescate inválida');
 
-        // Restaurar con la Master Key activa del rector
-        const activeRector = db.prepare("SELECT recovery_key FROM users WHERE username = 'rector'").get();
-        const recovKeyGood = AuthService.recoverByMasterKey('rector', activeRector.recovery_key, 'rector123');
+        // Restaurar con la Master Key activa de secretaría
+        const activeSec = db.prepare("SELECT recovery_key FROM users WHERE username = 'secretaria'").get();
+        const recovKeyGood = AuthService.recoverByMasterKey('secretaria', activeSec.recovery_key, 'secretaria123');
         assert(recovKeyGood.success === true && recovKeyGood.newMasterRecoveryKey, 'Recuperación: Restablecimiento exitoso con Master Recovery Key y rotación de llave');
 
         // Verificar que la clave original volvió a quedar activa
-        const verifyRestored = await AuthService.login('rector', 'rector123');
+        const verifyRestored = await AuthService.login('secretaria', 'secretaria123');
         assert(verifyRestored.success === true, 'Recuperación: Login verificado post-recuperación con Master Key');
     } catch (err) {
         assert(false, `Error en Offline Recovery: ${err.message}`);
     }
 
-    // 6. User Management (Rector)
+    // 6. User Management (Secretaría)
     try {
         const users = UserService.getAllUsers();
         assert(Array.isArray(users) && users.length >= 2, `UserService: Listado de usuarios (${users.length} usuarios cargados)`);
@@ -228,16 +229,16 @@ async function runTests() {
         });
         assert(createRes.success === true, `UserService: Creación exitosa de rol secundario '${testBedelUser}'`);
 
-        // Blanquear contraseña por el Rector
+        // Blanquear contraseña por la Secretaría
         const resetRes = UserService.resetPassword(createRes.userId, 'nuevaClaveBedel456');
-        assert(resetRes.success === true, 'UserService: Blanqueo inmediato de contraseña efectuado por Rector');
+        assert(resetRes.success === true, 'UserService: Blanqueo inmediato de contraseña efectuado por Secretaría');
 
         // Iniciar sesión con la clave blanqueada
         const loginBlanqueado = await AuthService.login(testBedelUser, 'nuevaClaveBedel456');
         assert(loginBlanqueado.success === true, 'UserService: Login exitoso de usuario con clave blanqueada');
 
-        // Re-autenticar al Rector para realizar operaciones de administración
-        await AuthService.login('rector', 'rector123');
+        // Re-autenticar a la Secretaría para realizar operaciones de administración
+        await AuthService.login('secretaria', 'secretaria123');
 
         // Toggle estado activo/inactivo
         const toggleRes = UserService.toggleUserActive(createRes.userId);
@@ -285,6 +286,36 @@ async function runTests() {
         assert(reportResult.success === true && reportResult.filePath.endsWith('.xlsx'), `ReportService: Planilla Excel generada en: ${reportResult.filePath}`);
     } catch (err) {
         assert(false, `Error en ReportService: ${err.message}`);
+    }
+
+    // 11. CsvImportService (Personal y Asistencias)
+    try {
+        const samplePersCsv = `DNI;Legajo;Apellido;Nombre;Revista;Horas;Catedra;Carrera;Dia;Horario;Resolucion\n33444555;LEG-9001;GOMEZ;Pablo;Titular;4;Química I;PES;Lunes;18:00 a 20:00;Disp. 201/2026\n33555666;LEG-9002;VAZQUEZ;Silvia;Provisional;4;Biología;PES;Martes;19:00 a 21:00;Disp. 202/2026`;
+        const prevPers = CsvImportService.previewPersonnel(samplePersCsv);
+        assert(prevPers.success === true && prevPers.validRows === 2, `CsvImportService: Previsualización de personal exitosa (${prevPers.validRows} filas válidas)`);
+
+        const impPers = CsvImportService.importPersonnel(samplePersCsv);
+        assert(impPers.success === true, `CsvImportService: Importación de personal exitosa: ${impPers.message}`);
+
+        const sampleAttCsv = `DNI,Fecha,Estado,Horas,Observaciones\n33444555,2026-08-03,PR,4,Presente normal\n33444555,2026-08-04,I,4,Inasistencia\n33444555,2026-08-05,P,4,Art. 115`;
+        const prevAtt = CsvImportService.previewAttendance(sampleAttCsv);
+        assert(prevAtt.success === true && prevAtt.validRows === 3, `CsvImportService: Previsualización de asistencias exitosa (${prevAtt.validRows} filas válidas)`);
+
+        const impAtt = CsvImportService.importAttendance(sampleAttCsv);
+        assert(impAtt.success === true, `CsvImportService: Importación de asistencias exitosa (${impAtt.importedCount} registros)`);
+    } catch (err) {
+        assert(false, `Error en CsvImportService: ${err.message}`);
+    }
+
+    // 12. TeacherCalendarService
+    try {
+        const teachers = TeacherService.getAll();
+        const pablo = teachers.find(t => String(t.dni) === '33444555') || teachers[0];
+        const timeline = TeacherCalendarService.getTeacherTimeline({ teacherId: pablo.id, startDate: '2026-08-01', endDate: '2026-08-31' });
+        assert(timeline.success === true && timeline.teacher.dni === String(pablo.dni), `TeacherCalendarService: Cronograma institucional obtenido para ${timeline.teacher.fullName}`);
+        assert(timeline.annualMetrics && typeof timeline.annualMetrics.inasistencias.count === 'number', 'TeacherCalendarService: Métricas anuales y topes calculados correctamente');
+    } catch (err) {
+        assert(false, `Error en TeacherCalendarService: ${err.message}`);
     }
 
     console.log('\n========================================================');

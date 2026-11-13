@@ -2,10 +2,11 @@
 Módulo de Seguridad, Jerarquía de Roles y Guardas de Control de Acceso para SIGET.
 Implementa la matriz estricta de privilegios institucionales para el IESETyFP:
 
-Jerarquía Institucional:
-  - Nivel 3 (RECTOR): Privilegios globales de auditoría, configuración, gestión de planta y administración total de usuarios.
-  - Nivel 2 (SECRETARIA): Administración de expedientes, docentes, cátedras, designaciones, suplencias y reportes oficiales.
-  - Nivel 1 (BEDEL): Control operativo diario de asistencias, novedades de planta y matrícula/inscripción de alumnos.
+Jerarquía Institucional (Requerimientos v2.0 - Exclusivamente Secretaría y Bedel):
+  - Nivel 2 (SECRETARIA): Administración general institucional, gestión de planta docente,
+    cátedras, designaciones, suplencias, importación masiva CSV, reportes oficiales y administración de usuarios.
+  - Nivel 1 (BEDEL): Control operativo diario de asistencias, novedades de planta,
+    recepción de formularios físicos y consulta de disponibilidad / calendario docente.
 
 Regla Estricta de Protección de Cuentas:
   Ningún rol inferior puede modificar, dar de baja lógica, alterar credenciales o blanquear contraseñas
@@ -17,7 +18,6 @@ from typing import Optional, Union, Callable
 from database.schema import get_argentina_now
 
 ROLE_LEVELS = {
-    "RECTOR": 3,
     "SECRETARIA": 2,
     "SECRETARIO": 2,
     "BEDEL": 1,
@@ -25,68 +25,66 @@ ROLE_LEVELS = {
 }
 
 ROLE_DISPLAY = {
-    "RECTOR": "Rector / Directivo",
     "SECRETARIA": "Secretaría",
     "BEDEL": "Bedelía"
 }
 
-# Matriz estricta de permisos por rol
+# Matriz estricta de permisos por rol (Secretaría y Bedelía)
 PERMISSIONS_MATRIX = {
     # Configuración del sistema y auditoría
-    "CONFIG_DATABASE": ["RECTOR"],
-    "AUDIT_VIEW_GLOBAL": ["RECTOR"],
+    "CONFIG_DATABASE": ["SECRETARIA"],
+    "AUDIT_VIEW_GLOBAL": ["SECRETARIA"],
     
     # Gestión de usuarios y credenciales
-    "USERS_VIEW": ["RECTOR"],
-    "USERS_CREATE": ["RECTOR"],
-    "USERS_UPDATE": ["RECTOR"],
-    "USERS_TOGGLE_ACTIVE": ["RECTOR"],
-    "USERS_RESET_PASSWORD": ["RECTOR"],
+    "USERS_VIEW": ["SECRETARIA"],
+    "USERS_CREATE": ["SECRETARIA"],
+    "USERS_UPDATE": ["SECRETARIA"],
+    "USERS_TOGGLE_ACTIVE": ["SECRETARIA"],
+    "USERS_RESET_PASSWORD": ["SECRETARIA"],
     
     # Reportes oficiales
-    "REPORTS_EXPORT": ["RECTOR", "SECRETARIA", "SECRETARIO"],
-    "REPORTS_VIEW": ["RECTOR", "SECRETARIA", "SECRETARIO"],
+    "REPORTS_EXPORT": ["SECRETARIA"],
+    "REPORTS_VIEW": ["SECRETARIA", "BEDEL"],
     
     # Gestión de Planta Docente (Altas, Bajas, Modificaciones)
-    "TEACHERS_MANAGE": ["RECTOR", "SECRETARIA", "SECRETARIO"],
-    "TEACHERS_VIEW": ["RECTOR", "SECRETARIA", "SECRETARIO", "BEDEL", "BEDELIA"],
+    "TEACHERS_MANAGE": ["SECRETARIA"],
+    "TEACHERS_VIEW": ["SECRETARIA", "BEDEL"],
     
     # Gestión de Designaciones y Cátedras
-    "DESIGNATIONS_MANAGE": ["RECTOR", "SECRETARIA", "SECRETARIO"],
-    "DESIGNATIONS_VIEW": ["RECTOR", "SECRETARIA", "SECRETARIO", "BEDEL", "BEDELIA"],
+    "DESIGNATIONS_MANAGE": ["SECRETARIA"],
+    "DESIGNATIONS_VIEW": ["SECRETARIA", "BEDEL"],
+
+    # Importación Masiva CSV
+    "CSV_IMPORT": ["SECRETARIA"],
+
+    # Calendario Docente y Disponibilidad
+    "CALENDAR_VIEW": ["SECRETARIA", "BEDEL"],
     
-    # Matrícula de Alumnos (Bedelía, Secretaría y Rector)
-    "STUDENTS_MANAGE": ["RECTOR", "SECRETARIA", "SECRETARIO", "BEDEL", "BEDELIA"],
-    "STUDENTS_VIEW": ["RECTOR", "SECRETARIA", "SECRETARIO", "BEDEL", "BEDELIA"],
-    
-    # Control Diario de Asistencias (Bedelía, Secretaría y Rector)
-    "ATTENDANCE_MANAGE": ["RECTOR", "SECRETARIA", "SECRETARIO", "BEDEL", "BEDELIA"],
-    "ATTENDANCE_VIEW": ["RECTOR", "SECRETARIA", "SECRETARIO", "BEDEL", "BEDELIA"]
+    # Control Diario de Asistencias (Bedelía y Secretaría)
+    "ATTENDANCE_MANAGE": ["SECRETARIA", "BEDEL"],
+    "ATTENDANCE_VIEW": ["SECRETARIA", "BEDEL"]
 }
 
 def normalize_role(role: Optional[str]) -> str:
-    """Normaliza variantes del rol al conjunto cerrado: 'RECTOR', 'SECRETARIA', 'BEDEL'."""
+    """Normaliza variantes del rol al conjunto cerrado: 'SECRETARIA', 'BEDEL'."""
     if not role:
         return "BEDEL"
     r = str(role).strip().upper()
-    if r in ["RECTOR", "RECTORA", "DIRECTIVO"]:
-        return "RECTOR"
-    if r in ["SECRETARIA", "SECRETARIO", "SECRETARÍA"]:
+    if r in ["SECRETARIA", "SECRETARIO", "SECRETARÍA", "RECTOR", "RECTORA", "ADMIN"]:
         return "SECRETARIA"
     if r in ["BEDEL", "BEDELIA", "BEDELÍA"]:
         return "BEDEL"
-    return r
+    return "BEDEL"
 
 def get_role_level(role: Optional[str]) -> int:
-    """Retorna el peso numérico de jerarquía del rol (Rector=3, Secretaría=2, Bedel=1)."""
+    """Retorna el peso numérico de jerarquía del rol (Secretaría=2, Bedel=1)."""
     norm = normalize_role(role)
     return ROLE_LEVELS.get(norm, 1)
 
 def can_manage_target_role(actor_role: Optional[str], target_role: Optional[str]) -> bool:
     """
     Evalúa si actor_role tiene jerarquía suficiente para administrar una cuenta con target_role.
-    - Rector (3) puede gestionar cuentas de Rector, Secretaría y Bedelía.
-    - Secretaría (2) solo podría gestionar Bedelía (1), nunca Secretaría (2) ni Rector (3).
+    - Secretaría (2) puede gestionar cuentas de Bedelía (1).
     - Bedelía (1) NO puede gestionar cuentas de ningún usuario.
     """
     actor_lvl = get_role_level(actor_role)
@@ -96,11 +94,7 @@ def can_manage_target_role(actor_role: Optional[str], target_role: Optional[str]
     if actor_lvl <= 1:
         return False
 
-    # Rector tiene control administrativo global
-    if actor_lvl >= 3:
-        return True
-
-    # Secretaría solo puede administrar roles estrictamente inferiores
+    # Secretaría solo puede administrar roles estrictamente inferiores (Bedelía)
     return actor_lvl > target_lvl
 
 class PermissionDeniedError(Exception):

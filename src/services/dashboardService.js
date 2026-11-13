@@ -1,6 +1,6 @@
 /**
  * Servicio de Estadísticas y Paneles para el Dashboard de SIGET
- * Provee métricas ejecutivas para Rector y operativas para Bedelía.
+ * Provee métricas administrativas para Secretaría y operativas para Bedelía.
  * Incluye Módulo de Alertas de Inasistencias y Topes Anuales (Requerimientos v2.0).
  */
 
@@ -14,7 +14,7 @@ class DashboardService {
     static getStats() {
         const db = getDatabase();
         try {
-            const isRector = AuthService.isRector();
+            const isSecretaria = AuthService.isSecretaria();
             const currentYear = NormativeService.getCurrentYear();
 
             // Métricas generales de planta
@@ -23,8 +23,6 @@ class DashboardService {
             const provisionales = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Provisional'").get().count;
             const interinos = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Interino'").get().count;
             const suplentes = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Suplente'").get().count;
-
-            const totalStudents = db.prepare('SELECT COUNT(*) as count FROM students WHERE is_active = 1').get().count;
 
             const desigs = db.prepare('SELECT hours_count FROM designations WHERE is_active = 1').all();
             const totalDesignations = desigs.length;
@@ -112,31 +110,15 @@ class DashboardService {
             // -------------------------------------------------------------
             const attendanceAlerts = this._calculateAttendanceAlerts(db, teachers, currentYear);
 
-            // Alumnos ingresantes recientes
-            const recentStudents = db.prepare(`
-                SELECT s.id, s.legajo, s.first_name, s.last_name, s.year_enrolled, c.name as career_name
-                FROM students s
-                LEFT JOIN careers c ON s.career_id = c.id
-                WHERE s.is_active = 1
-                ORDER BY s.id DESC
-                LIMIT 5
-            `).all().map(st => ({
-                id: st.id,
-                legajo: st.legajo,
-                fullName: `${st.last_name}, ${st.first_name}`,
-                careerName: st.career_name || 'Sin Carrera',
-                yearEnrolled: st.year_enrolled
-            }));
-
             return {
-                isRector,
+                isSecretaria,
+                isRector: false,
                 currentYear,
                 totalTeachers,
                 titulares,
                 provisionales,
                 interinos,
                 suplentes,
-                totalStudents,
                 totalDesignations,
                 totalWeeklyHours,
                 activeSubstitutions,
@@ -151,8 +133,7 @@ class DashboardService {
                     permisos: todayPermisos,
                     licencias: todayLicencias,
                     sinRegistrar: todaySinRegistrar
-                },
-                recentStudents
+                }
             };
         } catch (error) {
             console.error('[DashboardService] Error obteniendo estadísticas:', error);

@@ -1,7 +1,7 @@
 """
 Servicio de Gestión de Usuarios y Credenciales con Guardas Jerárquicas para SIGET (Python / SQLAlchemy).
-Asegura que los roles inferiores (Bedelía) no puedan modificar, eliminar ni alterar credenciales
-de roles superiores (Secretaría o Rector), garantizando la integridad de cuentas institucionales.
+Asegura que los roles operativos (Bedelía) no puedan modificar, eliminar ni alterar credenciales
+del rol administrativo y de gestión (Secretaría), garantizando la integridad de cuentas institucionales.
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -15,7 +15,7 @@ class UserService:
     def get_all() -> List[Dict[str, Any]]:
         """
         Retorna la lista completa de usuarios ordenada por jerarquía.
-        Requiere rol RECTOR con permiso USERS_VIEW.
+        Requiere rol SECRETARIA con permiso USERS_VIEW.
         """
         ok, msg = SecurityGuard.check_permission("USERS_VIEW")
         if not ok:
@@ -159,7 +159,7 @@ class UserService:
     def reset_password(user_id: int, new_password: str) -> Tuple[bool, str]:
         """
         Blanqueo / restablecimiento de contraseña protegido por guardas jerárquicas.
-        Impide que Bedelía o roles inferiores blanqueen contraseñas de Secretaría o Rector.
+        Impide que Bedelía blanquee contraseñas de Secretaría.
         """
         ok, msg = SecurityGuard.check_permission("USERS_RESET_PASSWORD")
         if not ok:

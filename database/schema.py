@@ -79,7 +79,6 @@ class Career(Base):
     duration_years = Column(Integer, default=3)
 
     subjects = relationship("Subject", back_populates="career", cascade="all, delete-orphan")
-    students = relationship("Student", back_populates="career")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -118,27 +117,6 @@ class Teacher(Base):
     def full_name(self):
         return f"{self.last_name}, {self.first_name}"
 
-class Student(Base):
-    __tablename__ = "students"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    legajo = Column(String(30), unique=True, nullable=False, index=True)
-    dni = Column(String(20), unique=True, nullable=False, index=True)
-    cuil = Column(String(25), nullable=True)
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
-    email = Column(String(120), nullable=True)
-    phone = Column(String(50), nullable=True)
-    career_id = Column(Integer, ForeignKey("careers.id"), nullable=True)
-    year_enrolled = Column(Integer, default=datetime.now().year)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=get_argentina_now)
-
-    career = relationship("Career", back_populates="students")
-
-    @property
-    def full_name(self):
-        return f"{self.last_name}, {self.first_name}"
 
 class Designation(Base):
     """

@@ -27,7 +27,7 @@ class RegisterDialog(ctk.CTkToplevel):
         self.is_first_run = is_first_run
         self.master_recovery_key = None
 
-        title_text = "Configuración Inicial de Rector (First-Run)" if is_first_run else "Registro Institucional de Cuenta"
+        title_text = "Configuración Inicial de Secretaría (First-Run)" if is_first_run else "Registro Institucional de Cuenta"
         self.title(f"SIGET - {title_text}")
         self.geometry("560x700")
         self.minsize(520, 650)
@@ -100,7 +100,7 @@ class RegisterDialog(ctk.CTkToplevel):
             text_color=Theme.TEXT_PRIMARY
         ).pack(anchor="w")
 
-        desc_text = "Cree la cuenta maestra obligatoria de Rector para inicializar SIGET." if self.is_first_run else "Complete los datos para generar un nuevo perfil de acceso."
+        desc_text = "Cree la cuenta administrativa de Secretaría para inicializar SIGET." if self.is_first_run else "Complete los datos para generar un nuevo perfil de acceso."
         ctk.CTkLabel(
             self.card,
             text=desc_text,
@@ -121,8 +121,8 @@ class RegisterDialog(ctk.CTkToplevel):
 
         # Rol Institucional
         ctk.CTkLabel(form_frame, text="Rol Institucional *", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w", padx=10, pady=(4, 2))
-        self.role_var = ctk.StringVar(value="Rector" if self.is_first_run else "Bedelía")
-        role_values = ["Rector", "Secretaría", "Bedelía"] if not self.is_first_run else ["Rector"]
+        self.role_var = ctk.StringVar(value="Secretaría" if self.is_first_run else "Bedelía")
+        role_values = ["Secretaría", "Bedelía"] if not self.is_first_run else ["Secretaría"]
         self.combo_role = ctk.CTkComboBox(
             form_frame,
             values=role_values,
@@ -145,7 +145,7 @@ class RegisterDialog(ctk.CTkToplevel):
         u_box.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(u_box, text="Usuario / Identificador *", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).grid(row=0, column=0, sticky="w", pady=(0, 2))
-        self.entry_username = ctk.CTkEntry(u_box, placeholder_text="Ej. rector o rgomez", height=34, font=ctk.CTkFont(size=12), fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
+        self.entry_username = ctk.CTkEntry(u_box, placeholder_text="Ej. secretaria o svalenzuela", height=34, font=ctk.CTkFont(size=12), fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
         self.entry_username.grid(row=1, column=0, sticky="ew", padx=(0, 6))
 
         ctk.CTkLabel(u_box, text="Correo Institucional", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).grid(row=0, column=1, sticky="w", pady=(0, 2))
@@ -204,20 +204,20 @@ class RegisterDialog(ctk.CTkToplevel):
         self.entry_answer = ctk.CTkEntry(form_frame, placeholder_text="Respuesta para restaurar clave offline", height=34, font=ctk.CTkFont(size=12), fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
         self.entry_answer.pack(fill="x", padx=10, pady=(0, 10))
 
-        # Aviso dinámico de Master Recovery Key si es Rector
+        # Aviso dinámico de Master Recovery Key si es Secretaría
         self.frame_rector_hint = ctk.CTkFrame(form_frame, fg_color=Theme.GOLD_BG, corner_radius=8, border_width=1, border_color=Theme.GOLD_ACCENT)
         self.frame_rector_hint.pack(fill="x", padx=10, pady=(4, 8))
 
         ctk.CTkLabel(
             self.frame_rector_hint,
-            text="⚠️ Privilegio de Rector: El sistema generará una Master Recovery Key única de rescate definitivo.",
+            text="⚠️ Privilegio de Secretaría: El sistema generará una Master Recovery Key única de rescate definitivo.",
             font=ctk.CTkFont(size=10, weight="bold"),
             text_color=Theme.PRIMARY_TEXT,
             wraplength=460,
             justify="left"
         ).pack(padx=10, pady=8)
 
-        if not self.is_first_run and self.role_var.get() != "Rector":
+        if not self.is_first_run and self.role_var.get() != "Secretaría":
             self.frame_rector_hint.pack_forget()
 
         # 3. Label de Estado / Errores
@@ -258,7 +258,7 @@ class RegisterDialog(ctk.CTkToplevel):
         self.btn_submit.pack(side="right", fill="x", expand=True)
 
     def _on_role_change(self, choice):
-        if choice == "Rector":
+        if choice == "Secretaría":
             self.frame_rector_hint.pack(fill="x", padx=10, pady=(4, 8))
         else:
             self.frame_rector_hint.pack_forget()
@@ -274,12 +274,10 @@ class RegisterDialog(ctk.CTkToplevel):
         username = self.entry_username.get().strip()
         email = self.entry_email.get().strip()
         role_raw = self.role_var.get().strip().upper()
-        if "SECRETAR" in role_raw:
-            role = "SECRETARIA"
-        elif "BEDEL" in role_raw:
+        if "BEDEL" in role_raw:
             role = "BEDEL"
         else:
-            role = "RECTOR"
+            role = "SECRETARIA"
         p1 = self.entry_pass.get()
         p2 = self.entry_confirm.get()
         ans = self.entry_answer.get().strip()
@@ -349,7 +347,7 @@ class RegisterDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             key_win,
-            text=f"Cuenta de Rector '{username}' creada correctamente.\nGuarde esta clave en un lugar seguro offline como llave definitiva de emergencia:",
+            text=f"Cuenta de Secretaría '{username}' creada correctamente.\nGuarde esta clave en un lugar seguro offline como llave definitiva de emergencia:",
             font=ctk.CTkFont(size=11),
             text_color=Theme.TEXT_SECONDARY,
             wraplength=440,
