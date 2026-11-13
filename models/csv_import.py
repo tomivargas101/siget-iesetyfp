@@ -32,11 +32,19 @@ class CsvImportServicePy:
             return {"success": False, "message": "No se recibieron datos de archivo."}
 
         # Obtener bytes y nombre de archivo
-        if isinstance(file_source, str) and os.path.exists(file_source):
-            if not filename:
-                filename = os.path.basename(file_source)
-            with open(file_source, "rb") as f:
-                raw_bytes = f.read()
+        if isinstance(file_source, str) and not os.path.exists(file_source) and isinstance(filename, (bytes, bytearray)):
+            raw_bytes = bytes(filename)
+            filename = file_source
+        elif isinstance(file_source, str):
+            if os.path.exists(file_source):
+                if not filename:
+                    filename = os.path.basename(file_source)
+                with open(file_source, "rb") as f:
+                    raw_bytes = f.read()
+            else:
+                raw_bytes = file_source.encode("utf-8")
+                if not filename:
+                    filename = "upload.csv"
         elif isinstance(file_source, (bytes, bytearray)):
             raw_bytes = bytes(file_source)
         else:
@@ -219,15 +227,28 @@ class CsvImportServicePy:
                     detected_type = "attendance" if "fecha" in csv_text[:400].lower() else "personnel"
 
             else:
-                # CSV o TXT
-                try:
-                    csv_text = raw_bytes.decode("utf-8")
-                except UnicodeDecodeError:
-                    csv_text = raw_bytes.decode("latin1", errors="ignore")
+                # CSV o TXT plano
+                if len(raw_bytes) >= 2 and raw_bytes[:2] == b'\xff\xfe':
+                    csv_text = raw_bytes[2:].decode("utf-16le", errors="ignore")
+                else:
+                    try:
+                        csv_text = raw_bytes.decode("utf-8")
+                    except UnicodeDecodeError:
+                        csv_text = raw_bytes.decode("latin1", errors="ignore")
+
+                csv_text = csv_text.lstrip('\ufeff')
 
                 if detected_type == "auto":
-                    first_chars = csv_text[:500].lower()
-                    if any(k in first_chars for k in ["fecha", "asistencia", "lic"]):
+                    sample = csv_text[:1500].lower()
+                    has_attendance = bool(re.search(r'\b(fecha|date|dia|asistencia|novedad|marca|inasistencia|presente|lic|lt|falta|permiso|ausente)\b', sample))
+                    has_date_pat = bool(re.search(r'\b\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2}\b|\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}\b', sample))
+                    has_personnel = bool(re.search(r'\b(legajo|apellido|catedra|carrera|revista|titular|provisional|interino|suplente|resolucion|disposicion)\b', sample))
+
+                    if (has_attendance or has_date_pat) and not has_personnel:
+                        detected_type = "attendance"
+                    elif has_personnel and not has_date_pat:
+                        detected_type = "personnel"
+                    elif has_date_pat:
                         detected_type = "attendance"
                     else:
                         detected_type = "personnel"
@@ -250,12 +271,12 @@ class CsvImportServicePy:
                 "success": False,
                 "message": f"Error al procesar el archivo: {str(e)}"
             }
+
     @staticmethod
     def _normalize_header(header: str) -> str:
         if not header:
             return ""
         s = header.strip().lower()
-        # Normalizar tildes
         replacements = [('á', 'a'), ('é', 'e'), ('í', 'i'), ('ó', 'o'), ('ú', 'u'), ('ñ', 'n')]
         for a, b in replacements:
             s = s.replace(a, b)
@@ -264,33 +285,115 @@ class CsvImportServicePy:
         return s
 
     @staticmethod
+    def _clean_cell_value(val: str) -> str:
+        if not val:
+            return ""
+        s = val.strip()
+        if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+            s = s[1:-1].strip()
+        s = re.sub(r'^[“”«»]+|[“”«»]+$', '', s).strip()
+        return s
+
+    @staticmethod
+    def _parse_date(raw_fecha: str) -> Optional[str]:
+        if not raw_fecha:
+            return None
+        s = re.sub(r'[\'\"“”«»]', '', str(raw_fecha)).strip()
+
+        # ISO: YYYY-MM-DD o YYYY/MM/DD o YYYY.MM.DD
+        m = re.match(r'^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$', s)
+        if m:
+            return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+
+        # DD/MM/YYYY o DD-MM-YYYY o DD.MM.YYYY
+        m = re.match(r'^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$', s)
+        if m:
+            return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+
+        # DD/MM/YY
+        m = re.match(r'^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$', s)
+        if m:
+            return f"20{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+
+        return None
+
+    @staticmethod
+    def _normalize_attendance_status(status: str) -> Optional[str]:
+        if not status:
+            return None
+        s = re.sub(r'[\'\"“”«»]', '', str(status)).strip().upper()
+        if s in ["PR", "PRESENTE", "P_PRESENTE", "PRES", "P."]:
+            return "PR"
+        if s in ["I", "INASISTENCIA", "FALTA", "AUSENTE", "INJUSTIFICADA", "AUS"]:
+            return "I"
+        if s in ["P", "PERMISO", "ART_115", "115", "ART115"]:
+            return "P"
+        if s in ["LIC", "LICENCIA", "MEDICA", "ART_114A", "114A", "ART114A", "114-A", "JUSTIFICADA"]:
+            return "LIC"
+        if s in ["LT", "LARGO_TRATAMIENTO", "LARGO TRATAMIENTO", "114B", "ART_114B", "ART114B", "114-B"]:
+            return "LT"
+        return None
+
+    @staticmethod
     def parse_csv(csv_content: str) -> Tuple[List[str], List[Dict[str, Any]]]:
         if not csv_content or not csv_content.strip():
             return [], []
 
-        # Detectar delimitador inspeccionando la primera línea
-        first_line = csv_content.splitlines()[0]
-        delimiter = ','
-        if first_line.count(';') > first_line.count(','):
-            delimiter = ';'
-        elif first_line.count('\t') > first_line.count(','):
-            delimiter = '\t'
+        clean_text = csv_content.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n')
+        raw_lines = [l.strip() for l in clean_text.splitlines() if l.strip()]
+        if not raw_lines:
+            return [], []
 
-        reader = csv.reader(io.StringIO(csv_content), delimiter=delimiter)
-        raw_rows = [r for r in reader if any(cell.strip() for cell in r)]
+        # Detectar delimitador inspeccionando las primeras líneas
+        sample_text = "\n".join(raw_lines[:10])
+        commas = sample_text.count(',')
+        semicolons = sample_text.count(';')
+        tabs = sample_text.count('\t')
+        pipes = sample_text.count('|')
+
+        delimiter = ','
+        if semicolons > 0 and semicolons >= commas and semicolons >= tabs:
+            delimiter = ';'
+        elif tabs > commas and tabs > semicolons:
+            delimiter = '\t'
+        elif pipes > commas and pipes > semicolons:
+            delimiter = '|'
+
+        reader = csv.reader(io.StringIO(clean_text), delimiter=delimiter)
+        raw_rows = [[CsvImportServicePy._clean_cell_value(cell) for cell in r] for r in reader if any(cell.strip() for cell in r)]
         if not raw_rows:
             return [], []
 
-        raw_headers = raw_rows[0]
-        headers = [CsvImportServicePy._normalize_header(h) for h in raw_headers]
+        first_row = raw_rows[0]
+        # Determinar si la primera fila es encabezado o fila de datos
+        has_dni_or_date = any(
+            (len(re.sub(r'\D', '', val)) in range(7, 11)) or (CsvImportServicePy._parse_date(val) is not None)
+            for val in first_row
+        )
+        has_keywords = any(
+            any(k in CsvImportServicePy._normalize_header(val) for k in ['dni', 'documento', 'doc', 'fecha', 'dia', 'date', 'estado', 'marca', 'novedad', 'asistencia', 'horas', 'apellido', 'nombre', 'legajo', 'catedra'])
+            for val in first_row
+        )
+
+        if has_keywords and not has_dni_or_date:
+            headers = [CsvImportServicePy._normalize_header(h) for h in first_row]
+            data_rows = raw_rows[1:]
+            start_line = 2
+        else:
+            headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones']
+            data_rows = raw_rows
+            start_line = 1
 
         rows = []
-        for line_idx, r in enumerate(raw_rows[1:], start=2):
+        for line_idx, r in enumerate(data_rows, start=start_line):
             row_dict = {}
-            for col_idx, h in enumerate(headers):
+            for col_idx in range(max(len(headers), len(r))):
+                header_name = headers[col_idx] if col_idx < len(headers) else f"col_{col_idx}"
                 val = r[col_idx].strip() if col_idx < len(r) else ""
-                row_dict[h] = val
+                row_dict[header_name] = val
+                row_dict[f"_{col_idx}"] = val
             row_dict["_raw_line"] = line_idx
+            row_dict["_raw_values"] = r
             rows.append(row_dict)
 
         return headers, rows
@@ -314,7 +417,19 @@ class CsvImportServicePy:
 
         session = get_db_session()
         try:
-            existing_teachers = {str(t.dni).strip(): t for t in session.query(Teacher).all()}
+            existing_teachers = {}
+            for t in session.query(Teacher).all():
+                raw = str(t.dni or "").strip()
+                digits = re.sub(r'\D', '', raw)
+                existing_teachers[raw] = t
+                if digits:
+                    existing_teachers[digits] = t
+                    existing_teachers[digits.lstrip('0')] = t
+                    if len(digits) <= 8:
+                        existing_teachers[digits.zfill(8)] = t
+                if t.legajo:
+                    existing_teachers[str(t.legajo).strip().lower()] = t
+
             active_hours = {}
             for d in session.query(Designation).filter(Designation.is_active == True).all():
                 active_hours[d.teacher_id] = active_hours.get(d.teacher_id, 0) + (d.hours_count or 0)
@@ -329,15 +444,31 @@ class CsvImportServicePy:
                 line_num = r["_raw_line"]
                 row_errors = []
 
-                raw_dni = r.get("dni") or r.get("documento") or r.get("nro_doc") or ""
-                clean_dni = re.sub(r'[\.\s]', '', str(raw_dni)).strip()
+                raw_dni = (
+                    r.get("dni") or r.get("documento") or r.get("doc") or
+                    r.get("nro_doc") or r.get("num_doc") or r.get("nro_documento") or
+                    r.get("num_documento") or r.get("documento_nro") or
+                    r.get("agente") or r.get("docente") or r.get("_0") or ""
+                )
+                if not raw_dni and r.get("_raw_values"):
+                    for v in r["_raw_values"]:
+                        d = re.sub(r'\D', '', str(v))
+                        if 6 <= len(d) <= 10:
+                            raw_dni = v
+                            break
+                clean_dni = re.sub(r'\D', '', re.sub(r'[\'\"“”«»]', '', str(raw_dni))).strip()
 
-                apellido = (r.get("apellido") or r.get("apellidos") or "").strip()
-                nombre = (r.get("nombre") or r.get("nombres") or "").strip()
-                legajo = (r.get("legajo") or r.get("nro_legajo") or "").strip()
+                apellido = re.sub(r'[\'\"“”«»]', '', str(r.get("apellido") or r.get("apellidos") or r.get("apellido_y_nombre") or r.get("_1") or "")).strip()
+                nombre = re.sub(r'[\'\"“”«»]', '', str(r.get("nombre") or r.get("nombres") or r.get("_2") or "")).strip()
+                legajo = re.sub(r'[\'\"“”«»]', '', str(r.get("legajo") or r.get("nro_legajo") or r.get("n_legajo") or r.get("_3") or "")).strip()
+
+                if apellido and not nombre and "," in apellido:
+                    parts = apellido.split(",")
+                    apellido = parts[0].strip()
+                    nombre = " ".join(p.strip() for p in parts[1:])
 
                 revista = r.get("revista") or r.get("situacion_revista") or "Titular"
-                rev_norm = revista.lower()
+                rev_norm = str(revista).lower()
                 if "titular" in rev_norm:
                     revista = "Titular"
                 elif "provisional" in rev_norm:
@@ -349,15 +480,15 @@ class CsvImportServicePy:
                 else:
                     revista = "Titular"
 
-                catedra = (r.get("catedra") or r.get("materia") or "").strip()
-                carrera = (r.get("carrera") or "Profesorado").strip()
-                dia = (r.get("dia") or "Lunes").strip()
-                horario = (r.get("horario") or "18:00 a 20:00").strip()
-                resolucion = (r.get("resolucion") or "Disp. Pendiente").strip()
+                catedra = re.sub(r'[\'\"“”«»]', '', str(r.get("catedra") or r.get("materia") or "")).strip()
+                carrera = re.sub(r'[\'\"“”«»]', '', str(r.get("carrera") or "Profesorado")).strip()
+                dia = re.sub(r'[\'\"“”«»]', '', str(r.get("dia") or "Lunes")).strip()
+                horario = re.sub(r'[\'\"“”«»]', '', str(r.get("horario") or "18:00 a 20:00")).strip()
+                resolucion = re.sub(r'[\'\"“”«»]', '', str(r.get("resolucion") or "Disp. Pendiente")).strip()
 
                 try:
-                    horas = int(r.get("horas") or r.get("cant_horas") or (4 if catedra else 0))
-                except ValueError:
+                    horas = int(re.sub(r'\D', '', str(r.get("horas") or r.get("cant_horas") or (4 if catedra else 0))))
+                except (ValueError, TypeError):
                     horas = 4 if catedra else 0
 
                 if not clean_dni:
@@ -376,7 +507,11 @@ class CsvImportServicePy:
                     else:
                         seen_dnis[clean_dni] = line_num
 
-                existing = existing_teachers.get(clean_dni)
+                existing = (
+                    existing_teachers.get(clean_dni) or
+                    existing_teachers.get(clean_dni.lstrip('0')) or
+                    (existing_teachers.get(clean_dni.zfill(8)) if len(clean_dni) <= 8 else None)
+                )
                 curr_h = active_hours.get(existing.id, 0) if existing else 0
                 proj_h = curr_h + horas
 
@@ -453,8 +588,10 @@ class CsvImportServicePy:
                 if item["status"] != "VÁLIDO":
                     continue
 
-                dni_str = str(item["dni"])
-                teacher = session.query(Teacher).filter(Teacher.dni == dni_str).first()
+                dni_str = str(item["dni"]).strip()
+                clean_digits = re.sub(r'\D', '', dni_str)
+                possible_dnis = list({dni_str, clean_digits, clean_digits.lstrip('0'), clean_digits.zfill(8)})
+                teacher = session.query(Teacher).filter(Teacher.dni.in_(possible_dnis)).first()
 
                 if not teacher:
                     legajo_val = item["legajo"] if item["legajo"] != "-" else f"LEG-{dni_str[-4:]}"
@@ -563,7 +700,19 @@ class CsvImportServicePy:
 
         session = get_db_session()
         try:
-            teachers_by_dni = {str(t.dni).strip(): t for t in session.query(Teacher).all()}
+            teachers_by_dni = {}
+            for t in session.query(Teacher).all():
+                raw = str(t.dni or "").strip()
+                digits = re.sub(r'\D', '', raw)
+                teachers_by_dni[raw] = t
+                if digits:
+                    teachers_by_dni[digits] = t
+                    teachers_by_dni[digits.lstrip('0')] = t
+                    if len(digits) <= 8:
+                        teachers_by_dni[digits.zfill(8)] = t
+                if t.legajo:
+                    teachers_by_dni[str(t.legajo).strip().lower()] = t
+
             errors = []
             preview = []
             valid_count = 0
@@ -573,47 +722,82 @@ class CsvImportServicePy:
                 line_num = r["_raw_line"]
                 row_errors = []
 
-                raw_dni = r.get("dni") or r.get("documento") or ""
-                clean_dni = re.sub(r'[\.\s]', '', str(raw_dni)).strip()
+                # 1. DNI con búsqueda flexible por alias o posición
+                raw_dni = (
+                    r.get("dni") or r.get("documento") or r.get("doc") or
+                    r.get("nro_doc") or r.get("num_doc") or r.get("nro_documento") or
+                    r.get("num_documento") or r.get("documento_nro") or
+                    r.get("agente") or r.get("docente") or r.get("profesor") or
+                    r.get("_0") or ""
+                )
+                if not raw_dni and r.get("_raw_values"):
+                    for v in r["_raw_values"]:
+                        d = re.sub(r'\D', '', str(v))
+                        if 6 <= len(d) <= 10:
+                            raw_dni = v
+                            break
+                clean_dni = re.sub(r'\D', '', re.sub(r'[\'\"“”«»]', '', str(raw_dni))).strip()
 
-                raw_fecha = r.get("fecha") or r.get("date") or r.get("dia") or ""
-                parsed_date = None
-                if re.match(r'^\d{4}-\d{2}-\d{2}$', raw_fecha):
-                    parsed_date = raw_fecha
-                else:
-                    m = re.match(r'^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$', raw_fecha)
-                    if m:
-                        parsed_date = f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+                # 2. Fecha con búsqueda flexible
+                raw_fecha = (
+                    r.get("fecha") or r.get("date") or r.get("dia") or
+                    r.get("fecha_asistencia") or r.get("fecha_novedad") or
+                    r.get("dia_fecha") or r.get("jornada") or r.get("_1") or ""
+                )
+                parsed_date = CsvImportServicePy._parse_date(raw_fecha)
+                if not parsed_date and r.get("_raw_values"):
+                    for v in r["_raw_values"]:
+                        pd = CsvImportServicePy._parse_date(v)
+                        if pd:
+                            parsed_date = pd
+                            raw_fecha = str(v)
+                            break
 
-                raw_estado = (r.get("estado") or r.get("marca") or "").strip().upper()
-                norm_status = None
-                if raw_estado in ["PR", "PRESENTE"]:
-                    norm_status = "PR"
-                elif raw_estado in ["I", "INASISTENCIA", "FALTA"]:
-                    norm_status = "I"
-                elif raw_estado in ["P", "PERMISO", "115"]:
-                    norm_status = "P"
-                elif raw_estado in ["LIC", "LICENCIA", "114A"]:
-                    norm_status = "LIC"
-                elif raw_estado in ["LT", "LARGO_TRATAMIENTO", "114B"]:
-                    norm_status = "LT"
+                # 3. Marca / Estado con búsqueda flexible
+                raw_estado = str(
+                    r.get("estado") or r.get("marca") or r.get("asistencia") or
+                    r.get("novedad") or r.get("condicion") or r.get("situacion") or
+                    r.get("motivo") or r.get("codigo") or r.get("marca_asistencia") or
+                    r.get("tipo") or r.get("_2") or ""
+                ).strip()
+                norm_status = CsvImportServicePy._normalize_attendance_status(raw_estado)
+                if not norm_status and r.get("_raw_values"):
+                    for v in r["_raw_values"]:
+                        ns = CsvImportServicePy._normalize_attendance_status(v)
+                        if ns:
+                            norm_status = ns
+                            raw_estado = str(v)
+                            break
 
-                obs = (r.get("observaciones") or r.get("motivo") or "").strip()
+                # 4. Horas y Observaciones
+                raw_horas = r.get("horas") or r.get("cant_horas") or r.get("cantidad_horas") or r.get("hs") or r.get("_3") or "4"
                 try:
-                    horas = int(r.get("horas") or 4)
-                except ValueError:
+                    horas = int(re.sub(r'\D', '', str(raw_horas))) or 4
+                except (ValueError, TypeError):
                     horas = 4
 
-                teacher = teachers_by_dni.get(clean_dni)
+                obs = re.sub(
+                    r'[\'\"“”«»]', '',
+                    str(r.get("observaciones") or r.get("observacion") or r.get("obs") or
+                        r.get("motivo") or r.get("detalle") or r.get("comentario") or r.get("_4") or "")
+                ).strip()
+
+                # 5. Búsqueda de docente en el catálogo institucional
+                teacher = (
+                    teachers_by_dni.get(clean_dni) or
+                    teachers_by_dni.get(clean_dni.lstrip('0')) or
+                    (teachers_by_dni.get(clean_dni.zfill(8)) if len(clean_dni) <= 8 else None)
+                )
+
                 if not clean_dni:
-                    row_errors.append("DNI obligatorio ausente.")
+                    row_errors.append("DNI obligatorio no indicado.")
                 elif not teacher:
-                    row_errors.append(f"Docente con DNI '{clean_dni}' no registrado en la institución.")
+                    row_errors.append(f"No existe ningún docente registrado con el DNI '{clean_dni}'. Debe cargarlo previamente en Planta Funcional.")
 
                 if not parsed_date:
-                    row_errors.append(f"Fecha inválida: '{raw_fecha}'.")
+                    row_errors.append(f"Formato de fecha inválido: '{raw_fecha}'. Use AAAA-MM-DD o DD/MM/AAAA.")
                 if not norm_status:
-                    row_errors.append(f"Marca no admitida: '{raw_estado}'. Catálogo: PR, I, P, LIC, LT.")
+                    row_errors.append(f"Marca de asistencia no válida: '{raw_estado}'. Catálogo cerrado admitido: PR, I, P, LIC, LT.")
 
                 is_valid = len(row_errors) == 0
                 if is_valid:
@@ -629,7 +813,7 @@ class CsvImportServicePy:
                 preview.append({
                     "line": line_num,
                     "dni": clean_dni,
-                    "teacherName": f"{teacher.last_name}, {teacher.first_name}" if teacher else "Inexistente",
+                    "teacherName": f"{teacher.last_name}, {teacher.first_name}" if teacher else "Docente Inexistente",
                     "fecha": parsed_date or raw_fecha,
                     "estado": norm_status or raw_estado,
                     "horas": horas,
@@ -657,15 +841,30 @@ class CsvImportServicePy:
 
         session = get_db_session()
         try:
-            teachers_by_dni = {str(t.dni).strip(): t.id for t in session.query(Teacher).all()}
-            imported = 0
-            now = get_argentina_now()
+            teachers_by_dni = {}
+            for t in session.query(Teacher).all():
+                raw = str(t.dni or "").strip()
+                digits = re.sub(r'\D', '', raw)
+                teachers_by_dni[raw] = t.id
+                if digits:
+                    teachers_by_dni[digits] = t.id
+                    teachers_by_dni[digits.lstrip('0')] = t.id
+                    if len(digits) <= 8:
+                        teachers_by_dni[digits.zfill(8)] = t.id
+                if t.legajo:
+                    teachers_by_dni[str(t.legajo).strip().lower()] = t.id
 
+            imported = 0
             for item in prev["preview"]:
                 if item["status"] != "VÁLIDO":
                     continue
 
-                t_id = teachers_by_dni.get(item["dni"])
+                dni_val = str(item["dni"]).strip()
+                t_id = (
+                    teachers_by_dni.get(dni_val) or
+                    teachers_by_dni.get(dni_val.lstrip('0')) or
+                    (teachers_by_dni.get(dni_val.zfill(8)) if len(dni_val) <= 8 else None)
+                )
                 if not t_id:
                     continue
 
