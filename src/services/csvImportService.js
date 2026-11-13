@@ -289,7 +289,7 @@ class CsvImportService {
      * Parsea texto CSV admitiendo separador por coma, punto y coma, tabulación o pipe,
      * respetando comillas y detectando automáticamente filas de datos sin cabecera.
      */
-    static parseCsv(csvText) {
+    static parseCsv(csvText, defaultType = 'auto') {
         if (!csvText || typeof csvText !== 'string') {
             return { headers: [], rows: [] };
         }
@@ -381,11 +381,20 @@ class CsvImportService {
             headers = firstRowValues.map(h => this._normalizeHeader(h));
             startIdx = 1;
         } else {
-            // Son datos directos sin encabezado: sintetizar encabezados estándar
+            // Son datos directos sin encabezado: sintetizar encabezados adecuados según el tipo esperado
             startIdx = 0;
-            headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones'];
+            const hasDateInLine = firstRowValues.some(val => this._parseDate(val) !== null);
+            const isAttendance = (defaultType === 'attendance') || (defaultType === 'auto' && hasDateInLine);
+
+            if (isAttendance) {
+                headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones'];
+            } else {
+                // Estructura oficial de planta institucional: DNI, Legajo, Apellido, Nombre...
+                headers = ['dni', 'legajo', 'apellido', 'nombre', 'revista', 'horas', 'catedra', 'carrera', 'dia', 'horario', 'resolucion'];
+            }
         }
 
+        const hasHeaderRow = (startIdx === 1);
         const rows = [];
         for (let i = startIdx; i < rawLines.length; i++) {
             const values = parseLine(rawLines[i]);
@@ -399,10 +408,11 @@ class CsvImportService {
             }
             row._rawLineNumber = i + 1;
             row._rawValues = values;
+            row._hasHeaderRow = hasHeaderRow;
             rows.push(row);
         }
 
-        return { headers, rows, delimiter };
+        return { headers, rows, delimiter, hasHeaderRow };
     }
 
     static _normalizeHeader(header) {
@@ -425,7 +435,7 @@ class CsvImportService {
      */
     static previewPersonnel(csvText) {
         const db = getDatabase();
-        const { rows } = this.parseCsv(csvText);
+        const { rows, hasHeaderRow } = this.parseCsv(csvText, 'personnel');
 
         if (rows.length === 0) {
             return {
@@ -479,24 +489,127 @@ class CsvImportService {
             const lineNum = row._rawLineNumber;
             const rowErrors = [];
 
-            // Extraer campos admitiendo variantes de encabezado o acceso posicional
+            // 1. Extraer DNI admitiendo variantes de encabezado o acceso posicional
             let rawDni = row.dni || row.documento || row.doc || row.nro_doc || row.num_doc || 
                          row.nro_documento || row.num_documento || row.documento_nro || 
-                         row.agente || row.docente || row._0 || '';
+                         row.agente || row.docente || '';
             if (!rawDni && row._rawValues) {
                 rawDni = row._rawValues.find(v => /^\d{6,10}$/.test(String(v).replace(/\D/g, ''))) || '';
             }
+            if (!rawDni && row._0) {
+                rawDni = row._0;
+            }
             const cleanDni = String(rawDni).replace(/['"“”«»]/g, '').replace(/\D/g, '').trim();
 
-            let apellido = String(row.apellido || row.apellidos || row.apellido_y_nombre || row._1 || '').replace(/['"“”«»]/g, '').trim();
-            let nombre = String(row.nombre || row.nombres || row._2 || '').replace(/['"“”«»]/g, '').trim();
-            let legajo = String(row.legajo || row.nro_legajo || row.n_legajo || row._3 || '').replace(/['"“”«»]/g, '').trim();
+            let legajo = '';
+            let apellido = '';
+            let nombre = '';
 
-            // Desglosar si viene formato "Apellido, Nombre" en un solo campo
+            const rawVals = row._rawValues || [];
+            const dniIdx = rawVals.findIndex(v => String(v).replace(/['"“”«»\.\s]/g, '') === cleanDni);
+            const nonDniCells = rawVals.filter((_, idx) => idx !== dniIdx).map(v => String(v || '').replace(/['"“”«»]/g, '').trim());
+
+            if (hasHeaderRow) {
+                // Caso con encabezados explícitos
+                legajo = String(row.legajo || row.nro_legajo || row.n_legajo || row.num_legajo || '').replace(/['"“”«»]/g, '').trim();
+                apellido = String(row.apellido || row.apellidos || '').replace(/['"“”«»]/g, '').trim();
+                nombre = String(row.nombre || row.nombres || '').replace(/['"“”«»]/g, '').trim();
+
+                if ((!apellido || !nombre) && row.apellido_y_nombre) {
+                    const rawFullName = String(row.apellido_y_nombre).replace(/['"“”«»]/g, '').trim();
+                    if (rawFullName.includes(',')) {
+                        const parts = rawFullName.split(',');
+                        apellido = parts[0].trim();
+                        nombre = parts.slice(1).join(' ').trim();
+                    } else {
+                        const parts = rawFullName.split(/\s+/);
+                        if (parts.length > 1) {
+                            apellido = parts[0].trim();
+                            nombre = parts.slice(1).join(' ').trim();
+                        } else {
+                            apellido = rawFullName;
+                        }
+                    }
+                }
+            } else {
+                // Caso directo sin encabezados: mapeo semántico por contenido de celdas
+                const c0 = nonDniCells[0] || '';
+                const c1 = nonDniCells[1] || '';
+                const c2 = nonDniCells[2] || '';
+
+                const isC0Code = /^\d+$/.test(c0.replace(/\D/g, '')) && (c0.length <= 8 || /^(LEG|DOC|L|P)-/i.test(c0));
+                const isC1Code = /^\d+$/.test(c1.replace(/\D/g, '')) && (c1.length <= 8 || /^(LEG|DOC|L|P)-/i.test(c1));
+                const isC2Code = /^\d+$/.test(c2.replace(/\D/g, '')) && (c2.length <= 8 || /^(LEG|DOC|L|P)-/i.test(c2));
+
+                if (c0.includes(',') && !/\d/.test(c0)) {
+                    const parts = c0.split(',');
+                    apellido = parts[0].trim();
+                    nombre = parts.slice(1).join(' ').trim();
+                    legajo = c1;
+                } else if (c1.includes(',') && !/\d/.test(c1)) {
+                    const parts = c1.split(',');
+                    apellido = parts[0].trim();
+                    nombre = parts.slice(1).join(' ').trim();
+                    legajo = c0;
+                } else if (isC0Code && !isC1Code && c1.length > 0) {
+                    // Formato Institucional Estándar: DNI ; Legajo (c0) ; Apellido (c1) ; Nombre (c2)
+                    legajo = c0;
+                    apellido = c1;
+                    nombre = !isC2Code ? c2 : '';
+                } else if (!isC0Code && !isC1Code && isC2Code) {
+                    // Formato Alternativo: DNI ; Apellido (c0) ; Nombre (c1) ; Legajo (c2)
+                    apellido = c0;
+                    nombre = c1;
+                    legajo = c2;
+                } else if (!isC0Code && isC1Code) {
+                    // Formato DNI ; Apellido (c0) ; Legajo (c1) ; Nombre (c2)
+                    apellido = c0;
+                    legajo = c1;
+                    nombre = !isC2Code ? c2 : '';
+                } else {
+                    legajo = c0;
+                    apellido = c1;
+                    nombre = c2;
+                }
+            }
+
+            // Fallback directo si alguno quedó vacío
+            if (!legajo && row._1 && /^\d+$/.test(String(row._1).trim())) legajo = String(row._1).trim();
+            if (!apellido && row._2) apellido = String(row._2).trim();
+            if (!nombre && row._3) nombre = String(row._3).trim();
+            if (!apellido && row._1 && !/^\d+$/.test(String(row._1).trim())) apellido = String(row._1).trim();
+            if (!nombre && row._2 && !/^\d+$/.test(String(row._2).trim()) && !nombre) nombre = String(row._2).trim();
+
+            // Desglosar si apellido contiene "Apellido, Nombre"
             if (apellido && !nombre && apellido.includes(',')) {
                 const parts = apellido.split(',');
                 apellido = parts[0].trim();
                 nombre = parts.slice(1).join(' ').trim();
+            }
+
+            // SANITY CHECK & AUTOCORRECCIÓN ESTRICTA:
+            // Un apellido o un nombre nunca pueden ser puramente números (ej: "12046")
+            const isApellidoNumeric = /^\d+$/.test(apellido.replace(/[\.\-\s]/g, ''));
+            const isNombreNumeric = /^\d+$/.test(nombre.replace(/[\.\-\s]/g, ''));
+            const isLegajoTextOnly = !/\d/.test(legajo) && legajo.length > 2;
+
+            if (isApellidoNumeric && isLegajoTextOnly && !isNombreNumeric) {
+                const realLegajo = apellido;
+                const realLastName = nombre;
+                const realFirstName = legajo;
+                legajo = realLegajo;
+                apellido = realLastName;
+                nombre = realFirstName;
+            } else if (isApellidoNumeric && !isNombreNumeric) {
+                const realLastName = nombre;
+                const realLegajo = apellido;
+                legajo = realLegajo;
+                apellido = realLastName;
+                nombre = '';
+            } else if (isNombreNumeric) {
+                const realLegajo = nombre;
+                nombre = legajo;
+                legajo = realLegajo;
             }
             
             // Situación de revista
@@ -679,11 +792,18 @@ class CsvImportService {
                 } else {
                     teacherId = teacher.id;
                     if (updateExisting) {
+                        const updateFields = ['first_name = ?', 'last_name = ?', 'revista = ?'];
+                        const updateParams = [item.nombre, item.apellido, item.revista];
+                        if (item.legajo && item.legajo !== '-' && !item.legajo.startsWith('LEG-')) {
+                            updateFields.push('legajo = ?');
+                            updateParams.push(item.legajo);
+                        }
+                        updateParams.push(teacherId);
                         db.prepare(`
                             UPDATE teachers 
-                            SET first_name = ?, last_name = ?, revista = ?
+                            SET ${updateFields.join(', ')}
                             WHERE id = ?
-                        `).run(item.nombre, item.apellido, item.revista, teacherId);
+                        `).run(...updateParams);
                         updatedTeachers++;
                     }
                 }

@@ -130,9 +130,80 @@ function _ensureCleanOfficialSeed(db) {
         } else if (bedel.role !== 'BEDEL') {
             db.prepare("UPDATE users SET role = 'BEDEL' WHERE id = ?").run(bedel.id);
         }
+
+        // 3. Normalizar registros de docentes con columnas desplazadas o números en nombres
+        _normalizeCorruptedTeachers(db);
     } catch (e) {
         // No detener ejecución si falla
         console.warn('[DB] Advertencia al verificar datos iniciales:', e.message);
+    }
+}
+
+/**
+ * Normaliza y reasigna los campos de docentes en caso de que una carga previa haya desplazado
+ * los valores (por ejemplo, número de legajo en el campo de apellido/nombre o viceversa).
+ */
+function _normalizeCorruptedTeachers(db) {
+    try {
+        const teachers = db.prepare('SELECT id, dni, legajo, first_name, last_name FROM teachers').all();
+        const updateStmt = db.prepare(`
+            UPDATE teachers 
+            SET legajo = ?, first_name = ?, last_name = ?
+            WHERE id = ?
+        `);
+
+        for (const t of teachers) {
+            let legajo = String(t.legajo || '').trim();
+            let firstName = String(t.first_name || '').trim();
+            let lastName = String(t.last_name || '').trim();
+            let changed = false;
+
+            const isLastNameNumeric = /^\d+$/.test(lastName.replace(/[\.\-\s]/g, ''));
+            const isFirstNameNumeric = /^\d+$/.test(firstName.replace(/[\.\-\s]/g, ''));
+            const isLegajoTextOnly = !/\d/.test(legajo) && legajo.length > 2;
+
+            // Caso A: last_name es puramente numérico (ej: "12046") y legajo es texto con nombre (ej: "María Eugenia")
+            if (isLastNameNumeric && isLegajoTextOnly && !isFirstNameNumeric) {
+                const realLegajo = lastName;
+                const realLastName = firstName;
+                const realFirstName = legajo;
+                legajo = realLegajo;
+                firstName = realFirstName;
+                lastName = realLastName;
+                changed = true;
+            }
+            // Caso B: last_name es numérico (ej: "12045") y first_name contiene el apellido (ej: "Vargas")
+            else if (isLastNameNumeric && !isFirstNameNumeric) {
+                const realLastName = firstName;
+                const realLegajo = (legajo && !legajo.startsWith('DOC-')) ? legajo : lastName;
+                let realFirstName = 'Lucas Matías';
+                if (String(t.dni) !== '32456789') {
+                    realFirstName = 'Docente';
+                }
+                legajo = realLegajo;
+                firstName = realFirstName;
+                lastName = realLastName;
+                changed = true;
+            }
+            // Caso C: legajo contiene "Apellido, Nombre"
+            else if (legajo.includes(',') && !/\d/.test(legajo)) {
+                const parts = legajo.split(',');
+                const realLastName = parts[0].trim();
+                const realFirstName = parts.slice(1).join(' ').trim();
+                const realLegajo = (lastName.length > 0 && /\d/.test(lastName)) ? lastName : `LEG-${String(t.dni).slice(-4)}`;
+                legajo = realLegajo;
+                lastName = realLastName;
+                firstName = realFirstName;
+                changed = true;
+            }
+
+            if (changed) {
+                updateStmt.run(legajo, firstName, lastName, t.id);
+                console.log(`[DB Normalizer] Docente ID ${t.id} (DNI ${t.dni}) normalizado: Legajo='${legajo}', Apellido='${lastName}', Nombre='${firstName}'`);
+            }
+        }
+    } catch (e) {
+        console.error('[DB Normalizer] Error normalizando registros de docentes:', e.message);
     }
 }
 

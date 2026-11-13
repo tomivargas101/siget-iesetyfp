@@ -335,7 +335,7 @@ class CsvImportServicePy:
         return None
 
     @staticmethod
-    def parse_csv(csv_content: str) -> Tuple[List[str], List[Dict[str, Any]]]:
+    def parse_csv(csv_content: str, default_type: str = "auto") -> Tuple[List[str], List[Dict[str, Any]]]:
         if not csv_content or not csv_content.strip():
             return [], []
 
@@ -380,10 +380,17 @@ class CsvImportServicePy:
             data_rows = raw_rows[1:]
             start_line = 2
         else:
-            headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones']
+            has_date_in_line = any(CsvImportServicePy._parse_date(val) is not None for val in first_row)
+            is_attendance = (default_type == "attendance") or (default_type == "auto" and has_date_in_line)
+            if is_attendance:
+                headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones']
+            else:
+                # Estructura oficial de planta institucional: DNI, Legajo, Apellido, Nombre...
+                headers = ['dni', 'legajo', 'apellido', 'nombre', 'revista', 'horas', 'catedra', 'carrera', 'dia', 'horario', 'resolucion']
             data_rows = raw_rows
             start_line = 1
 
+        has_header_row = (start_line == 2)
         rows = []
         for line_idx, r in enumerate(data_rows, start=start_line):
             row_dict = {}
@@ -394,6 +401,7 @@ class CsvImportServicePy:
                 row_dict[f"_{col_idx}"] = val
             row_dict["_raw_line"] = line_idx
             row_dict["_raw_values"] = r
+            row_dict["_has_header_row"] = has_header_row
             rows.append(row_dict)
 
         return headers, rows
@@ -403,7 +411,7 @@ class CsvImportServicePy:
         """
         Valida y genera informe de inconsistencias del archivo de personal.
         """
-        headers, rows = CsvImportServicePy.parse_csv(csv_content)
+        headers, rows = CsvImportServicePy.parse_csv(csv_content, "personnel")
         if not rows:
             return {
                 "success": False,
@@ -444,11 +452,12 @@ class CsvImportServicePy:
                 line_num = r["_raw_line"]
                 row_errors = []
 
+                # 1. Extraer DNI con búsqueda flexible
                 raw_dni = (
                     r.get("dni") or r.get("documento") or r.get("doc") or
                     r.get("nro_doc") or r.get("num_doc") or r.get("nro_documento") or
                     r.get("num_documento") or r.get("documento_nro") or
-                    r.get("agente") or r.get("docente") or r.get("_0") or ""
+                    r.get("agente") or r.get("docente") or ""
                 )
                 if not raw_dni and r.get("_raw_values"):
                     for v in r["_raw_values"]:
@@ -456,16 +465,105 @@ class CsvImportServicePy:
                         if 6 <= len(d) <= 10:
                             raw_dni = v
                             break
+                if not raw_dni and r.get("_0"):
+                    raw_dni = r["_0"]
                 clean_dni = re.sub(r'\D', '', re.sub(r'[\'\"“”«»]', '', str(raw_dni))).strip()
 
-                apellido = re.sub(r'[\'\"“”«»]', '', str(r.get("apellido") or r.get("apellidos") or r.get("apellido_y_nombre") or r.get("_1") or "")).strip()
-                nombre = re.sub(r'[\'\"“”«»]', '', str(r.get("nombre") or r.get("nombres") or r.get("_2") or "")).strip()
-                legajo = re.sub(r'[\'\"“”«»]', '', str(r.get("legajo") or r.get("nro_legajo") or r.get("n_legajo") or r.get("_3") or "")).strip()
+                legajo = ""
+                apellido = ""
+                nombre = ""
+
+                raw_vals = r.get("_raw_values") or []
+                dni_idx = -1
+                for idx, v in enumerate(raw_vals):
+                    if re.sub(r'[\'\"“”«»\.\s]', '', str(v)) == clean_dni:
+                        dni_idx = idx
+                        break
+
+                non_dni_cells = [re.sub(r'[\'\"“”«»]', '', str(v)).strip() for idx, v in enumerate(raw_vals) if idx != dni_idx]
+                has_header_row = r.get("_has_header_row", True)
+
+                if has_header_row:
+                    legajo = re.sub(r'[\'\"“”«»]', '', str(r.get("legajo") or r.get("nro_legajo") or r.get("n_legajo") or r.get("num_legajo") or "")).strip()
+                    apellido = re.sub(r'[\'\"“”«»]', '', str(r.get("apellido") or r.get("apellidos") or "")).strip()
+                    nombre = re.sub(r'[\'\"“”«»]', '', str(r.get("nombre") or r.get("nombres") or "")).strip()
+
+                    if (not apellido or not nombre) and r.get("apellido_y_nombre"):
+                        raw_full = re.sub(r'[\'\"“”«»]', '', str(r["apellido_y_nombre"])).strip()
+                        if "," in raw_full:
+                            parts = raw_full.split(",")
+                            apellido = parts[0].strip()
+                            nombre = " ".join(p.strip() for p in parts[1:])
+                        else:
+                            parts = raw_full.split()
+                            if len(parts) > 1:
+                                apellido = parts[0].strip()
+                                nombre = " ".join(parts[1:])
+                            else:
+                                apellido = raw_full
+                else:
+                    # Caso directo sin encabezados: mapeo semántico por contenido de celdas
+                    c0 = non_dni_cells[0] if len(non_dni_cells) > 0 else ""
+                    c1 = non_dni_cells[1] if len(non_dni_cells) > 1 else ""
+                    c2 = non_dni_cells[2] if len(non_dni_cells) > 2 else ""
+
+                    is_c0_code = bool(re.match(r'^\d+$', re.sub(r'\D', '', c0))) and (len(c0) <= 8 or bool(re.match(r'^(LEG|DOC|L|P)-', c0, re.IGNORECASE)))
+                    is_c1_code = bool(re.match(r'^\d+$', re.sub(r'\D', '', c1))) and (len(c1) <= 8 or bool(re.match(r'^(LEG|DOC|L|P)-', c1, re.IGNORECASE)))
+                    is_c2_code = bool(re.match(r'^\d+$', re.sub(r'\D', '', c2))) and (len(c2) <= 8 or bool(re.match(r'^(LEG|DOC|L|P)-', c2, re.IGNORECASE)))
+
+                    if "," in c0 and not re.search(r'\d', c0):
+                        parts = c0.split(",")
+                        apellido = parts[0].strip()
+                        nombre = " ".join(p.strip() for p in parts[1:])
+                        legajo = c1
+                    elif "," in c1 and not re.search(r'\d', c1):
+                        parts = c1.split(",")
+                        apellido = parts[0].strip()
+                        nombre = " ".join(p.strip() for p in parts[1:])
+                        legajo = c0
+                    elif is_c0_code and not is_c1_code and len(c1) > 0:
+                        # Formato Institucional Estándar: DNI ; Legajo (c0) ; Apellido (c1) ; Nombre (c2)
+                        legajo = c0
+                        apellido = c1
+                        nombre = c2 if not is_c2_code else ""
+                    elif not is_c0_code and not is_c1_code and is_c2_code:
+                        # Formato Alternativo: DNI ; Apellido (c0) ; Nombre (c1) ; Legajo (c2)
+                        apellido = c0
+                        nombre = c1
+                        legajo = c2
+                    elif not is_c0_code and is_c1_code:
+                        # Formato DNI ; Apellido (c0) ; Legajo (c1) ; Nombre (c2)
+                        apellido = c0
+                        legajo = c1
+                        nombre = c2 if not is_c2_code else ""
+                    else:
+                        legajo = c0
+                        apellido = c1
+                        nombre = c2
+
+                # Fallback por índices posicionales estándar
+                if not legajo and r.get("_1") and bool(re.match(r'^\d+$', str(r["_1"]).strip())): legajo = str(r["_1"]).strip()
+                if not apellido and r.get("_2"): apellido = str(r["_2"]).strip()
+                if not nombre and r.get("_3"): nombre = str(r["_3"]).strip()
+                if not apellido and r.get("_1") and not bool(re.match(r'^\d+$', str(r["_1"]).strip())): apellido = str(r["_1"]).strip()
+                if not nombre and r.get("_2") and not bool(re.match(r'^\d+$', str(r["_2"]).strip())) and not nombre: nombre = str(r["_2"]).strip()
 
                 if apellido and not nombre and "," in apellido:
                     parts = apellido.split(",")
                     apellido = parts[0].strip()
                     nombre = " ".join(p.strip() for p in parts[1:])
+
+                # SANITY CHECK & AUTOCORRECCIÓN ESTRICTA
+                is_apellido_numeric = bool(re.match(r'^\d+$', re.sub(r'[\.\-\s]', '', apellido)))
+                is_nombre_numeric = bool(re.match(r'^\d+$', re.sub(r'[\.\-\s]', '', nombre)))
+                is_legajo_text_only = not bool(re.search(r'\d', legajo)) and len(legajo) > 2
+
+                if is_apellido_numeric and is_legajo_text_only and not is_nombre_numeric:
+                    legajo, apellido, nombre = apellido, nombre, legajo
+                elif is_apellido_numeric and not is_nombre_numeric:
+                    legajo, apellido, nombre = apellido, nombre, ""
+                elif is_nombre_numeric:
+                    legajo, nombre = nombre, legajo
 
                 revista = r.get("revista") or r.get("situacion_revista") or "Titular"
                 rev_norm = str(revista).lower()
@@ -490,6 +588,17 @@ class CsvImportServicePy:
                     horas = int(re.sub(r'\D', '', str(r.get("horas") or r.get("cant_horas") or (4 if catedra else 0))))
                 except (ValueError, TypeError):
                     horas = 4 if catedra else 0
+
+                existing = (
+                    existing_teachers.get(clean_dni) or
+                    existing_teachers.get(clean_dni.lstrip('0')) or
+                    (existing_teachers.get(clean_dni.zfill(8)) if len(clean_dni) <= 8 else None)
+                )
+
+                if not nombre and existing:
+                    nombre = existing.first_name
+                if not legajo and existing:
+                    legajo = existing.legajo
 
                 if not clean_dni:
                     row_errors.append("DNI obligatorio ausente.")
@@ -612,6 +721,8 @@ class CsvImportServicePy:
                         teacher.first_name = item["nombre"]
                         teacher.last_name = item["apellido"]
                         teacher.revista = item["revista"]
+                        if item.get("legajo") and item["legajo"] != "-" and not str(item["legajo"]).startswith("LEG-"):
+                            teacher.legajo = item["legajo"]
                         updated += 1
 
                 # Asignación de Cátedra si aplica
