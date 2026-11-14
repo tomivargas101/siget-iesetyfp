@@ -3959,27 +3959,30 @@ function renderCalendarGridView(matrixData) {
     const gridContainer = document.getElementById('cal-month-grid-cells');
     if (!gridContainer) return;
 
-    const y = CalendarState.year;
-    const m = CalendarState.month;
-    // Cálculo del día de inicio de semana (Lunes = 0, Domingo = 6)
-    const firstDayIndex = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+    const y = Number(CalendarState.year);
+    const m = Number(CalendarState.month);
+    // Para evitar desfases por zona horaria o horario de verano (DST), instanciamos al mediodía local (12:00:00)
+    const firstDayDate = new Date(y, m - 1, 1, 12, 0, 0);
+    const rawDayOfWeek = firstDayDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+    // La grilla tiene 7 columnas: Lunes (0), Martes (1), Miércoles (2), Jueves (3), Viernes (4), Sábado (5), Domingo (6)
+    const firstDayIndex = (rawDayOfWeek === 0) ? 6 : rawDayOfWeek - 1;
     const todayStr = getTodayDateString();
 
     let html = '';
 
-    // Celdas vacías previas al día 1 del mes
+    // Celdas vacías previas al día 1 del mes para ubicarlo exactamente en su día de la semana
     for (let i = 0; i < firstDayIndex; i++) {
-        html += `<div class="bg-slate-50/50 dark:bg-zinc-900/30 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[96px] opacity-40"></div>`;
+        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[105px] opacity-40"></div>`;
     }
 
     // Celdas para cada día del mes
     (matrixData.days || []).forEach(day => {
         const isToday = day.date === todayStr;
-        const isWeekend = day.dayOfWeekName === 'Sábado' || day.dayOfWeekName === 'Domingo';
+        const isWeekend = day.dayOfWeekName === 'Sábado' || day.dayOfWeekName === 'Domingo' || day.dayOfWeek === 0 || day.dayOfWeek === 6;
         const hasNovelties = (day.stats.I > 0 || day.stats.LIC > 0 || day.stats.P > 0 || day.stats.LT > 0);
 
-        let cellBorder = 'border-slate-200 dark:border-zinc-800';
-        let cellBg = 'bg-white dark:bg-[#282828] hover:border-gold/60';
+        let cellBorder = 'border-slate-200 dark:border-zinc-700/80';
+        let cellBg = 'bg-white dark:bg-zinc-800 hover:border-gold/60';
 
         if (isToday) {
             cellBorder = 'border-gold shadow-xs ring-1 ring-gold/40';
@@ -3992,7 +3995,7 @@ function renderCalendarGridView(matrixData) {
             cellBg = 'bg-purple-50/50 dark:bg-purple-950/20 hover:border-purple-400';
             cellBorder = 'border-purple-300 dark:border-purple-800/60';
         } else if (isWeekend) {
-            cellBg = 'bg-slate-50/70 dark:bg-zinc-900/50';
+            cellBg = 'bg-slate-50/70 dark:bg-zinc-900/90';
         }
 
         // Badges o Marcas Especiales del Día
@@ -4025,7 +4028,7 @@ function renderCalendarGridView(matrixData) {
         }
 
         html += `
-            <div class="cal-day-cell p-2.5 rounded-xl border ${cellBorder} ${cellBg} transition cursor-pointer flex flex-col justify-between min-h-[96px]"
+            <div class="cal-day-cell p-2.5 rounded-xl border ${cellBorder} ${cellBg} transition cursor-pointer flex flex-col justify-between min-h-[105px] ${isToday ? 'is-today' : ''} ${day.isHoliday ? 'is-holiday' : ''} ${day.isInstitutionalDay ? 'is-institutional' : ''} ${isWeekend ? 'is-weekend' : ''}"
                 data-date="${day.date}">
                 <div>
                     <div class="flex items-center justify-between">
@@ -4039,6 +4042,13 @@ function renderCalendarGridView(matrixData) {
             </div>
         `;
     });
+
+    // Celdas vacías al final del mes para completar la última semana (almanaque 7 columnas x 5 o 6 filas)
+    const totalRendered = firstDayIndex + (matrixData.days || []).length;
+    const trailingSpacers = (7 - (totalRendered % 7)) % 7;
+    for (let i = 0; i < trailingSpacers; i++) {
+        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[105px] opacity-40"></div>`;
+    }
 
     gridContainer.innerHTML = html;
 

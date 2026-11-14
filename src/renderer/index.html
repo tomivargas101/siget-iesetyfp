@@ -1089,22 +1089,24 @@
                             </div>
                         </div>
 
-                        <!-- 3. CONTENEDOR VISTA 1: GRILLA MENSUAL INTERACTIVA -->
-                        <div id="cal-view-grid-container" class="space-y-4">
-                            <div class="bg-white dark:bg-[#282828] p-4 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                                <!-- Cabecera de Días de la Semana -->
-                                <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-400 pb-2 mb-2 border-b border-slate-100 dark:border-zinc-800">
-                                    <div>Lunes</div>
-                                    <div>Martes</div>
-                                    <div>Miércoles</div>
-                                    <div>Jueves</div>
-                                    <div>Viernes</div>
-                                    <div class="text-rose-400">Sábado</div>
-                                    <div class="text-rose-400">Domingo</div>
+                        <!-- 3. CONTENEDOR VISTA 1: GRILLA MENSUAL INTERACTIVA (ALMANAQUE 7 COLUMNAS) -->
+                        <div id="cal-view-grid-container" class="space-y-4 w-full">
+                            <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs w-full">
+                                <!-- Cabecera de Días de la Semana (Lunes a Domingo) -->
+                                <div class="cal-weekday-header grid grid-cols-7 gap-2.5 text-center font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-400 pb-3 mb-3 border-b border-slate-100 dark:border-zinc-800 w-full"
+                                    style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));">
+                                    <div class="py-1">Lunes</div>
+                                    <div class="py-1">Martes</div>
+                                    <div class="py-1">Miércoles</div>
+                                    <div class="py-1">Jueves</div>
+                                    <div class="py-1">Viernes</div>
+                                    <div class="py-1 text-rose-500 dark:text-rose-400">Sábado</div>
+                                    <div class="py-1 text-rose-500 dark:text-rose-400">Domingo</div>
                                 </div>
 
-                                <!-- Celdas de la Grilla Mensual -->
-                                <div id="cal-month-grid-cells" class="grid grid-cols-7 gap-2 min-h-[420px]">
+                                <!-- Celdas de la Grilla Mensual (Cuadrícula del Mes) -->
+                                <div id="cal-month-grid-cells" class="cal-month-grid grid grid-cols-7 gap-2.5 min-h-[440px] w-full"
+                                    style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));">
                                     <!-- Renderizado interactivo dinámico -->
                                 </div>
                             </div>
