@@ -113,12 +113,30 @@ class TeacherService {
                 return { success: false, message: 'Legajo, Apellido y Nombre son obligatorios.' };
             }
 
-            // RN-01: Validar unicidad de DNI
-            const existingWithDni = db.prepare('SELECT id FROM teachers WHERE dni = ?').get(cleanDni);
-            if (existingWithDni && (!payload.id || existingWithDni.id !== payload.id)) {
+            const targetId = (payload.id !== undefined && payload.id !== null && payload.id !== '') ? Number(payload.id) : null;
+            const cleanLegajo = payload.legajo.trim();
+
+            // RN-01: Validar unicidad de DNI excluyendo al docente actual
+            const existingWithDni = targetId
+                ? db.prepare('SELECT id FROM teachers WHERE dni = ? AND id != ?').get(cleanDni, targetId)
+                : db.prepare('SELECT id FROM teachers WHERE dni = ?').get(cleanDni);
+
+            if (existingWithDni) {
                 return { 
                     success: false, 
                     message: `Ya existe un docente registrado con el DNI ${cleanDni} (RN-01: datos comunes únicos).` 
+                };
+            }
+
+            // Validar unicidad de Legajo excluyendo al docente actual
+            const existingWithLegajo = targetId
+                ? db.prepare('SELECT id FROM teachers WHERE legajo = ? AND id != ?').get(cleanLegajo, targetId)
+                : db.prepare('SELECT id FROM teachers WHERE legajo = ?').get(cleanLegajo);
+
+            if (existingWithLegajo) {
+                return {
+                    success: false,
+                    message: `Ya existe un docente registrado con el Legajo ${cleanLegajo}.`
                 };
             }
 
@@ -126,7 +144,12 @@ class TeacherService {
             const currentUser = AuthService.getCurrentUser();
             const username = currentUser ? currentUser.username : 'SISTEMA';
 
-            if (payload.id) {
+            if (targetId) {
+                const currentTeacher = db.prepare('SELECT id, is_active, max_weekly_hours FROM teachers WHERE id = ?').get(targetId);
+                if (!currentTeacher) {
+                    return { success: false, message: 'Docente no encontrado para actualizar.' };
+                }
+
                 // Actualización
                 db.prepare(`
                     UPDATE teachers SET
@@ -134,7 +157,7 @@ class TeacherService {
                         email = ?, phone = ?, revista = ?, max_weekly_hours = ?, is_active = ?
                     WHERE id = ?
                 `).run(
-                    payload.legajo.trim(),
+                    cleanLegajo,
                     cleanDni,
                     payload.cuil ? payload.cuil.trim() : null,
                     payload.firstName.trim(),
@@ -142,16 +165,16 @@ class TeacherService {
                     payload.email ? payload.email.trim() : null,
                     payload.phone ? payload.phone.trim() : null,
                     payload.revista || 'Titular',
-                    Number(payload.maxWeeklyHours) || 30,
-                    payload.isActive !== false ? 1 : 0,
-                    payload.id
+                    payload.maxWeeklyHours !== undefined ? Number(payload.maxWeeklyHours) : (currentTeacher.max_weekly_hours || 30),
+                    payload.isActive !== undefined ? (payload.isActive !== false ? 1 : 0) : currentTeacher.is_active,
+                    targetId
                 );
 
                 AuditService.log(
                     currentUser ? currentUser.id : null,
                     username,
                     'MODIFICAR_DOCENTE',
-                    `Modificado docente ID ${payload.id}: ${payload.lastName}, ${payload.firstName} (DNI ${cleanDni})`
+                    `Modificado docente ID ${targetId}: ${payload.lastName}, ${payload.firstName} (DNI ${cleanDni})`
                 );
 
                 return { success: true, message: 'Datos del docente actualizados correctamente.' };
@@ -163,7 +186,7 @@ class TeacherService {
                         email, phone, revista, max_weekly_hours, is_active, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `).run(
-                    payload.legajo.trim(),
+                    cleanLegajo,
                     cleanDni,
                     payload.cuil ? payload.cuil.trim() : null,
                     payload.firstName.trim(),
@@ -180,11 +203,12 @@ class TeacherService {
                     currentUser ? currentUser.id : null,
                     username,
                     'ALTA_DOCENTE',
-                    `Registrado nuevo docente: ${payload.lastName}, ${payload.firstName} (DNI ${cleanDni}, Legajo ${payload.legajo})`
+                    `Registrado nuevo docente: ${payload.lastName}, ${payload.firstName} (DNI ${cleanDni}, Legajo ${cleanLegajo})`
                 );
 
                 return { success: true, message: 'Docente registrado exitosamente.', id: result.lastInsertRowid };
             }
+
         } catch (error) {
             console.error('[TeacherService] Error guardando docente:', error);
             return { success: false, message: `Error en base de datos: ${error.message}` };

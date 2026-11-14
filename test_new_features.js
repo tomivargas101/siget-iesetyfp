@@ -7,6 +7,7 @@ const { AuditService } = require('./src/services/auditService');
 const { NormativeService } = require('./src/services/normativeService');
 const { TeacherCalendarService } = require('./src/services/teacherCalendarService');
 const { DesignationService } = require('./src/services/designationService');
+const { TeacherService } = require('./src/services/teacherService');
 const { AuthService } = require('./src/services/authService');
 
 async function runTests() {
@@ -249,8 +250,72 @@ async function runTests() {
     assert.strictEqual(delRes.success, true, 'Debe eliminar la designación');
     console.log('  ✅ [PASS] Limpieza de cátedra multi-día efectuada');
 
+    // 8. Test: TeacherService.save (Actualización de docente existente sin conflicto de DNI ni legajo)
+    console.log('\n8. Test: TeacherService.save (Unicidad y actualización de docentes)');
+    const allTeachers = TeacherService.getAll();
+    assert(allTeachers.length >= 2, 'Deben existir al menos 2 docentes para la prueba');
+    const teacher1 = allTeachers[0];
+    const teacher2 = allTeachers[1];
+
+    // 8.1 Actualizar docente existente sin modificar DNI ni legajo (ej. cambiando revista)
+    const originalRevista = teacher1.revista;
+    const updateResNumberId = TeacherService.save({
+        id: teacher1.id,
+        dni: teacher1.dni,
+        legajo: teacher1.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: 'Interino',
+        cuil: teacher1.cuil,
+        email: teacher1.email,
+        phone: teacher1.phone
+    });
+    assert.strictEqual(updateResNumberId.success, true, `Debe permitir actualizar docente existente con id numérico: ${updateResNumberId.message}`);
+    console.log('  ✅ [PASS] Actualización de docente con ID numérico sin conflicto con su propio DNI/Legajo');
+
+    // 8.2 Actualizar docente existente con ID enviado como string (como viene de formularios HTML)
+    const updateResStringId = TeacherService.save({
+        id: String(teacher1.id),
+        dni: teacher1.dni,
+        legajo: teacher1.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: originalRevista,
+        cuil: teacher1.cuil,
+        email: teacher1.email,
+        phone: teacher1.phone
+    });
+    assert.strictEqual(updateResStringId.success, true, `Debe permitir actualizar docente existente con id en formato string: ${updateResStringId.message}`);
+    console.log('  ✅ [PASS] Actualización de docente con ID como String compatible con inputs HTML');
+
+    // 8.3 Rechazar actualización si se intenta asignar el DNI de OTRO docente distinto
+    const collisionDniRes = TeacherService.save({
+        id: teacher1.id,
+        dni: teacher2.dni,
+        legajo: teacher1.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: originalRevista
+    });
+    assert.strictEqual(collisionDniRes.success, false, 'Debe rechazar DNI perteneciente a otro docente');
+    assert(collisionDniRes.message.includes('RN-01'), 'El mensaje debe referenciar la regla RN-01');
+    console.log('  ✅ [PASS] Bloqueo estricto ante colisión de DNI con otro docente (RN-01)');
+
+    // 8.4 Rechazar actualización si se intenta asignar el Legajo de OTRO docente distinto
+    const collisionLegajoRes = TeacherService.save({
+        id: teacher1.id,
+        dni: teacher1.dni,
+        legajo: teacher2.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: originalRevista
+    });
+    assert.strictEqual(collisionLegajoRes.success, false, 'Debe rechazar Legajo perteneciente a otro docente');
+    assert(collisionLegajoRes.message.includes('Legajo'), 'El mensaje debe indicar conflicto de Legajo');
+    console.log('  ✅ [PASS] Bloqueo estricto ante colisión de Legajo con otro docente');
+
     console.log('\n========================================================');
-    console.log('   TODAS LAS PRUEBAS DE LAS 7 MEJORAS HAN PASADO CON ÉXITO');
+    console.log('   TODAS LAS PRUEBAS DE LAS 8 MEJORAS HAN PASADO CON ÉXITO');
     console.log('========================================================\n');
 }
 

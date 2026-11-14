@@ -2151,8 +2151,9 @@ function openTeacherModal(teacher = null) {
             const errDiv = document.getElementById('modal-teacher-error');
             errDiv.classList.add('hidden');
 
+            const teacherIdVal = document.getElementById('modal-teacher-id').value;
             const payload = {
-                id: document.getElementById('modal-teacher-id').value || null,
+                id: teacherIdVal ? parseInt(teacherIdVal, 10) : null,
                 dni: document.getElementById('modal-teacher-dni').value.trim(),
                 lastName: document.getElementById('modal-teacher-lastname').value.trim(),
                 firstName: document.getElementById('modal-teacher-firstname').value.trim(),
