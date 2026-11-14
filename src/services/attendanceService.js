@@ -1678,6 +1678,10 @@ class AttendanceService {
             };
         }
     }
+
+    static formatTeacherChairs(designations, todayName = '') {
+        return formatTeacherChairs(designations, todayName);
+    }
 }
 
 /**
@@ -1705,7 +1709,8 @@ function formatTeacherChairs(designations, todayName = '') {
                 code: d.subject_code || '',
                 career: d.career_name || '',
                 days: [],
-                hours: 0
+                hours: 0,
+                dayDetails: []
             });
         }
         const s = subjectMap.get(key);
@@ -1715,6 +1720,12 @@ function formatTeacherChairs(designations, todayName = '') {
         const h = Number(d.hours_count) || 0;
         s.hours += h;
         totalHours += h;
+        s.dayDetails.push({
+            day: d.day_of_week,
+            start: d.start_time,
+            end: d.end_time,
+            hours: h
+        });
     }
 
     const order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -1722,20 +1733,31 @@ function formatTeacherChairs(designations, todayName = '') {
     const todaySubjects = [];
 
     for (const s of subjectMap.values()) {
+        s.dayDetails.sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
         s.days.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-        let daysText = '';
-        if (s.days.length === 0) {
-            daysText = 'A confirmar';
-        } else if (s.days.length === 1) {
-            daysText = s.days[0];
-        } else if (s.days.length === 2) {
-            daysText = `${s.days[0]} y ${s.days[1]}`;
-        } else {
-            daysText = `${s.days.slice(0, -1).join(', ')} y ${s.days[s.days.length - 1]}`;
-        }
 
         const isToday = todayName && s.days.includes(todayName);
         if (isToday) todaySubjects.push(s.name);
+
+        let daysText = '';
+        if (s.dayDetails.length === 0) {
+            daysText = 'A confirmar';
+        } else if (s.dayDetails.length === 1) {
+            const d = s.dayDetails[0];
+            const timeStr = d.start && d.end ? ` ${d.start} a ${d.end}` : '';
+            daysText = `${d.day}${timeStr} (${d.hours} hs)`;
+        } else {
+            // Días múltiples con desglose de horarios y horas variables por día
+            const parts = s.dayDetails.map(d => {
+                const timeStr = d.start && d.end ? ` ${d.start}-${d.end}` : '';
+                return `${d.day}${timeStr}: ${d.hours} hs`;
+            });
+            if (parts.length === 2) {
+                daysText = `${parts[0]} y ${parts[1]} [Total: ${s.hours} hs]`;
+            } else {
+                daysText = `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]} [Total: ${s.hours} hs]`;
+            }
+        }
 
         subjects.push({
             name: s.name,
@@ -1744,8 +1766,9 @@ function formatTeacherChairs(designations, todayName = '') {
             days: s.days,
             daysText,
             hours: s.hours,
+            dayDetails: s.dayDetails,
             isToday,
-            summary: `${s.name} (${daysText} - ${s.hours} hs)`
+            summary: `${s.name} (${daysText})`
         });
     }
 

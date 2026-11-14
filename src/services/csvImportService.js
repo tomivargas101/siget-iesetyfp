@@ -833,21 +833,22 @@ class CsvImportService {
                     if (!existingDesig) {
                         const dayVal = item.dia && item.dia !== '-' ? item.dia : 'Lunes';
                         const timeVal = item.horario && item.horario !== '-' ? item.horario : '18:00 a 20:00';
-                        const times = timeVal.split(/a|-/);
-                        const startTime = times[0] ? times[0].trim() : '18:00';
-                        const endTime = times[1] ? times[1].trim() : '20:00';
                         const currentYear = new Date().getFullYear();
 
-                        db.prepare(`
-                            INSERT INTO designations (
-                                subject_id, teacher_id, day_of_week, start_time, end_time,
-                                hours_count, resolution_number, academic_year, is_active, cargo, revista
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'Profesor', ?)
-                        `).run(
-                            subjectId, teacherId, dayVal, startTime, endTime,
-                            item.horas, item.resolucion || 'Disp. Pendiente', currentYear, item.revista
-                        );
-                        createdDesignations++;
+                        const parsedSchedules = parseMultiDaySchedule(dayVal, timeVal, item.horas);
+
+                        for (const sch of parsedSchedules) {
+                            db.prepare(`
+                                INSERT INTO designations (
+                                    subject_id, teacher_id, day_of_week, start_time, end_time,
+                                    hours_count, resolution_number, academic_year, is_active, cargo, revista
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'Profesor', ?)
+                            `).run(
+                                subjectId, teacherId, sch.dayOfWeek, sch.startTime, sch.endTime,
+                                sch.hoursCount, item.resolucion || 'Disp. Pendiente', currentYear, item.revista
+                            );
+                            createdDesignations++;
+                        }
                     }
                 }
             }
@@ -1166,6 +1167,78 @@ class CsvImportService {
         if (['LT', 'LARGO_TRATAMIENTO', 'LARGO TRATAMIENTO', '114B', 'ART_114B', 'ART114B', '114-B'].includes(s)) return 'LT';
         return null;
     }
+}
+
+/**
+ * Parsea descripciones de días simples o múltiples con horarios y horas variables.
+ * Ejemplos:
+ * - "Lunes 3hs, Jueves 1h" -> [{ dayOfWeek: 'Lunes', hoursCount: 3, ... }, { dayOfWeek: 'Jueves', hoursCount: 1, ... }]
+ * - "Lunes y Miércoles" (4 hs total) -> [{ dayOfWeek: 'Lunes', hoursCount: 2, ... }, { dayOfWeek: 'Miércoles', hoursCount: 2, ... }]
+ */
+function parseMultiDaySchedule(diaStr, horarioStr, totalHours = 4) {
+    const knownDays = ['Lunes', 'Martes', 'Miércoles', 'Miercoles', 'Jueves', 'Viernes', 'Sábado', 'Sabado'];
+    const normDays = { 'Miercoles': 'Miércoles', 'Sabado': 'Sábado' };
+    
+    const times = (horarioStr || '18:00 a 20:00').split(/a|-/);
+    const defaultStart = times[0] ? times[0].trim() : '18:00';
+    const defaultEnd = times[1] ? times[1].trim() : '20:00';
+    const totH = Number(totalHours) || 4;
+
+    const cleanDia = String(diaStr || '').trim();
+
+    // 1. Caso explícito con horas por día: "Lunes 3hs, Jueves 1h" o "Lunes (3 hs) y Jueves (1 hs)"
+    const regexExplicit = /(Lunes|Martes|Miércoles|Miercoles|Jueves|Viernes|Sábado|Sabado)[^\d]*(\d+)\s*h/gi;
+    const matches = [...cleanDia.matchAll(regexExplicit)];
+    
+    if (matches.length > 0) {
+        return matches.map(m => {
+            const rawDay = m[1];
+            const capDay = rawDay.charAt(0).toUpperCase() + rawDay.slice(1).toLowerCase();
+            const day = normDays[capDay] || capDay;
+            return {
+                dayOfWeek: day,
+                hoursCount: parseInt(m[2], 10),
+                startTime: defaultStart,
+                endTime: defaultEnd
+            };
+        });
+    }
+
+    // 2. Caso días múltiples nombrados: "Lunes y Miércoles" o "Lunes, Miércoles, Viernes"
+    const foundDays = [];
+    for (const d of knownDays) {
+        const regex = new RegExp(`\\b${d}\\b`, 'i');
+        if (regex.test(cleanDia)) {
+            const cap = d.charAt(0).toUpperCase() + d.slice(1).toLowerCase();
+            const std = normDays[cap] || cap;
+            if (!foundDays.includes(std)) foundDays.push(std);
+        }
+    }
+
+    if (foundDays.length <= 1) {
+        const singleDay = foundDays[0] || (cleanDia && cleanDia !== '-' ? cleanDia : 'Lunes');
+        return [{
+            dayOfWeek: singleDay,
+            hoursCount: totH,
+            startTime: defaultStart,
+            endTime: defaultEnd
+        }];
+    }
+
+    // Distribuir totalHours entre los días encontrados
+    const count = foundDays.length;
+    const baseHours = Math.floor(totH / count) || 1;
+    const remainder = totH - (baseHours * count);
+
+    return foundDays.map((day, idx) => {
+        const h = baseHours + (idx < remainder ? 1 : 0);
+        return {
+            dayOfWeek: day,
+            hoursCount: h,
+            startTime: defaultStart,
+            endTime: defaultEnd
+        };
+    });
 }
 
 module.exports = { CsvImportService };

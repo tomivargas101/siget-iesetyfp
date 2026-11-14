@@ -3578,11 +3578,28 @@ async function loadDesignations() {
                         <div class="font-bold text-slate-800">${escapeHtml(d.teacherName)}</div>
                         <div class="text-[11px] text-slate-400 font-mono">DNI ${escapeHtml(d.teacherDni)} | ${escapeHtml(d.revista || 'Titular')}</div>
                     </td>
-                    <td class="py-2.5 px-3 text-center">
-                        <div class="font-bold text-slate-700">${escapeHtml(d.dayOfWeek || 'Lunes')}</div>
-                        <div class="text-[11px] text-slate-400 font-mono">${escapeHtml(d.startTime || '18:00')} - ${escapeHtml(d.endTime || '20:00')}</div>
+                    <td class="py-2.5 px-3">
+                        ${d.schedules && d.schedules.length > 1 ? `
+                            <div class="space-y-1 text-left inline-block w-full">
+                                ${d.schedules.map(s => `
+                                    <div class="flex items-center justify-between text-[11px] gap-2 py-0.5 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
+                                        <span class="font-bold text-slate-800 dark:text-zinc-200">${escapeHtml(s.dayOfWeek)}:</span>
+                                        <span class="font-mono text-slate-500 dark:text-zinc-400 text-[10px]">${escapeHtml(s.startTime)} - ${escapeHtml(s.endTime)}</span>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">${s.hoursCount} hs</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="text-center">
+                                <div class="font-bold text-slate-700 dark:text-zinc-200">${escapeHtml((d.schedules && d.schedules[0]?.dayOfWeek) || d.dayOfWeek || 'Lunes')}</div>
+                                <div class="text-[11px] text-slate-400 font-mono">${escapeHtml((d.schedules && d.schedules[0]?.startTime) || d.startTime || '18:00')} - ${escapeHtml((d.schedules && d.schedules[0]?.endTime) || d.endTime || '20:00')}</div>
+                            </div>
+                        `}
                     </td>
-                    <td class="py-2.5 px-3 text-center font-bold text-slate-800">${d.hoursCount} hs</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <span class="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-black text-slate-800 dark:text-zinc-100">${d.hoursCount} hs</span>
+                        ${d.schedules && d.schedules.length > 1 ? `<div class="text-[10px] text-slate-400 mt-0.5 font-medium">${d.schedules.length} días/sem</div>` : ''}
+                    </td>
                     <td class="py-2.5 px-3">
                         ${hasSubst ? 
                             `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Con Suplente Vigente</span>` : 
@@ -3842,6 +3859,8 @@ window.openCareerModal = openCareerModal;
 
 function openDesignationModal(selectedCareerId = null, designationToEdit = null) {
     const isEdit = !!designationToEdit;
+    const ALL_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
     const modalHtml = `
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 mb-4">
             <div>
@@ -3849,7 +3868,7 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     ${isEdit ? 'Modificar Designación de Cátedra' : 'Nueva Designación de Cátedra'}
                 </h3>
                 <p class="text-[11px] text-slate-500 dark:text-zinc-400">
-                    ${isEdit ? 'Edición de cátedra, horario, carga horaria o situación de revista (RN-02)' : 'Asignación de docente titular y cátedra académica'}
+                    ${isEdit ? 'Edición de cátedra, horarios variables por día y situación de revista (RN-02)' : 'Asignación de docente titular y distribución horaria por día'}
                 </p>
             </div>
             <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 text-base">✕</button>
@@ -3895,32 +3914,29 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Horas Cátedra Semanales *</label>
-                    <input type="number" id="modal-desig-hours" required min="1" max="12" value="${isEdit ? designationToEdit.hoursCount : 4}" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
+            <!-- DISTRIBUCIÓN HORARIA DINÁMICA POR DÍA -->
+            <div class="border border-slate-200 dark:border-zinc-700 rounded-xl p-3 bg-slate-50/60 dark:bg-zinc-800/50 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-800 dark:text-zinc-200 uppercase">
+                            Días y Horarios de Dictado *
+                        </label>
+                        <p class="text-[10px] text-slate-500 dark:text-zinc-400">
+                            Configure uno o más días con horarios y horas cátedra variables
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="modal-desig-total-hours-badge" class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                            Total: 0 hs cátedra
+                        </span>
+                        <button type="button" id="btn-add-schedule-day" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white flex items-center space-x-1 shadow-xs transition cursor-pointer">
+                            <span>+ Agregar Día</span>
+                        </button>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Día de Clases</label>
-                    <select id="modal-desig-day" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
-                        <option value="Lunes">Lunes</option>
-                        <option value="Martes">Martes</option>
-                        <option value="Miércoles">Miércoles</option>
-                        <option value="Jueves">Jueves</option>
-                        <option value="Viernes">Viernes</option>
-                        <option value="Sábado">Sábado</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Hora Inicio</label>
-                    <input type="time" id="modal-desig-start" value="${isEdit ? (designationToEdit.startTime || '18:30') : '18:30'}" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Hora Fin</label>
-                    <input type="time" id="modal-desig-end" value="${isEdit ? (designationToEdit.endTime || '21:30') : '21:30'}" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
+                <div id="modal-schedules-container" class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    <!-- Filas dinámicas de días y horarios -->
                 </div>
             </div>
 
@@ -3931,7 +3947,7 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
             </div>
 
-            <div id="modal-desig-error" class="hidden p-2 rounded bg-red-50 text-red-700 text-xs"></div>
+            <div id="modal-desig-error" class="hidden p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium"></div>
 
             <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end space-x-2">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800">Cancelar</button>
@@ -3946,9 +3962,13 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
         const careerSelect = document.getElementById('modal-desig-career');
         const subjectSelect = document.getElementById('modal-desig-subject');
         const teacherSelect = document.getElementById('modal-desig-teacher');
-        const daySelect = document.getElementById('modal-desig-day');
         const revistaSelect = document.getElementById('modal-desig-revista');
         const btnModalNewCareer = document.getElementById('btn-modal-desig-new-career');
+        const schedulesContainer = document.getElementById('modal-schedules-container');
+        const btnAddScheduleDay = document.getElementById('btn-add-schedule-day');
+        const totalHoursBadge = document.getElementById('modal-desig-total-hours-badge');
+        const form = document.getElementById('desig-form');
+        const errDiv = document.getElementById('modal-desig-error');
 
         if (btnModalNewCareer) {
             btnModalNewCareer.addEventListener('click', () => {
@@ -3988,29 +4008,186 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
             if (teacherSelect && designationToEdit.teacherId) {
                 teacherSelect.value = String(designationToEdit.teacherId);
             }
-            if (daySelect && designationToEdit.dayOfWeek) {
-                daySelect.value = designationToEdit.dayOfWeek;
-            }
             if (revistaSelect && designationToEdit.revista) {
                 revistaSelect.value = designationToEdit.revista;
             }
         }
 
-        const form = document.getElementById('desig-form');
+        // Helper para recalcular total de horas
+        function updateTotalHours() {
+            const hourInputs = schedulesContainer.querySelectorAll('.schedule-hours');
+            let total = 0;
+            hourInputs.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            if (totalHoursBadge) {
+                totalHoursBadge.textContent = `Total: ${total} hs cátedra`;
+                if (total > 30) {
+                    totalHoursBadge.className = 'px-2 py-0.5 rounded text-[11px] font-black bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700';
+                } else {
+                    totalHoursBadge.className = 'px-2 py-0.5 rounded text-[11px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700';
+                }
+            }
+            return total;
+        }
+
+        // Helper para crear fila de horario
+        function createScheduleRow(data = {}) {
+            const day = data.dayOfWeek || 'Lunes';
+            const start = data.startTime || '18:30';
+            const end = data.endTime || '20:30';
+            const hours = data.hoursCount !== undefined ? data.hoursCount : 2;
+
+            const row = document.createElement('div');
+            row.className = 'schedule-row flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-2xs';
+            row.innerHTML = `
+                <div class="flex-1 min-w-[110px]">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Día</label>
+                    <select class="schedule-day w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded">
+                        ${ALL_DAYS.map(d => `<option value="${d}" ${d === day ? 'selected' : ''}>${d}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="w-24">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Inicio</label>
+                    <input type="time" class="schedule-start w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded" value="${start}">
+                </div>
+                <div class="w-24">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Fin</label>
+                    <input type="time" class="schedule-end w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded" value="${end}">
+                </div>
+                <div class="w-20">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Hs Cát.</label>
+                    <input type="number" min="1" max="12" class="schedule-hours w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded font-bold text-center" value="${hours}">
+                </div>
+                <div class="pt-3">
+                    <button type="button" class="btn-remove-schedule p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-700 rounded transition cursor-pointer" title="Quitar este día">
+                        ✕
+                    </button>
+                </div>
+            `;
+
+            // Eventos de la fila
+            const hoursInput = row.querySelector('.schedule-hours');
+            hoursInput.addEventListener('input', updateTotalHours);
+
+            const removeBtn = row.querySelector('.btn-remove-schedule');
+            removeBtn.addEventListener('click', () => {
+                const totalRows = schedulesContainer.querySelectorAll('.schedule-row').length;
+                if (totalRows <= 1) {
+                    showToast('Debe mantener al menos un día asignado para la cátedra.', 'error');
+                    return;
+                }
+                row.remove();
+                updateTotalHours();
+            });
+
+            schedulesContainer.appendChild(row);
+            updateTotalHours();
+        }
+
+        // Cargar días iniciales
+        let initialSchedules = [];
+        if (isEdit) {
+            if (Array.isArray(designationToEdit.schedules) && designationToEdit.schedules.length > 0) {
+                initialSchedules = designationToEdit.schedules;
+            } else {
+                initialSchedules = [{
+                    dayOfWeek: designationToEdit.dayOfWeek || 'Lunes',
+                    startTime: designationToEdit.startTime || '18:30',
+                    endTime: designationToEdit.endTime || '21:30',
+                    hoursCount: designationToEdit.hoursCount || 4
+                }];
+            }
+        } else {
+            initialSchedules = [{
+                dayOfWeek: 'Lunes',
+                startTime: '18:30',
+                endTime: '20:30',
+                hoursCount: 2
+            }];
+        }
+
+        initialSchedules.forEach(s => createScheduleRow(s));
+
+        // Botón "+ Agregar Día"
+        if (btnAddScheduleDay) {
+            btnAddScheduleDay.addEventListener('click', () => {
+                const existingDays = Array.from(schedulesContainer.querySelectorAll('.schedule-day')).map(el => el.value);
+                const nextAvailableDay = ALL_DAYS.find(d => !existingDays.includes(d)) || 'Lunes';
+                createScheduleRow({
+                    dayOfWeek: nextAvailableDay,
+                    startTime: '18:30',
+                    endTime: '20:30',
+                    hoursCount: 2
+                });
+            });
+        }
+
+        // Envío del formulario
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const errDiv = document.getElementById('modal-desig-error');
             errDiv.classList.add('hidden');
+
+            const rows = schedulesContainer.querySelectorAll('.schedule-row');
+            if (rows.length === 0) {
+                errDiv.textContent = 'Debe configurar al menos un día de dictado para la cátedra.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            const schedules = [];
+            const seenDays = new Set();
+            let hasDuplicateDay = false;
+            let invalidHours = false;
+
+            rows.forEach(r => {
+                const day = r.querySelector('.schedule-day').value;
+                const start = r.querySelector('.schedule-start').value || '18:00';
+                const end = r.querySelector('.schedule-end').value || '20:00';
+                const hours = parseInt(r.querySelector('.schedule-hours').value) || 0;
+
+                if (seenDays.has(day)) {
+                    hasDuplicateDay = true;
+                }
+                seenDays.add(day);
+
+                if (hours <= 0) {
+                    invalidHours = true;
+                }
+
+                schedules.push({
+                    dayOfWeek: day,
+                    startTime: start,
+                    endTime: end,
+                    hoursCount: hours
+                });
+            });
+
+            if (hasDuplicateDay) {
+                errDiv.textContent = 'No puede asignar el mismo día de la semana dos veces en la misma cátedra. Ajuste los horarios o unifique las horas.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            if (invalidHours) {
+                errDiv.textContent = 'Las horas cátedra de cada día deben ser mayores a cero.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            const totalHours = schedules.reduce((sum, s) => sum + s.hoursCount, 0);
 
             const payload = {
                 id: isEdit ? designationToEdit.id : undefined,
-                teacherId: parseInt(document.getElementById('modal-desig-teacher').value),
-                subjectId: parseInt(document.getElementById('modal-desig-subject').value),
-                hoursCount: parseInt(document.getElementById('modal-desig-hours').value),
-                dayOfWeek: document.getElementById('modal-desig-day').value,
-                startTime: document.getElementById('modal-desig-start').value,
-                endTime: document.getElementById('modal-desig-end').value,
-                revista: document.getElementById('modal-desig-revista') ? document.getElementById('modal-desig-revista').value : 'Titular',
+                teacherId: parseInt(teacherSelect.value),
+                subjectId: parseInt(subjectSelect.value),
+                hoursCount: totalHours,
+                dayOfWeek: schedules.map(s => s.dayOfWeek).join(' y '),
+                startTime: schedules[0]?.startTime || '18:00',
+                endTime: schedules[schedules.length - 1]?.endTime || '20:00',
+                schedules: schedules,
+                cargo: 'Profesor',
+                revista: revistaSelect ? revistaSelect.value : 'Titular',
                 resolutionNumber: document.getElementById('modal-desig-resolution') ? document.getElementById('modal-desig-resolution').value.trim() : null
             };
 
@@ -4020,6 +4197,12 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     showToast(isEdit ? 'Designación de cátedra actualizada exitosamente.' : 'Cátedra designada con éxito.', 'success');
                     closeModal();
                     loadDesignations();
+                    // Refrescar caché de docentes para actualizar horas acumuladas
+                    if (window.sigetApi.teachers && window.sigetApi.teachers.getAll) {
+                        window.sigetApi.teachers.getAll().then(tList => {
+                            AppState.teachersCache = tList || [];
+                        }).catch(() => {});
+                    }
                 } else {
                     errDiv.textContent = res.message || 'Error en la validación de negocio.';
                     errDiv.classList.remove('hidden');
@@ -4031,7 +4214,6 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
         });
     });
 }
-window.openDesignationModal = openDesignationModal;
 window.openDesignationModal = openDesignationModal;
 
 window.openSubstitutionModal = function(designationId) {

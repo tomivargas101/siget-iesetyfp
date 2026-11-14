@@ -44,32 +44,49 @@ class DesignationService {
             sql += ' ORDER BY c.name, s.year_level, s.name, d.day_of_week';
 
             const rows = db.prepare(sql).all(...params);
-            return rows.map(r => {
-                const item = {
+
+            // Agrupar por teacher_id y subject_id para consolidar cátedras con días y horarios múltiples
+            const groupedMap = new Map();
+
+            for (const r of rows) {
+                const groupKey = `${r.teacher_id}_${r.subject_id}`;
+                if (!groupedMap.has(groupKey)) {
+                    groupedMap.set(groupKey, {
+                        id: r.id,
+                        ids: [r.id],
+                        subjectId: r.subject_id,
+                        subjectName: r.subject_name,
+                        subjectCode: r.subject_code,
+                        careerId: r.career_id,
+                        careerName: r.career_name,
+                        careerCode: r.career_code,
+                        teacherId: r.teacher_id,
+                        teacherName: `${r.teacher_last_name}, ${r.teacher_first_name}`,
+                        teacherDni: String(r.teacher_dni),
+                        teacherRevista: r.teacher_revista,
+                        hoursCount: 0,
+                        schedules: [],
+                        resolutionNumber: r.resolution_number || '',
+                        cargo: r.cargo || '',
+                        revista: r.revista || r.teacher_revista || 'Titular',
+                        notes: r.notes || '',
+                        isActive: Boolean(r.is_active),
+                        activeSubstitution: null
+                    });
+                }
+
+                const item = groupedMap.get(groupKey);
+                if (!item.ids.includes(r.id)) item.ids.push(r.id);
+                item.hoursCount += Number(r.hours_count) || 0;
+                item.schedules.push({
                     id: r.id,
-                    subjectId: r.subject_id,
-                    subjectName: r.subject_name,
-                    subjectCode: r.subject_code,
-                    careerId: r.career_id,
-                    careerName: r.career_name,
-                    careerCode: r.career_code,
-                    teacherId: r.teacher_id,
-                    teacherName: `${r.teacher_last_name}, ${r.teacher_first_name}`,
-                    teacherDni: String(r.teacher_dni),
-                    teacherRevista: r.teacher_revista,
                     dayOfWeek: r.day_of_week,
                     startTime: r.start_time,
                     endTime: r.end_time,
-                    hoursCount: r.hours_count,
-                    resolutionNumber: r.resolution_number || '',
-                    cargo: r.cargo || '',
-                    revista: r.revista || r.teacher_revista || 'Titular',
-                    notes: r.notes || '',
-                    isActive: Boolean(r.is_active),
-                    activeSubstitution: null
-                };
+                    hoursCount: r.hours_count
+                });
 
-                if (r.sub_id) {
+                if (r.sub_id && !item.activeSubstitution) {
                     item.activeSubstitution = {
                         id: r.sub_id,
                         suplenteId: r.suplente_teacher_id,
@@ -80,6 +97,25 @@ class DesignationService {
                         resolution: r.sub_res
                     };
                 }
+            }
+
+            const order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+            return Array.from(groupedMap.values()).map(item => {
+                item.schedules.sort((a, b) => order.indexOf(a.dayOfWeek) - order.indexOf(b.dayOfWeek));
+                
+                const dayNames = item.schedules.map(s => s.dayOfWeek);
+                if (dayNames.length === 1) {
+                    item.dayOfWeek = dayNames[0];
+                } else if (dayNames.length === 2) {
+                    item.dayOfWeek = `${dayNames[0]} y ${dayNames[1]}`;
+                } else {
+                    item.dayOfWeek = `${dayNames.slice(0, -1).join(', ')} y ${dayNames[dayNames.length - 1]}`;
+                }
+
+                item.startTime = item.schedules[0]?.startTime || '18:00';
+                item.endTime = item.schedules[0]?.endTime || '20:00';
+                item.scheduleSummary = item.schedules.map(s => `${s.dayOfWeek} ${s.startTime}-${s.endTime} (${s.hoursCount}hs)`).join(', ');
 
                 return item;
             });
@@ -94,88 +130,182 @@ class DesignationService {
         try {
             const subjectId = Number(payload.subjectId);
             const teacherId = Number(payload.teacherId);
-            const hoursCount = Number(payload.hoursCount);
-            const dayOfWeek = payload.dayOfWeek;
-            const startTime = payload.startTime;
-            const endTime = payload.endTime;
             const desigId = payload.id ? Number(payload.id) : null;
 
             if (!subjectId || !teacherId) {
                 return { success: false, message: 'Debe seleccionar una materia y un docente.' };
             }
-            if (!hoursCount || hoursCount <= 0) {
-                return { success: false, message: 'Las horas cátedra deben ser un número entero positivo.' };
+
+            // Normalizar schedules: si se envía payload.schedules (array de días/horarios/horas), o si viene formato simple
+            let schedules = [];
+            if (Array.isArray(payload.schedules) && payload.schedules.length > 0) {
+                schedules = payload.schedules.map(s => ({
+                    id: s.id ? Number(s.id) : null,
+                    dayOfWeek: s.dayOfWeek || 'Lunes',
+                    startTime: s.startTime || '18:00',
+                    endTime: s.endTime || '20:00',
+                    hoursCount: Number(s.hoursCount) || 0
+                }));
+            } else if (payload.dayOfWeek && payload.hoursCount) {
+                schedules = [{
+                    id: desigId,
+                    dayOfWeek: payload.dayOfWeek,
+                    startTime: payload.startTime || '18:00',
+                    endTime: payload.endTime || '20:00',
+                    hoursCount: Number(payload.hoursCount) || 0
+                }];
+            } else {
+                return { success: false, message: 'Debe especificar al menos un día con carga horaria para la cátedra.' };
             }
 
-            // Validación de Tope de Horas (Regla Crítica)
-            const hoursVal = ValidationService.validateHoursLimit(teacherId, hoursCount, desigId);
+            // Validar que cada día tenga horas positivas
+            for (const s of schedules) {
+                if (!s.hoursCount || s.hoursCount <= 0) {
+                    return { success: false, message: `La carga horaria para el día ${s.dayOfWeek} debe ser un número entero positivo.` };
+                }
+            }
+
+            // Validar que no haya días duplicados en la misma cátedra
+            const uniqueDays = new Set(schedules.map(s => s.dayOfWeek));
+            if (uniqueDays.size !== schedules.length) {
+                return { success: false, message: 'No puede asignar el mismo día de la semana dos veces en la misma cátedra. Ajuste los horarios o unifique las horas.' };
+            }
+
+            const totalHours = schedules.reduce((sum, s) => sum + s.hoursCount, 0);
+
+            // Identificar qué designaciones preexistentes pertenecen a esta cátedra (docente + materia) para excluirlas de la validación
+            let excludeIds = [];
+            if (desigId) {
+                const baseDesig = db.prepare('SELECT id, teacher_id, subject_id FROM designations WHERE id = ?').get(desigId);
+                if (baseDesig) {
+                    const siblings = db.prepare('SELECT id FROM designations WHERE teacher_id = ? AND subject_id = ? AND is_active = 1').all(baseDesig.teacher_id, baseDesig.subject_id);
+                    excludeIds = siblings.map(r => r.id);
+                } else {
+                    excludeIds = [desigId];
+                }
+            }
+
+            // 1. Validación de Tope de Horas (Regla Crítica)
+            const hoursVal = ValidationService.validateHoursLimit(teacherId, totalHours, excludeIds);
             if (!hoursVal.isValid) {
                 return { success: false, message: hoursVal.message };
             }
 
-            // Validación de Incompatibilidad Horaria (Regla Crítica)
-            const schedVal = ValidationService.validateScheduleConflict(teacherId, dayOfWeek, startTime, endTime, desigId);
-            if (!schedVal.isValid) {
-                return { success: false, message: schedVal.message };
+            // 2. Validación de Incompatibilidad Horaria para CADA DÍA
+            for (const s of schedules) {
+                const schedVal = ValidationService.validateScheduleConflict(teacherId, s.dayOfWeek, s.startTime, s.endTime, excludeIds);
+                if (!schedVal.isValid) {
+                    return { success: false, message: `Conflicto de horario el día ${s.dayOfWeek} (${s.startTime} a ${s.endTime}): ${schedVal.message}` };
+                }
             }
 
             const currentUser = AuthService.getCurrentUser();
             const username = currentUser ? currentUser.username : 'SISTEMA';
 
-            const cargo = payload.cargo ? payload.cargo.trim() : null;
-            const revista = payload.revista ? payload.revista.trim() : null;
+            const cargo = payload.cargo ? payload.cargo.trim() : 'Profesor';
+            const revista = payload.revista ? payload.revista.trim() : 'Titular';
+            const resolutionNumber = payload.resolutionNumber ? payload.resolutionNumber.trim() : null;
+            const notes = payload.notes ? payload.notes.trim() : null;
+            const currentYear = new Date().getFullYear();
 
-            if (desigId) {
-                // Actualización
-                db.prepare(`
-                    UPDATE designations SET
-                        subject_id = ?, teacher_id = ?, day_of_week = ?,
-                        start_time = ?, end_time = ?, hours_count = ?,
-                        cargo = ?, revista = ?,
-                        resolution_number = ?, notes = ?, is_active = 1
-                    WHERE id = ?
-                `).run(
-                    subjectId, teacherId, dayOfWeek,
-                    startTime, endTime, hoursCount,
-                    cargo, revista,
-                    payload.resolutionNumber ? payload.resolutionNumber.trim() : null,
-                    payload.notes ? payload.notes.trim() : null,
-                    desigId
-                );
+            db.exec('BEGIN TRANSACTION;');
 
-                AuditService.log(
-                    currentUser ? currentUser.id : null,
-                    username,
-                    'MODIFICAR_DESIGNACION',
-                    `Designación ID ${desigId} modificada para docente ID ${teacherId} en materia ID ${subjectId}`
-                );
+            const preservedIds = new Set();
+            let primaryId = desigId;
 
-                return { success: true, message: 'Designación de cátedra actualizada exitosamente.' };
+            if (desigId && excludeIds.length > 0) {
+                // Hay registros previos de esta cátedra a sincronizar en edición
+                const existingRows = db.prepare(`SELECT id, day_of_week FROM designations WHERE id IN (${excludeIds.map(() => '?').join(',')})`).all(...excludeIds);
+                const existingByDay = new Map(existingRows.map(r => [r.day_of_week, r.id]));
+
+                for (const s of schedules) {
+                    if (existingByDay.has(s.dayOfWeek)) {
+                        const existId = existingByDay.get(s.dayOfWeek);
+                        db.prepare(`
+                            UPDATE designations SET
+                                subject_id = ?, teacher_id = ?, day_of_week = ?,
+                                start_time = ?, end_time = ?, hours_count = ?,
+                                cargo = ?, revista = ?, resolution_number = ?,
+                                notes = ?, academic_year = ?, is_active = 1
+                            WHERE id = ?
+                        `).run(
+                            subjectId, teacherId, s.dayOfWeek,
+                            s.startTime, s.endTime, s.hoursCount,
+                            cargo, revista, resolutionNumber,
+                            notes, currentYear, existId
+                        );
+                        preservedIds.add(existId);
+                        if (!primaryId) primaryId = existId;
+                    } else {
+                        const res = db.prepare(`
+                            INSERT INTO designations (
+                                subject_id, teacher_id, day_of_week, start_time, end_time,
+                                hours_count, cargo, revista, resolution_number, notes,
+                                academic_year, is_active
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                        `).run(
+                            subjectId, teacherId, s.dayOfWeek,
+                            s.startTime, s.endTime, s.hoursCount,
+                            cargo, revista, resolutionNumber,
+                            notes, currentYear
+                        );
+                        const newId = Number(res.lastInsertRowid);
+                        preservedIds.add(newId);
+                        if (!primaryId) primaryId = newId;
+                    }
+                }
+
+                // Desactivar o eliminar los días removidos de la cátedra
+                for (const row of existingRows) {
+                    if (!preservedIds.has(row.id)) {
+                        const hasAtt = db.prepare('SELECT count(*) as count FROM attendances WHERE designation_id = ?').get(row.id)?.count > 0;
+                        const hasSub = db.prepare('SELECT count(*) as count FROM substitutions WHERE designation_id = ?').get(row.id)?.count > 0;
+                        if (hasAtt || hasSub) {
+                            db.prepare('UPDATE designations SET is_active = 0 WHERE id = ?').run(row.id);
+                        } else {
+                            db.prepare('DELETE FROM designations WHERE id = ?').run(row.id);
+                        }
+                    }
+                }
             } else {
-                // Alta
-                const result = db.prepare(`
-                    INSERT INTO designations (
-                        subject_id, teacher_id, day_of_week, start_time, end_time,
-                        hours_count, cargo, revista, resolution_number, notes, is_active
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                `).run(
-                    subjectId, teacherId, dayOfWeek,
-                    startTime, endTime, hoursCount,
-                    cargo, revista,
-                    payload.resolutionNumber ? payload.resolutionNumber.trim() : null,
-                    payload.notes ? payload.notes.trim() : null
-                );
-
-                AuditService.log(
-                    currentUser ? currentUser.id : null,
-                    username,
-                    'ALTA_DESIGNACION',
-                    `Nueva cátedra designada ID ${result.lastInsertRowid}: Docente ID ${teacherId}, Materia ID ${subjectId} (${hoursCount} hs)`
-                );
-
-                return { success: true, message: 'Cátedra designada exitosamente.', id: result.lastInsertRowid };
+                // Nueva cátedra: insertar cada día configurado
+                for (const s of schedules) {
+                    const res = db.prepare(`
+                        INSERT INTO designations (
+                            subject_id, teacher_id, day_of_week, start_time, end_time,
+                            hours_count, cargo, revista, resolution_number, notes,
+                            academic_year, is_active
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    `).run(
+                        subjectId, teacherId, s.dayOfWeek,
+                        s.startTime, s.endTime, s.hoursCount,
+                        cargo, revista, resolutionNumber,
+                        notes, currentYear
+                    );
+                    const newId = Number(res.lastInsertRowid);
+                    if (!primaryId) primaryId = newId;
+                }
             }
+
+            db.exec('COMMIT;');
+
+            AuditService.log(
+                currentUser ? currentUser.id : null,
+                username,
+                desigId ? 'MODIFICAR_DESIGNACION' : 'ALTA_DESIGNACION',
+                `Cátedra ${desigId ? 'modificada' : 'designada'}: Docente ID ${teacherId}, Materia ID ${subjectId} (${totalHours} hs semanales en ${schedules.map(s => `${s.dayOfWeek} ${s.hoursCount}hs`).join(', ')})`
+            );
+
+            return {
+                success: true,
+                message: desigId ? 'Designación de cátedra y horarios actualizados exitosamente.' : 'Cátedra designada con éxito con sus días y horarios.',
+                id: primaryId,
+                designationId: primaryId,
+                totalHours,
+                daysCount: schedules.length
+            };
         } catch (error) {
+            try { db.exec('ROLLBACK;'); } catch (_) {}
             console.error('[DesignationService] Error guardando designación:', error);
             return { success: false, message: `Error en base de datos: ${error.message}` };
         }
@@ -380,6 +510,34 @@ class DesignationService {
             `).get(id);
 
             if (!row) return null;
+
+            // Consultar todos los días y horarios que componen esta misma cátedra (docente + materia)
+            const siblingRows = db.prepare(`
+                SELECT id, day_of_week, start_time, end_time, hours_count
+                FROM designations
+                WHERE teacher_id = ? AND subject_id = ? AND is_active = 1
+                ORDER BY 
+                    CASE day_of_week
+                        WHEN 'Lunes' THEN 1
+                        WHEN 'Martes' THEN 2
+                        WHEN 'Miércoles' THEN 3
+                        WHEN 'Jueves' THEN 4
+                        WHEN 'Viernes' THEN 5
+                        WHEN 'Sábado' THEN 6
+                        ELSE 7
+                    END
+            `).all(row.teacher_id, row.subject_id);
+
+            const schedules = siblingRows.map(s => ({
+                id: s.id,
+                dayOfWeek: s.day_of_week,
+                startTime: s.start_time,
+                endTime: s.end_time,
+                hoursCount: s.hours_count
+            }));
+
+            const totalHours = schedules.reduce((sum, s) => sum + Number(s.hoursCount), 0);
+
             return {
                 id: row.id,
                 subjectId: row.subject_id,
@@ -391,10 +549,19 @@ class DesignationService {
                 teacherId: row.teacher_id,
                 teacherName: `${row.teacher_last_name}, ${row.teacher_first_name}`,
                 teacherDni: String(row.teacher_dni),
-                dayOfWeek: row.day_of_week,
+                dayOfWeek: schedules.length > 1 ? schedules.map(s => s.dayOfWeek).join(' y ') : row.day_of_week,
                 startTime: row.start_time,
                 endTime: row.end_time,
-                hoursCount: row.hours_count,
+                hoursCount: totalHours > 0 ? totalHours : row.hours_count,
+                totalHours: totalHours > 0 ? totalHours : row.hours_count,
+                dayHoursCount: row.hours_count,
+                schedules: schedules.length > 0 ? schedules : [{
+                    id: row.id,
+                    dayOfWeek: row.day_of_week,
+                    startTime: row.start_time,
+                    endTime: row.end_time,
+                    hoursCount: row.hours_count
+                }],
                 resolutionNumber: row.resolution_number || '',
                 cargo: row.cargo || '',
                 revista: row.revista || row.teacher_revista || 'Titular',

@@ -6,6 +6,8 @@ const { AttendanceService } = require('./src/services/attendanceService');
 const { AuditService } = require('./src/services/auditService');
 const { NormativeService } = require('./src/services/normativeService');
 const { TeacherCalendarService } = require('./src/services/teacherCalendarService');
+const { DesignationService } = require('./src/services/designationService');
+const { AuthService } = require('./src/services/authService');
 
 async function runTests() {
     console.log('=== TEST SUITE: NUEVAS FUNCIONALIDADES SIGET ===');
@@ -160,8 +162,95 @@ async function runTests() {
     assert(fs.existsSync(printPdfRes.filePath), 'El archivo PDF de control diario debe existir en disco');
     console.log(`  ✅ [PASS] Planilla Imprimible en PDF generada: ${printPdfRes.fileName}`);
 
+    // 7. Verificación de Cátedras con Días Múltiples y Horarios Variables
+    console.log('\n7. Test: DesignationService (Cátedras Multi-Día con Horas y Horarios Variables)');
+    const tMulti = db.prepare("SELECT id, first_name, last_name FROM teachers LIMIT 1").get();
+    const sMulti = db.prepare("SELECT id, name, career_id FROM subjects LIMIT 1").get();
+    assert(tMulti && sMulti, 'Se requieren docente y materia en base de datos para prueba');
+
+    // 7.1 Validación: Rechazar días duplicados en el mismo payload
+    const dupRes = await DesignationService.saveDesignation({
+        teacherId: tMulti.id,
+        subjectId: sMulti.id,
+        schedules: [
+            { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '19:30', hoursCount: 2 },
+            { dayOfWeek: 'Lunes', startTime: '19:30', endTime: '21:00', hoursCount: 2 }
+        ]
+    });
+    assert.strictEqual(dupRes.success, false, 'Debe rechazar días duplicados en la misma cátedra');
+    assert(dupRes.message.includes('mismo día'), 'Mensaje debe advertir sobre día duplicado');
+    console.log('  ✅ [PASS] Rechazo de días duplicados validado correctamente');
+
+    // 7.2 Creación de Cátedra Multi-Día con Horas Variables (ej. Lunes 3hs, Jueves 1h)
+    const saveMultiRes = await DesignationService.saveDesignation({
+        teacherId: tMulti.id,
+        subjectId: sMulti.id,
+        schedules: [
+            { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '20:15', hoursCount: 3 },
+            { dayOfWeek: 'Jueves', startTime: '18:00', endTime: '18:40', hoursCount: 1 }
+        ],
+        revista: 'Titular',
+        cargo: 'Profesor',
+        resolutionNumber: 'RES-TEST-2026'
+    });
+    assert.strictEqual(saveMultiRes.success, true, `Debe guardar la designación multi-día: ${saveMultiRes.message}`);
+    const createdDesigId = saveMultiRes.designationId;
+    assert(createdDesigId, 'Debe retornar el ID de la designación');
+    console.log(`  ✅ [PASS] Cátedra multi-día creada (ID: ${createdDesigId}) con Lunes 3hs y Jueves 1h`);
+
+    // 7.3 Recuperación por ID y Agrupamiento
+    const desigDetail = DesignationService.getDesignationById(createdDesigId);
+    assert(desigDetail, 'Debe encontrar la designación por ID');
+    assert.strictEqual(desigDetail.schedules.length, 2, 'Debe contener los 2 días configurados');
+    assert.strictEqual(desigDetail.totalHours, 4, 'Total de horas debe ser 4 (3 + 1)');
+    assert.strictEqual(desigDetail.hoursCount, 4, 'hoursCount compatible debe ser 4');
+    assert(desigDetail.schedules.some(s => s.dayOfWeek === 'Lunes' && s.hoursCount === 3), 'Lunes debe tener 3hs');
+    assert(desigDetail.schedules.some(s => s.dayOfWeek === 'Jueves' && s.hoursCount === 1), 'Jueves debe tener 1h');
+    console.log('  ✅ [PASS] Recuperación por ID desglosa correctamente cada día con su carga horaria');
+
+    // 7.4 Listado general agrupado
+    const allDesigs = await DesignationService.getAll({ careerId: sMulti.career_id });
+    const targetDesig = allDesigs.find(d => d.teacherId === tMulti.id && d.subjectId === sMulti.id);
+    assert(targetDesig, 'Debe listar la cátedra en getAll');
+    assert.strictEqual(targetDesig.hoursCount, 4, 'El total semanal acumulado debe ser 4 hs');
+    assert(targetDesig.dayOfWeek.includes('Lunes') && targetDesig.dayOfWeek.includes('Jueves'), 'Debe resumir los días');
+    assert(targetDesig.schedules.length === 2, 'Debe incluir el array de schedules desglosados');
+    console.log('  ✅ [PASS] Listado getAll consolida la cátedra en una única fila inteligente');
+
+    // 7.5 Formato en Planilla Imprimible de Control Diario
+    const printDaily = AttendanceService.getPrintableDailyData({ dateStr: '2026-11-16' });
+    const targetDailyTeacher = printDaily.rows.find(r => r.id === tMulti.id);
+    assert(targetDailyTeacher, 'El docente debe figurar en la planilla imprimible');
+    const chairsFormatted = targetDailyTeacher.chairsText;
+    assert(chairsFormatted.includes('Lunes') && chairsFormatted.includes('Jueves'), 'El formato imprimible debe detallar los días');
+    assert(chairsFormatted.includes('Total: 4 hs'), 'El formato imprimible debe indicar el total de horas');
+    console.log(`  ✅ [PASS] Formato de control imprimible: "${chairsFormatted}"`);
+
+    // 7.6 Modificación: Cambiar horarios y agregar un tercer día (Miércoles 2hs)
+    const updateMultiRes = await DesignationService.saveDesignation({
+        id: createdDesigId,
+        teacherId: tMulti.id,
+        subjectId: sMulti.id,
+        schedules: [
+            { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '20:15', hoursCount: 3 },
+            { dayOfWeek: 'Miércoles', startTime: '19:00', endTime: '20:30', hoursCount: 2 },
+            { dayOfWeek: 'Jueves', startTime: '18:00', endTime: '18:40', hoursCount: 1 }
+        ],
+        revista: 'Titular'
+    });
+    assert.strictEqual(updateMultiRes.success, true, 'Debe actualizar cátedra agregando un día');
+    const updatedDetail = DesignationService.getDesignationById(createdDesigId);
+    assert.strictEqual(updatedDetail.schedules.length, 3, 'Ahora debe tener 3 días');
+    assert.strictEqual(updatedDetail.totalHours, 6, 'Total de horas debe ser 6 (3 + 2 + 1)');
+    console.log('  ✅ [PASS] Actualización dinámica de días y horas comprobada (ahora 6 hs semanales)');
+
+    // 7.7 Limpieza de la designación de prueba
+    const delRes = await DesignationService.deleteDesignation(createdDesigId);
+    assert.strictEqual(delRes.success, true, 'Debe eliminar la designación');
+    console.log('  ✅ [PASS] Limpieza de cátedra multi-día efectuada');
+
     console.log('\n========================================================');
-    console.log('   TODAS LAS PRUEBAS DE LAS 6 MEJORAS HAN PASADO CON ÉXITO');
+    console.log('   TODAS LAS PRUEBAS DE LAS 7 MEJORAS HAN PASADO CON ÉXITO');
     console.log('========================================================\n');
 }
 
