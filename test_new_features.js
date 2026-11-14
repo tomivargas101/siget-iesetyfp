@@ -6,6 +6,9 @@ const { AttendanceService } = require('./src/services/attendanceService');
 const { AuditService } = require('./src/services/auditService');
 const { NormativeService } = require('./src/services/normativeService');
 const { TeacherCalendarService } = require('./src/services/teacherCalendarService');
+const { DesignationService } = require('./src/services/designationService');
+const { TeacherService } = require('./src/services/teacherService');
+const { AuthService } = require('./src/services/authService');
 
 async function runTests() {
     console.log('=== TEST SUITE: NUEVAS FUNCIONALIDADES SIGET ===');
@@ -117,8 +120,202 @@ async function runTests() {
     NormativeService.deleteInstitutionalDay(testDate);
     console.log('  ✅ [PASS] Limpieza de jornada de prueba efectuada');
 
+    console.log('\n5. Test: Ficha Docente Individual (Exportación PDF y Excel)');
+    const db = getDatabase();
+    const tRow = db.prepare("SELECT id, last_name, first_name, legajo FROM teachers LIMIT 1").get();
+    if (tRow) {
+        const teacherExcelRes = await TeacherCalendarService.exportTeacherRecordExcel({
+            teacherId: tRow.id,
+            startDate: '2026-11-01',
+            endDate: '2026-11-30'
+        });
+        assert.strictEqual(teacherExcelRes.success, true, 'Debe exportar la Ficha Docente a Excel');
+        assert(fs.existsSync(teacherExcelRes.filePath), 'El archivo Excel de Ficha Docente debe existir en disco');
+        console.log(`  ✅ [PASS] Exportar Ficha Docente a Excel exitoso: ${teacherExcelRes.fileName}`);
+
+        const teacherPdfRes = await TeacherCalendarService.exportTeacherRecordPdf({
+            teacherId: tRow.id,
+            startDate: '2026-11-01',
+            endDate: '2026-11-30',
+            exportedBy: 'Secretaría / Bedelía QA'
+        });
+        assert.strictEqual(teacherPdfRes.success, true, 'Debe exportar la Ficha Docente a PDF');
+        assert(fs.existsSync(teacherPdfRes.filePath), 'El archivo PDF de Ficha Docente debe existir en disco');
+        console.log(`  ✅ [PASS] Exportar Ficha Docente a PDF exitoso: ${teacherPdfRes.fileName}`);
+    }
+
+    console.log('\n6. Test: Planilla Imprimible de Control Diario (PDF y Excel)');
+    const printData = AttendanceService.getPrintableDailyData({ dateStr: '2026-11-14' });
+    assert(printData.rows.length > 0, 'Debe retornar docentes para control diario');
+    assert(printData.rows[0].legajo, 'Debe incluir legajo en cada fila');
+    assert(printData.rows[0].fullName, 'Debe incluir nombre completo en cada fila');
+    assert(printData.rows[0].revista, 'Debe incluir situación de revista');
+    assert(printData.rows[0].chairsText, 'Debe incluir cátedras con desglose de días');
+    console.log(`  ✅ [PASS] Estructura nominal de control diario verificada (${printData.rows.length} docentes)`);
+
+    const printExcelRes = await AttendanceService.exportPrintableDailyExcel({ dateStr: '2026-11-14' });
+    assert.strictEqual(printExcelRes.success, true, 'Debe exportar Planilla Imprimible a Excel');
+    assert(fs.existsSync(printExcelRes.filePath), 'El archivo Excel de control diario debe existir en disco');
+    console.log(`  ✅ [PASS] Planilla Imprimible en Excel generada: ${printExcelRes.fileName}`);
+
+    const printPdfRes = await AttendanceService.exportPrintableDailyPdf({ dateStr: '2026-11-14', exportedBy: 'Bedelía de Turno' });
+    assert.strictEqual(printPdfRes.success, true, 'Debe exportar Planilla Imprimible a PDF');
+    assert(fs.existsSync(printPdfRes.filePath), 'El archivo PDF de control diario debe existir en disco');
+    console.log(`  ✅ [PASS] Planilla Imprimible en PDF generada: ${printPdfRes.fileName}`);
+
+    // 7. Verificación de Cátedras con Días Múltiples y Horarios Variables
+    console.log('\n7. Test: DesignationService (Cátedras Multi-Día con Horas y Horarios Variables)');
+    const tMulti = db.prepare("SELECT id, first_name, last_name FROM teachers LIMIT 1").get();
+    const sMulti = db.prepare("SELECT id, name, career_id FROM subjects WHERE id NOT IN (SELECT subject_id FROM designations WHERE teacher_id = ? AND is_active = 1) LIMIT 1").get(tMulti.id);
+    assert(tMulti && sMulti, 'Se requieren docente y materia disponible en base de datos para prueba');
+
+    // 7.1 Validación: Rechazar días duplicados en el mismo payload
+    const dupRes = await DesignationService.saveDesignation({
+        teacherId: tMulti.id,
+        subjectId: sMulti.id,
+        schedules: [
+            { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '19:30', hoursCount: 2 },
+            { dayOfWeek: 'Lunes', startTime: '19:30', endTime: '21:00', hoursCount: 2 }
+        ]
+    });
+    assert.strictEqual(dupRes.success, false, 'Debe rechazar días duplicados en la misma cátedra');
+    assert(dupRes.message.includes('mismo día'), 'Mensaje debe advertir sobre día duplicado');
+    console.log('  ✅ [PASS] Rechazo de días duplicados validado correctamente');
+
+    // 7.2 Creación de Cátedra Multi-Día con Horas Variables (ej. Lunes 3hs, Jueves 1h)
+    const saveMultiRes = await DesignationService.saveDesignation({
+        teacherId: tMulti.id,
+        subjectId: sMulti.id,
+        schedules: [
+            { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '20:15', hoursCount: 3 },
+            { dayOfWeek: 'Jueves', startTime: '18:00', endTime: '18:40', hoursCount: 1 }
+        ],
+        revista: 'Titular',
+        cargo: 'Profesor',
+        resolutionNumber: 'RES-TEST-2026'
+    });
+    assert.strictEqual(saveMultiRes.success, true, `Debe guardar la designación multi-día: ${saveMultiRes.message}`);
+    const createdDesigId = saveMultiRes.designationId;
+    assert(createdDesigId, 'Debe retornar el ID de la designación');
+    console.log(`  ✅ [PASS] Cátedra multi-día creada (ID: ${createdDesigId}) con Lunes 3hs y Jueves 1h`);
+
+    // 7.3 Recuperación por ID y Agrupamiento
+    const desigDetail = DesignationService.getDesignationById(createdDesigId);
+    assert(desigDetail, 'Debe encontrar la designación por ID');
+    assert.strictEqual(desigDetail.schedules.length, 2, 'Debe contener los 2 días configurados');
+    assert.strictEqual(desigDetail.totalHours, 4, 'Total de horas debe ser 4 (3 + 1)');
+    assert.strictEqual(desigDetail.hoursCount, 4, 'hoursCount compatible debe ser 4');
+    assert(desigDetail.schedules.some(s => s.dayOfWeek === 'Lunes' && s.hoursCount === 3), 'Lunes debe tener 3hs');
+    assert(desigDetail.schedules.some(s => s.dayOfWeek === 'Jueves' && s.hoursCount === 1), 'Jueves debe tener 1h');
+    console.log('  ✅ [PASS] Recuperación por ID desglosa correctamente cada día con su carga horaria');
+
+    // 7.4 Listado general agrupado
+    const allDesigs = await DesignationService.getAll({ careerId: sMulti.career_id });
+    const targetDesig = allDesigs.find(d => d.teacherId === tMulti.id && d.subjectId === sMulti.id);
+    assert(targetDesig, 'Debe listar la cátedra en getAll');
+    assert.strictEqual(targetDesig.hoursCount, 4, 'El total semanal acumulado debe ser 4 hs');
+    assert(targetDesig.dayOfWeek.includes('Lunes') && targetDesig.dayOfWeek.includes('Jueves'), 'Debe resumir los días');
+    assert(targetDesig.schedules.length === 2, 'Debe incluir el array de schedules desglosados');
+    console.log('  ✅ [PASS] Listado getAll consolida la cátedra en una única fila inteligente');
+
+    // 7.5 Formato en Planilla Imprimible de Control Diario
+    const printDaily = AttendanceService.getPrintableDailyData({ dateStr: '2026-11-16' });
+    const targetDailyTeacher = printDaily.rows.find(r => r.id === tMulti.id);
+    assert(targetDailyTeacher, 'El docente debe figurar en la planilla imprimible');
+    const chairsFormatted = targetDailyTeacher.chairsText;
+    assert(chairsFormatted.includes('Lunes') && chairsFormatted.includes('Jueves'), 'El formato imprimible debe detallar los días');
+    assert(chairsFormatted.includes('Total: 4 hs'), 'El formato imprimible debe indicar el total de horas');
+    console.log(`  ✅ [PASS] Formato de control imprimible: "${chairsFormatted}"`);
+
+    // 7.6 Modificación: Cambiar horarios y agregar un tercer día (Viernes 2hs)
+    const updateMultiRes = await DesignationService.saveDesignation({
+        id: createdDesigId,
+        teacherId: tMulti.id,
+        subjectId: sMulti.id,
+        schedules: [
+            { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '20:15', hoursCount: 3 },
+            { dayOfWeek: 'Viernes', startTime: '19:00', endTime: '20:30', hoursCount: 2 },
+            { dayOfWeek: 'Jueves', startTime: '18:00', endTime: '18:40', hoursCount: 1 }
+        ],
+        revista: 'Titular'
+    });
+    assert.strictEqual(updateMultiRes.success, true, `Debe actualizar cátedra agregando un día: ${updateMultiRes.message}`);
+    const updatedDetail = DesignationService.getDesignationById(createdDesigId);
+    assert.strictEqual(updatedDetail.schedules.length, 3, 'Ahora debe tener 3 días');
+    assert.strictEqual(updatedDetail.totalHours, 6, 'Total de horas debe ser 6 (3 + 2 + 1)');
+    console.log('  ✅ [PASS] Actualización dinámica de días y horas comprobada (ahora 6 hs semanales)');
+
+    // 7.7 Limpieza de la designación de prueba
+    const delRes = await DesignationService.deleteDesignation(updatedDetail.schedules.map(s => s.id));
+    assert.strictEqual(delRes.success, true, 'Debe eliminar la designación');
+    console.log('  ✅ [PASS] Limpieza de cátedra multi-día efectuada');
+
+    // 8. Test: TeacherService.save (Actualización de docente existente sin conflicto de DNI ni legajo)
+    console.log('\n8. Test: TeacherService.save (Unicidad y actualización de docentes)');
+    const allTeachers = TeacherService.getAll();
+    assert(allTeachers.length >= 2, 'Deben existir al menos 2 docentes para la prueba');
+    const teacher1 = allTeachers[0];
+    const teacher2 = allTeachers[1];
+
+    // 8.1 Actualizar docente existente sin modificar DNI ni legajo (ej. cambiando revista)
+    const originalRevista = teacher1.revista;
+    const updateResNumberId = TeacherService.save({
+        id: teacher1.id,
+        dni: teacher1.dni,
+        legajo: teacher1.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: 'Interino',
+        cuil: teacher1.cuil,
+        email: teacher1.email,
+        phone: teacher1.phone
+    });
+    assert.strictEqual(updateResNumberId.success, true, `Debe permitir actualizar docente existente con id numérico: ${updateResNumberId.message}`);
+    console.log('  ✅ [PASS] Actualización de docente con ID numérico sin conflicto con su propio DNI/Legajo');
+
+    // 8.2 Actualizar docente existente con ID enviado como string (como viene de formularios HTML)
+    const updateResStringId = TeacherService.save({
+        id: String(teacher1.id),
+        dni: teacher1.dni,
+        legajo: teacher1.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: originalRevista,
+        cuil: teacher1.cuil,
+        email: teacher1.email,
+        phone: teacher1.phone
+    });
+    assert.strictEqual(updateResStringId.success, true, `Debe permitir actualizar docente existente con id en formato string: ${updateResStringId.message}`);
+    console.log('  ✅ [PASS] Actualización de docente con ID como String compatible con inputs HTML');
+
+    // 8.3 Rechazar actualización si se intenta asignar el DNI de OTRO docente distinto
+    const collisionDniRes = TeacherService.save({
+        id: teacher1.id,
+        dni: teacher2.dni,
+        legajo: teacher1.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: originalRevista
+    });
+    assert.strictEqual(collisionDniRes.success, false, 'Debe rechazar DNI perteneciente a otro docente');
+    assert(collisionDniRes.message.includes('RN-01'), 'El mensaje debe referenciar la regla RN-01');
+    console.log('  ✅ [PASS] Bloqueo estricto ante colisión de DNI con otro docente (RN-01)');
+
+    // 8.4 Rechazar actualización si se intenta asignar el Legajo de OTRO docente distinto
+    const collisionLegajoRes = TeacherService.save({
+        id: teacher1.id,
+        dni: teacher1.dni,
+        legajo: teacher2.legajo,
+        firstName: teacher1.firstName,
+        lastName: teacher1.lastName,
+        revista: originalRevista
+    });
+    assert.strictEqual(collisionLegajoRes.success, false, 'Debe rechazar Legajo perteneciente a otro docente');
+    assert(collisionLegajoRes.message.includes('Legajo'), 'El mensaje debe indicar conflicto de Legajo');
+    console.log('  ✅ [PASS] Bloqueo estricto ante colisión de Legajo con otro docente');
+
     console.log('\n========================================================');
-    console.log('   TODAS LAS PRUEBAS DE LAS 4 MEJORAS HAN PASADO CON ÉXITO');
+    console.log('   TODAS LAS PRUEBAS DE LAS 8 MEJORAS HAN PASADO CON ÉXITO');
     console.log('========================================================\n');
 }
 

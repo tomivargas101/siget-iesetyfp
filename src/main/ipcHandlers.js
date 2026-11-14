@@ -184,6 +184,43 @@ function registerIpcHandlers() {
         return AttendanceService.getSummary(dateStr);
     });
 
+    ipcMain.handle('attendance:exportDailyExcel', async (event, params) => {
+        try {
+            const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const res = await AttendanceService.exportDailyExcel({ dateStr });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC attendance:exportDailyExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('attendance:exportPrintablePdf', async (event, params) => {
+        try {
+            const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const currentUser = AuthService.getCurrentUser();
+            const res = await AttendanceService.exportPrintableDailyPdf({
+                dateStr,
+                exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
+            });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC attendance:exportPrintablePdf] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('attendance:exportPrintableExcel', async (event, params) => {
+        try {
+            const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const res = await AttendanceService.exportPrintableDailyExcel({ dateStr });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC attendance:exportPrintableExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
     // -------------------------------------------------------------
     // CATÁLOGO MAESTRO NORMATIVO (IL-01 / IL-02)
     // -------------------------------------------------------------
@@ -230,15 +267,23 @@ function registerIpcHandlers() {
     // CALENDARIO INSTITUCIONAL DEL PROFESORADO
     // -------------------------------------------------------------
     ipcMain.handle('calendar:getTeacherTimeline', (event, params) => {
-        return TeacherCalendarService.getTeacherTimeline(params);
+        const res = TeacherCalendarService.getTeacherTimeline(params);
+        return JSON.parse(JSON.stringify(res));
     });
 
     ipcMain.handle('calendar:getInstitutionalOverview', (event, params) => {
-        return TeacherCalendarService.getInstitutionalOverview(params);
+        const res = TeacherCalendarService.getInstitutionalOverview(params);
+        return JSON.parse(JSON.stringify(res));
     });
 
     ipcMain.handle('calendar:getMonthMatrix', async (event, params) => {
-        return await TeacherCalendarService.getMonthMatrix(params);
+        try {
+            const matrix = await TeacherCalendarService.getMonthMatrix(params);
+            return JSON.parse(JSON.stringify(matrix));
+        } catch (err) {
+            console.error('[IPC calendar:getMonthMatrix] Error serializando matriz del mes:', err);
+            return { success: false, message: err.message, days: [] };
+        }
     });
 
     ipcMain.handle('calendar:getInstitutionalDays', (event, params) => {
@@ -262,6 +307,30 @@ function registerIpcHandlers() {
 
     ipcMain.handle('calendar:exportMonthPdf', async (event, params) => {
         return await TeacherCalendarService.exportMonthPdf(params);
+    });
+
+    ipcMain.handle('calendar:exportTeacherPdf', async (event, params) => {
+        try {
+            const currentUser = AuthService.getCurrentUser();
+            const res = await TeacherCalendarService.exportTeacherRecordPdf({
+                ...params,
+                exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
+            });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC calendar:exportTeacherPdf] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('calendar:exportTeacherExcel', async (event, params) => {
+        try {
+            const res = await TeacherCalendarService.exportTeacherRecordExcel(params);
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC calendar:exportTeacherExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     // -------------------------------------------------------------

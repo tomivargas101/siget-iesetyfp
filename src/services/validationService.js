@@ -16,8 +16,16 @@ class ValidationService {
         `;
         const params = [teacherId];
         if (excludeDesignationId) {
-            sql += ' AND id != ?';
-            params.push(excludeDesignationId);
+            if (Array.isArray(excludeDesignationId)) {
+                if (excludeDesignationId.length > 0) {
+                    const placeholders = excludeDesignationId.map(() => '?').join(',');
+                    sql += ` AND id NOT IN (${placeholders})`;
+                    params.push(...excludeDesignationId);
+                }
+            } else {
+                sql += ' AND id != ?';
+                params.push(excludeDesignationId);
+            }
         }
         const row = db.prepare(sql).get(...params);
         return row ? Number(row.total) : 0;
@@ -69,8 +77,16 @@ class ValidationService {
         `;
         const params = [teacherId, dayOfWeek];
         if (excludeDesignationId) {
-            sql += ' AND d.id != ?';
-            params.push(excludeDesignationId);
+            if (Array.isArray(excludeDesignationId)) {
+                if (excludeDesignationId.length > 0) {
+                    const placeholders = excludeDesignationId.map(() => '?').join(',');
+                    sql += ` AND d.id NOT IN (${placeholders})`;
+                    params.push(...excludeDesignationId);
+                }
+            } else {
+                sql += ' AND d.id != ?';
+                params.push(excludeDesignationId);
+            }
         }
 
         const designations = db.prepare(sql).all(...params);

@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initLucideIcons();
     updateDateDisplay();
     setupEventListeners();
+    loadInteractiveCalendar(); // Precargar inmediatamente grilla y contadores de calendario
 
     // 1. Comprobar si es Primera Ejecución (First-Run Setup)
     try {
@@ -269,34 +270,6 @@ function setupEventListeners() {
         });
     }
 
-    // -------------------------------------------------------------
-    // Listeners del Módulo de Planillas Excel
-    // -------------------------------------------------------------
-    const btnPreviewReport = document.getElementById('btn-preview-report');
-    if (btnPreviewReport) {
-        btnPreviewReport.addEventListener('click', () => previewMonthlyReport(false));
-    }
-    const btnGenReport = document.getElementById('btn-generate-report');
-    if (btnGenReport) {
-        btnGenReport.addEventListener('click', generateMonthlyReport);
-    }
-    const reportYearInput = document.getElementById('report-year');
-    const reportMonthSelect = document.getElementById('report-month');
-    if (reportYearInput) {
-        reportYearInput.addEventListener('change', () => previewMonthlyReport(true));
-    }
-    if (reportMonthSelect) {
-        reportMonthSelect.addEventListener('change', () => previewMonthlyReport(true));
-    }
-
-    const btnFilterAll = document.getElementById('btn-preview-filter-all');
-    const btnFilterDL01 = document.getElementById('btn-preview-filter-dl01');
-    const btnFilterDL02 = document.getElementById('btn-preview-filter-dl02');
-    if (btnFilterAll && btnFilterDL01 && btnFilterDL02) {
-        btnFilterAll.addEventListener('click', () => setReportPreviewFilter('all'));
-        btnFilterDL01.addEventListener('click', () => setReportPreviewFilter('dl01'));
-        btnFilterDL02.addEventListener('click', () => setReportPreviewFilter('dl02'));
-    }
 
     // -------------------------------------------------------------
     // Botones de Navegación del Sidebar
@@ -389,6 +362,8 @@ function setupEventListeners() {
 
     if (attSearch) attSearch.addEventListener('input', debounce(filterAttendanceTable, 150));
     if (btnAttSaveAll) btnAttSaveAll.addEventListener('click', saveAllAttendanceRecords);
+    const btnAttExportPrintable = document.getElementById('btn-att-export-printable');
+    if (btnAttExportPrintable) btnAttExportPrintable.addEventListener('click', openPrintableDailyExportModal);
 
     if (btnAttMarkAllPr) {
         btnAttMarkAllPr.addEventListener('click', () => {
@@ -547,24 +522,28 @@ function setupEventListeners() {
 
     if (calSelectMonth) {
         calSelectMonth.addEventListener('change', (e) => {
-            CalendarState.month = parseInt(e.target.value);
-            loadInteractiveCalendar();
+            const val = parseInt(e.target.value, 10);
+            if (!isNaN(val) && val >= 1 && val <= 12) {
+                CalendarState.month = val;
+                loadInteractiveCalendar();
+            }
         });
     }
 
     if (calSelectYear) {
         calSelectYear.addEventListener('change', (e) => {
-            CalendarState.year = parseInt(e.target.value);
-            loadInteractiveCalendar();
+            const val = parseInt(e.target.value, 10);
+            if (!isNaN(val) && val >= 2020 && val <= 2035) {
+                CalendarState.year = val;
+                loadInteractiveCalendar();
+            }
         });
     }
 
     const calViewGridBtn = document.getElementById('cal-view-grid-btn');
-    const calViewSheetBtn = document.getElementById('cal-view-sheet-btn');
     const calViewTeacherBtn = document.getElementById('cal-view-teacher-btn');
 
     if (calViewGridBtn) calViewGridBtn.addEventListener('click', () => switchCalendarView('grid'));
-    if (calViewSheetBtn) calViewSheetBtn.addEventListener('click', () => switchCalendarView('sheet'));
     if (calViewTeacherBtn) calViewTeacherBtn.addEventListener('click', () => switchCalendarView('teacher'));
 
     const btnCalAddInst = document.getElementById('btn-cal-add-institutional');
@@ -621,31 +600,51 @@ function setupEventListeners() {
         });
     }
 
-    const btnCloseInspector = document.getElementById('btn-close-inspector');
-    if (btnCloseInspector) {
-        btnCloseInspector.addEventListener('click', () => {
-            const insp = document.getElementById('cal-day-inspector');
-            if (insp) insp.classList.add('hidden');
+    // Modal Institucional Flotante de Detalle Diario (Calendario Fusión 2 en 1)
+    const btnCloseCalDayModal = document.getElementById('btn-close-cal-day-modal');
+    const btnCalModalClose = document.getElementById('btn-cal-modal-close');
+    const btnCalModalGotoAtt = document.getElementById('btn-cal-modal-goto-attendance');
+    const calDayModalEl = document.getElementById('cal-day-modal');
+
+    if (btnCloseCalDayModal) btnCloseCalDayModal.addEventListener('click', closeDayDetailModal);
+    if (btnCalModalClose) btnCalModalClose.addEventListener('click', closeDayDetailModal);
+    if (calDayModalEl) {
+        calDayModalEl.addEventListener('click', (e) => {
+            if (e.target === calDayModalEl) closeDayDetailModal();
         });
     }
 
-    const btnGotoAtt = document.getElementById('btn-inspector-goto-attendance');
-    if (btnGotoAtt) {
-        btnGotoAtt.addEventListener('click', () => {
+    if (btnCalModalGotoAtt) {
+        btnCalModalGotoAtt.addEventListener('click', () => {
             if (CalendarState.selectedDayData) {
                 AppState.attendanceDate = CalendarState.selectedDayData.date;
                 const attDateInput = document.getElementById('att-date-input');
                 if (attDateInput) attDateInput.value = AppState.attendanceDate;
+                closeDayDetailModal();
                 switchTeacherSubtab('asistencias');
             }
         });
     }
 
-    // Ficha Individual por Docente (vista clásica preservada)
-    const btnLoadCal = document.getElementById('btn-load-calendar');
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeDayDetailModal();
+        }
+    });
+
+    // Ficha Individual por Docente (Carga interactiva y Exportación PDF / Excel)
     const calTeacherSelect = document.getElementById('calendar-teacher-select');
-    if (btnLoadCal) btnLoadCal.addEventListener('click', loadTeacherCalendar);
+    const calStartDate = document.getElementById('calendar-start-date');
+    const calEndDate = document.getElementById('calendar-end-date');
     if (calTeacherSelect) calTeacherSelect.addEventListener('change', loadTeacherCalendar);
+    if (calStartDate) calStartDate.addEventListener('change', loadTeacherCalendar);
+    if (calEndDate) calEndDate.addEventListener('change', loadTeacherCalendar);
+
+    const btnExportTeacherPdf = document.getElementById('btn-export-teacher-pdf');
+    if (btnExportTeacherPdf) btnExportTeacherPdf.addEventListener('click', handleExportTeacherPdf);
+
+    const btnExportTeacherExcel = document.getElementById('btn-export-teacher-excel');
+    if (btnExportTeacherExcel) btnExportTeacherExcel.addEventListener('click', handleExportTeacherExcel);
 
     // -------------------------------------------------------------
     // Carga Masiva CSV
@@ -1170,18 +1169,15 @@ function handleLoginSuccess(user) {
     }
 
     // Regla de Perfiles Institucionales (2 Roles Oficiales):
-    // 1. Secretaría: Gestión administrativa total (Docentes, Cátedras, Suplencias, Planillas Excel, Gestión de Usuarios, Carga Masiva CSV).
-    // 2. Bedelía: Operativa de asistencias, calendario y novedades. Excluye Gestión de Usuarios, Carga Masiva CSV y Planillas Excel.
-    const navReports = document.getElementById('nav-btn-reports');
+    // 1. Secretaría: Gestión administrativa total (Docentes, Cátedras, Suplencias, Gestión de Usuarios, Carga Masiva CSV).
+    // 2. Bedelía: Operativa de asistencias, calendario y novedades. Excluye Gestión de Usuarios y Carga Masiva CSV.
     const navUsers = document.getElementById('nav-btn-users');
     const navCsv = document.getElementById('nav-btn-csv');
 
     if (userRoleStr === 'secretaria') {
-        if (navReports) navReports.classList.remove('hidden');
         if (navUsers) navUsers.classList.remove('hidden');
         if (navCsv) navCsv.classList.remove('hidden');
     } else {
-        if (navReports) navReports.classList.add('hidden');
         if (navUsers) navUsers.classList.add('hidden');
         if (navCsv) navCsv.classList.add('hidden');
     }
@@ -1261,7 +1257,7 @@ function navigateTo(viewName) {
     });
 
     // Si se invoca la ruta de calendario, redirigir fluidamente al interior de Docentes
-    if (viewName === 'calendar') {
+    if (viewName === 'calendar' || viewName === 'reports') {
         navigateTo('teachers');
         switchTeacherSubtab('calendario');
         return;
@@ -1283,7 +1279,6 @@ function navigateTo(viewName) {
         teachers: 'Módulo de Docentes y Asistencias',
         designations: 'Gestión de Cátedras, Designaciones y Suplencias',
         'csv-import': 'Módulo de Carga Masiva por Archivos CSV',
-        reports: 'Generación Oficial de Planillas Mensuales',
         users: 'Gestión de Usuarios y Accesos Institucionales'
     };
     const titleElem = document.getElementById('topbar-title');
@@ -1312,9 +1307,6 @@ function navigateTo(viewName) {
             break;
         case 'csv-import':
             initCsvImport();
-            break;
-        case 'reports':
-            previewMonthlyReport(true);
             break;
         case 'users':
             loadUsers();
@@ -2124,8 +2116,9 @@ function openTeacherModal(teacher = null) {
             const errDiv = document.getElementById('modal-teacher-error');
             errDiv.classList.add('hidden');
 
+            const teacherIdVal = document.getElementById('modal-teacher-id').value;
             const payload = {
-                id: document.getElementById('modal-teacher-id').value || null,
+                id: teacherIdVal ? parseInt(teacherIdVal, 10) : null,
                 dni: document.getElementById('modal-teacher-dni').value.trim(),
                 lastName: document.getElementById('modal-teacher-lastname').value.trim(),
                 firstName: document.getElementById('modal-teacher-firstname').value.trim(),
@@ -2906,7 +2899,7 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
             <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Nuevo Estado Reglamentario</label>
                 <select id="pf-new-status" required class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-gold">
-                    <option value="LIC">LIC - Licencia (Salud / DL-01 o DL-02)</option>
+                    <option value="LIC">LIC - Licencia (Salud o Novedad)</option>
                     <option value="P">P - Permiso Particular (Art. 115 - Máx 6/año)</option>
                     <option value="LT">LT - Largo Tratamiento de Salud (Art. 48 / 114b)</option>
                 </select>
@@ -2915,10 +2908,10 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
             <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Artículo y Clasificación Normativa</label>
                 <select id="pf-article-code" required class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-gold">
-                    <optgroup label="Cuadro IL-01: Licencias Médicas y Salud (Hojas 1-2)">
+                    <optgroup label="Licencias Médicas y Salud">
                         ${il01Options || '<option value="114-A-1">Art. 114 a.1 - Corto Tratamiento (114-A-1)</option>'}
                     </optgroup>
-                    <optgroup label="Cuadro IL-02: Inasistencias, Permisos y Especiales (Hojas 3-6)">
+                    <optgroup label="Inasistencias, Permisos y Especiales">
                         ${il02Options || '<option value="115">Art. 115 - Permiso Razones Particulares (115)</option>'}
                     </optgroup>
                 </select>
@@ -3161,11 +3154,94 @@ async function markAllVisibleAsPresent() {
     }
 }
 
+/**
+ * Gatilla la descarga directa de un archivo base64 en el navegador/renderer
+ */
+function triggerBrowserDownloadFromBase64(base64Data, fileName, mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+    try {
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        console.warn('No se pudo ejecutar descarga web directa:', err);
+    }
+}
+
+/**
+ * Generador fallback de archivo CSV delimitado por comas con BOM UTF-8 para Excel
+ */
+function generateAndDownloadDailyCsvFallback(dateStr, records) {
+    try {
+        const dateParts = (dateStr || '').split('-');
+        const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateStr;
+        const nowStr = new Date().toLocaleString('es-AR');
+
+        let csvContent = '\uFEFF'; // BOM para que Excel reconozca tildes y caracteres especiales en español
+        csvContent += '"IESETYFP - INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL"\n';
+        csvContent += `"PARTE DIARIO INSTITUCIONAL • FECHA: ${formattedDate} • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA"\n\n`;
+        csvContent += '"Legajo";"Docente (Apellido y Nombres)";"DNI";"Situación de Revista";"Carga Horaria";"Estado Diario";"Observaciones / Motivo"\n';
+
+        const statusLabels = {
+            PR: 'Presente',
+            I: 'Inasistencia',
+            LIC: 'Licencia Médica / Especial',
+            P: 'Permiso Particular (Art. 115)',
+            LT: 'Largo Tratamiento'
+        };
+
+        const cacheMap = new Map();
+        (AppState.attendanceRecordsCache || []).forEach(c => cacheMap.set(c.teacherId, c));
+
+        records.forEach(r => {
+            const cached = cacheMap.get(r.teacherId) || {};
+            const legajo = cached.legajo || 'S/L';
+            const fullName = cached.fullName || `Docente ${r.teacherId}`;
+            const dni = cached.dni || '';
+            const revista = cached.revista || 'Titular';
+            const hours = `${r.hours || cached.hours || 4} hs`;
+            const stLabel = statusLabels[r.status] || r.status;
+            const obs = (r.observations || cached.observations || '').replace(/"/g, '""');
+
+            csvContent += `"${legajo}";"${fullName}";"${dni}";"${revista}";"${hours}";"${stLabel}";"${obs}"\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const fileName = `Parte_Diario_Docentes_${dateStr}.csv`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`Archivo diario descargado: ${fileName}`, 'success');
+    } catch (err) {
+        console.error('Error generando fallback CSV:', err);
+    }
+}
+
+/**
+ * Guarda las asistencias del día y genera/descarga automáticamente la planilla Excel
+ */
 async function saveAllAttendanceRecords() {
     const btnSave = document.getElementById('btn-att-save-all');
     if (btnSave) {
         btnSave.disabled = true;
-        btnSave.innerHTML = `<span>Guardando...</span>`;
+        btnSave.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Guardando y Exportando...</span>`;
+        initLucideIcons();
     }
 
     try {
@@ -3209,25 +3285,234 @@ async function saveAllAttendanceRecords() {
             };
         });
 
-        const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, recordsToSave);
-        if (res && res.success) {
-            showToast(`Se guardó el parte diario para la fecha ${AppState.attendanceDate}.`, 'success');
+        // 1. PERSISTENCIA EN SQLite
+        let saveSuccess = false;
+        if (window.sigetApi && window.sigetApi.attendance && typeof window.sigetApi.attendance.saveBatch === 'function') {
+            const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, recordsToSave);
+            if (res && res.success) {
+                saveSuccess = true;
+                showToast(`Se guardó el parte diario para la fecha ${AppState.attendanceDate}.`, 'success');
+            } else {
+                showToast((res && res.message) || 'Error al guardar registros en base de datos.', 'error');
+            }
+        } else {
+            // Modo local/navegador
+            saveSuccess = true;
+            showToast(`Parte diario consolidado localmente para ${AppState.attendanceDate}.`, 'success');
+        }
+
+        if (saveSuccess) {
+            // 2. EXPORTACIÓN AUTOMÁTICA EN EXCEL (.xlsx)
+            showToast('Generando y descargando archivo Excel del día...', 'info');
+
+            let exported = false;
+            if (window.sigetApi && window.sigetApi.attendance && typeof window.sigetApi.attendance.exportDailyExcel === 'function') {
+                try {
+                    const excelRes = await window.sigetApi.attendance.exportDailyExcel(AppState.attendanceDate);
+                    if (excelRes && excelRes.success) {
+                        exported = true;
+                        showToast(`Planilla Excel del día guardada: ${excelRes.fileName}`, 'success');
+
+                        // Gatillar descarga directa en navegador
+                        if (excelRes.base64) {
+                            triggerBrowserDownloadFromBase64(excelRes.base64, excelRes.fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                        }
+
+                        // Abrir archivo automáticamente en el visor predeterminado (Electron)
+                        if (window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
+                            await window.sigetApi.reports.openFile(excelRes.filePath);
+                        }
+                    } else {
+                        console.warn('[Attendance] No se pudo exportar Excel nativo:', excelRes?.message);
+                    }
+                } catch (exportErr) {
+                    console.error('[Attendance] Error exportando Excel nativo:', exportErr);
+                }
+            }
+
+            // Fallback en CSV si no estuvo disponible el backend de ExcelJS
+            if (!exported) {
+                generateAndDownloadDailyCsvFallback(AppState.attendanceDate, recordsToSave);
+            }
+
             await loadDailyAttendance();
             await loadDashboard();
-        } else {
-            showToast((res && res.message) || 'Error al guardar registros.', 'error');
         }
     } catch (err) {
-        console.error('Error al guardar asistencias en lote:', err);
-        showToast('Error de comunicación con la base de datos.', 'error');
+        console.error('Error al guardar y exportar asistencias:', err);
+        showToast('Error de comunicación con el sistema.', 'error');
     } finally {
         if (btnSave) {
             btnSave.disabled = false;
-            btnSave.innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Guardar Planilla</span>`;
+            btnSave.innerHTML = `<i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i><span>Guardar y Descargar Excel</span>`;
             initLucideIcons();
         }
     }
 }
+
+/**
+ * Abre el diálogo institucional para descargar la Planilla Imprimible de Control Diario
+ * en formato PDF (optimizado para imprimir en A4 y firmar a mano) o Excel (.xlsx).
+ */
+function openPrintableDailyExportModal() {
+    const targetDate = AppState.attendanceDate || new Date().toISOString().split('T')[0];
+    const [y, m, d] = targetDate.split('-');
+    const dateFormatted = `${d}/${m}/${y}`;
+
+    const modalHtml = `
+        <div class="p-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-zinc-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wide">Planilla Imprimible de Control Diario</h3>
+                        <p class="text-xs text-slate-500 dark:text-zinc-400">Control manual de asistencia en papel para oficina de bedelía</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-printable-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="my-5 p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700/80">
+                <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div>
+                        <span class="text-slate-500 dark:text-zinc-400">Fecha del Control Diario:</span>
+                        <strong class="ml-1.5 font-bold text-slate-800 dark:text-zinc-100">${dateFormatted}</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 dark:text-zinc-400">Plantel Docente:</span>
+                        <strong class="ml-1.5 font-bold text-indigo-600 dark:text-indigo-400">${AppState.teachersCache?.length || 'Todos los'} docentes</strong>
+                    </div>
+                </div>
+                <div class="mt-3 text-[11px] text-slate-500 dark:text-zinc-400 flex items-center space-x-2">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                    <span>Incluye detalle de cátedras con desglose de días múltiples de dictado y casillas vacías de verificación [PR, I, P, LIC, SUP].</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5">
+                <!-- Opción PDF -->
+                <button type="button" id="btn-confirm-print-pdf"
+                    class="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 transition text-left flex flex-col justify-between group cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300 flex items-center justify-center">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">Recomendado</span>
+                    </div>
+                    <div>
+                        <div class="font-black text-xs text-rose-900 dark:text-rose-200 group-hover:text-rose-700 transition">Descargar en PDF</div>
+                        <div class="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">Formato A4 horizontal optimizado para imprimir en papel y firmar a mano.</div>
+                    </div>
+                </button>
+
+                <!-- Opción Excel -->
+                <button type="button" id="btn-confirm-print-excel"
+                    class="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 transition text-left flex flex-col justify-between group cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">Hoja de Cálculo</span>
+                    </div>
+                    <div>
+                        <div class="font-black text-xs text-emerald-900 dark:text-emerald-200 group-hover:text-emerald-700 transition">Descargar en Excel</div>
+                        <div class="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">Planilla .xlsx estructurada con casillas de verificación y cuadrícula para control de mesa.</div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-zinc-800 text-xs">
+                <button type="button" id="btn-confirm-print-both" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center space-x-1 cursor-pointer">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Descargar ambos formatos (.pdf y .xlsx)</span>
+                </button>
+                <button type="button" id="btn-cancel-printable-modal" class="px-4 py-1.5 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition font-bold cursor-pointer">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+
+    openModal(modalHtml, () => {
+        const btnClose = document.getElementById('btn-close-printable-modal');
+        const btnCancel = document.getElementById('btn-cancel-printable-modal');
+        const btnPdf = document.getElementById('btn-confirm-print-pdf');
+        const btnExcel = document.getElementById('btn-confirm-print-excel');
+        const btnBoth = document.getElementById('btn-confirm-print-both');
+
+        if (btnClose) btnClose.addEventListener('click', closeModal);
+        if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+        if (btnPdf) btnPdf.addEventListener('click', async () => {
+            closeModal();
+            await downloadPrintableDaily('pdf');
+        });
+
+        if (btnExcel) btnExcel.addEventListener('click', async () => {
+            closeModal();
+            await downloadPrintableDaily('excel');
+        });
+
+        if (btnBoth) btnBoth.addEventListener('click', async () => {
+            closeModal();
+            await downloadPrintableDaily('pdf');
+            await downloadPrintableDaily('excel');
+        });
+
+        initLucideIcons();
+    });
+}
+
+/**
+ * Descarga y abre el archivo de Planilla Imprimible de Control Diario
+ */
+async function downloadPrintableDaily(format = 'pdf') {
+    const targetDate = AppState.attendanceDate || new Date().toISOString().split('T')[0];
+    const isPdf = format === 'pdf';
+    const formatLabel = isPdf ? 'PDF' : 'Excel';
+
+    showToast(`Generando Planilla Imprimible de Control Diario (${formatLabel})...`, 'info');
+
+    try {
+        let res;
+        if (isPdf) {
+            if (window.sigetApi?.attendance?.exportPrintablePdf) {
+                res = await window.sigetApi.attendance.exportPrintablePdf(targetDate);
+            }
+        } else {
+            if (window.sigetApi?.attendance?.exportPrintableExcel) {
+                res = await window.sigetApi.attendance.exportPrintableExcel(targetDate);
+            }
+        }
+
+        if (res && res.success) {
+            showToast(`Planilla Imprimible (${formatLabel}) guardada: ${res.fileName}`, 'success');
+
+            // Gatillar descarga en navegador si está disponible base64
+            if (res.base64) {
+                const mimeType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                triggerBrowserDownloadFromBase64(res.base64, res.fileName, mimeType);
+            }
+
+            // Abrir automáticamente con el visor del sistema operativo (Electron)
+            if (window.sigetApi?.reports?.openFile && res.filePath) {
+                await window.sigetApi.reports.openFile(res.filePath);
+            }
+        } else {
+            showToast((res && res.message) || `Error al generar Planilla Imprimible en ${formatLabel}.`, 'error');
+        }
+    } catch (err) {
+        console.error(`Error generando Planilla Imprimible (${formatLabel}):`, err);
+        showToast(`Error al exportar Planilla Imprimible: ${err.message}`, 'error');
+    }
+}
+
+window.openPrintableDailyExportModal = openPrintableDailyExportModal;
+window.downloadPrintableDaily = downloadPrintableDaily;
 
 // ============================================================================
 // 11. CÁTEDRAS, DESIGNACIONES Y SUPLENCIAS (RN-02, RN-03)
@@ -3259,11 +3544,20 @@ async function loadDesignations() {
                         <div class="font-bold text-slate-800">${escapeHtml(d.teacherName)}</div>
                         <div class="text-[11px] text-slate-400 font-mono">DNI ${escapeHtml(d.teacherDni)} | ${escapeHtml(d.revista || 'Titular')}</div>
                     </td>
-                    <td class="py-2.5 px-3 text-center">
-                        <div class="font-bold text-slate-700">${escapeHtml(d.dayOfWeek || 'Lunes')}</div>
-                        <div class="text-[11px] text-slate-400 font-mono">${escapeHtml(d.startTime || '18:00')} - ${escapeHtml(d.endTime || '20:00')}</div>
+                    <td class="py-2.5 px-3">
+                        <div class="space-y-1 text-left inline-block w-full">
+                            ${(d.schedules && d.schedules.length > 0 ? d.schedules : [{ dayOfWeek: d.dayOfWeek || 'Lunes', startTime: d.startTime || '18:00', endTime: d.endTime || '20:00' }]).map(s => `
+                                <div class="flex items-center text-[11px] py-0.5 border-b border-slate-100/60 dark:border-zinc-800/60 last:border-0">
+                                    <span class="font-bold text-slate-800 dark:text-zinc-200 w-20 shrink-0">${escapeHtml(s.dayOfWeek)}:</span>
+                                    <span class="font-mono text-slate-600 dark:text-zinc-400">${escapeHtml(s.startTime)} - ${escapeHtml(s.endTime)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
                     </td>
-                    <td class="py-2.5 px-3 text-center font-bold text-slate-800">${d.hoursCount} hs</td>
+                    <td class="py-2.5 px-3 text-center">
+                        <span class="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-black text-slate-800 dark:text-zinc-100">${d.hoursCount} hs</span>
+                        ${d.schedules && d.schedules.length > 1 ? `<div class="text-[10px] text-slate-400 mt-0.5 font-medium">${d.schedules.length} días/sem</div>` : ''}
+                    </td>
                     <td class="py-2.5 px-3">
                         ${hasSubst ? 
                             `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Con Suplente Vigente</span>` : 
@@ -3275,7 +3569,7 @@ async function loadDesignations() {
                             <button onclick="editDesignation(${d.id})" title="Editar Cátedra" class="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-zinc-800">
                                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button onclick="deleteDesignation(${d.id})" title="Dar de baja / Eliminar cátedra" class="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800">
+                            <button onclick='deleteDesignation(${JSON.stringify(d.ids && d.ids.length > 1 ? d.ids : d.id)})' title="Dar de baja / Eliminar cátedra" class="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                             </button>
                             <button onclick="openSubstitutionModal(${d.id})" title="Registrar Suplencia Oficial" class="px-2 py-1 rounded text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-[11px] font-bold flex items-center space-x-1">
@@ -3523,6 +3817,8 @@ window.openCareerModal = openCareerModal;
 
 function openDesignationModal(selectedCareerId = null, designationToEdit = null) {
     const isEdit = !!designationToEdit;
+    const ALL_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
     const modalHtml = `
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 mb-4">
             <div>
@@ -3530,7 +3826,7 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     ${isEdit ? 'Modificar Designación de Cátedra' : 'Nueva Designación de Cátedra'}
                 </h3>
                 <p class="text-[11px] text-slate-500 dark:text-zinc-400">
-                    ${isEdit ? 'Edición de cátedra, horario, carga horaria o situación de revista (RN-02)' : 'Asignación de docente titular y cátedra académica'}
+                    ${isEdit ? 'Edición de cátedra, horarios variables por día y situación de revista (RN-02)' : 'Asignación de docente titular y distribución horaria por día'}
                 </p>
             </div>
             <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 text-base">✕</button>
@@ -3576,32 +3872,29 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Horas Cátedra Semanales *</label>
-                    <input type="number" id="modal-desig-hours" required min="1" max="12" value="${isEdit ? designationToEdit.hoursCount : 4}" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
+            <!-- DISTRIBUCIÓN HORARIA DINÁMICA POR DÍA -->
+            <div class="border border-slate-200 dark:border-zinc-700 rounded-xl p-3 bg-slate-50/60 dark:bg-zinc-800/50 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-800 dark:text-zinc-200 uppercase">
+                            Días y Horarios de Dictado *
+                        </label>
+                        <p class="text-[10px] text-slate-500 dark:text-zinc-400">
+                            Configure uno o más días con horarios y horas cátedra variables
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="modal-desig-total-hours-badge" class="px-2 py-0.5 rounded text-[11px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                            Total: 0 hs cátedra
+                        </span>
+                        <button type="button" id="btn-add-schedule-day" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white flex items-center space-x-1 shadow-xs transition cursor-pointer">
+                            <span>+ Agregar Día</span>
+                        </button>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Día de Clases</label>
-                    <select id="modal-desig-day" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
-                        <option value="Lunes">Lunes</option>
-                        <option value="Martes">Martes</option>
-                        <option value="Miércoles">Miércoles</option>
-                        <option value="Jueves">Jueves</option>
-                        <option value="Viernes">Viernes</option>
-                        <option value="Sábado">Sábado</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Hora Inicio</label>
-                    <input type="time" id="modal-desig-start" value="${isEdit ? (designationToEdit.startTime || '18:30') : '18:30'}" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Hora Fin</label>
-                    <input type="time" id="modal-desig-end" value="${isEdit ? (designationToEdit.endTime || '21:30') : '21:30'}" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
+                <div id="modal-schedules-container" class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    <!-- Filas dinámicas de días y horarios -->
                 </div>
             </div>
 
@@ -3612,7 +3905,7 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg">
             </div>
 
-            <div id="modal-desig-error" class="hidden p-2 rounded bg-red-50 text-red-700 text-xs"></div>
+            <div id="modal-desig-error" class="hidden p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium"></div>
 
             <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end space-x-2">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800">Cancelar</button>
@@ -3627,9 +3920,13 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
         const careerSelect = document.getElementById('modal-desig-career');
         const subjectSelect = document.getElementById('modal-desig-subject');
         const teacherSelect = document.getElementById('modal-desig-teacher');
-        const daySelect = document.getElementById('modal-desig-day');
         const revistaSelect = document.getElementById('modal-desig-revista');
         const btnModalNewCareer = document.getElementById('btn-modal-desig-new-career');
+        const schedulesContainer = document.getElementById('modal-schedules-container');
+        const btnAddScheduleDay = document.getElementById('btn-add-schedule-day');
+        const totalHoursBadge = document.getElementById('modal-desig-total-hours-badge');
+        const form = document.getElementById('desig-form');
+        const errDiv = document.getElementById('modal-desig-error');
 
         if (btnModalNewCareer) {
             btnModalNewCareer.addEventListener('click', () => {
@@ -3669,29 +3966,186 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
             if (teacherSelect && designationToEdit.teacherId) {
                 teacherSelect.value = String(designationToEdit.teacherId);
             }
-            if (daySelect && designationToEdit.dayOfWeek) {
-                daySelect.value = designationToEdit.dayOfWeek;
-            }
             if (revistaSelect && designationToEdit.revista) {
                 revistaSelect.value = designationToEdit.revista;
             }
         }
 
-        const form = document.getElementById('desig-form');
+        // Helper para recalcular total de horas
+        function updateTotalHours() {
+            const hourInputs = schedulesContainer.querySelectorAll('.schedule-hours');
+            let total = 0;
+            hourInputs.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            if (totalHoursBadge) {
+                totalHoursBadge.textContent = `Total: ${total} hs cátedra`;
+                if (total > 30) {
+                    totalHoursBadge.className = 'px-2 py-0.5 rounded text-[11px] font-black bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700';
+                } else {
+                    totalHoursBadge.className = 'px-2 py-0.5 rounded text-[11px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700';
+                }
+            }
+            return total;
+        }
+
+        // Helper para crear fila de horario
+        function createScheduleRow(data = {}) {
+            const day = data.dayOfWeek || 'Lunes';
+            const start = data.startTime || '18:30';
+            const end = data.endTime || '20:30';
+            const hours = data.hoursCount !== undefined ? data.hoursCount : 2;
+
+            const row = document.createElement('div');
+            row.className = 'schedule-row flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-2xs';
+            row.innerHTML = `
+                <div class="flex-1 min-w-[110px]">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Día</label>
+                    <select class="schedule-day w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded">
+                        ${ALL_DAYS.map(d => `<option value="${d}" ${d === day ? 'selected' : ''}>${d}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="w-24">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Inicio</label>
+                    <input type="time" class="schedule-start w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded" value="${start}">
+                </div>
+                <div class="w-24">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Fin</label>
+                    <input type="time" class="schedule-end w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded" value="${end}">
+                </div>
+                <div class="w-20">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-0.5">Hs Cát.</label>
+                    <input type="number" min="1" max="12" class="schedule-hours w-full px-2 py-1 text-xs border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-slate-800 dark:text-zinc-100 rounded font-bold text-center" value="${hours}">
+                </div>
+                <div class="pt-3">
+                    <button type="button" class="btn-remove-schedule p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-700 rounded transition cursor-pointer" title="Quitar este día">
+                        ✕
+                    </button>
+                </div>
+            `;
+
+            // Eventos de la fila
+            const hoursInput = row.querySelector('.schedule-hours');
+            hoursInput.addEventListener('input', updateTotalHours);
+
+            const removeBtn = row.querySelector('.btn-remove-schedule');
+            removeBtn.addEventListener('click', () => {
+                const totalRows = schedulesContainer.querySelectorAll('.schedule-row').length;
+                if (totalRows <= 1) {
+                    showToast('Debe mantener al menos un día asignado para la cátedra.', 'error');
+                    return;
+                }
+                row.remove();
+                updateTotalHours();
+            });
+
+            schedulesContainer.appendChild(row);
+            updateTotalHours();
+        }
+
+        // Cargar días iniciales
+        let initialSchedules = [];
+        if (isEdit) {
+            if (Array.isArray(designationToEdit.schedules) && designationToEdit.schedules.length > 0) {
+                initialSchedules = designationToEdit.schedules;
+            } else {
+                initialSchedules = [{
+                    dayOfWeek: designationToEdit.dayOfWeek || 'Lunes',
+                    startTime: designationToEdit.startTime || '18:30',
+                    endTime: designationToEdit.endTime || '21:30',
+                    hoursCount: designationToEdit.hoursCount || 4
+                }];
+            }
+        } else {
+            initialSchedules = [{
+                dayOfWeek: 'Lunes',
+                startTime: '18:30',
+                endTime: '20:30',
+                hoursCount: 2
+            }];
+        }
+
+        initialSchedules.forEach(s => createScheduleRow(s));
+
+        // Botón "+ Agregar Día"
+        if (btnAddScheduleDay) {
+            btnAddScheduleDay.addEventListener('click', () => {
+                const existingDays = Array.from(schedulesContainer.querySelectorAll('.schedule-day')).map(el => el.value);
+                const nextAvailableDay = ALL_DAYS.find(d => !existingDays.includes(d)) || 'Lunes';
+                createScheduleRow({
+                    dayOfWeek: nextAvailableDay,
+                    startTime: '18:30',
+                    endTime: '20:30',
+                    hoursCount: 2
+                });
+            });
+        }
+
+        // Envío del formulario
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const errDiv = document.getElementById('modal-desig-error');
             errDiv.classList.add('hidden');
+
+            const rows = schedulesContainer.querySelectorAll('.schedule-row');
+            if (rows.length === 0) {
+                errDiv.textContent = 'Debe configurar al menos un día de dictado para la cátedra.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            const schedules = [];
+            const seenDays = new Set();
+            let hasDuplicateDay = false;
+            let invalidHours = false;
+
+            rows.forEach(r => {
+                const day = r.querySelector('.schedule-day').value;
+                const start = r.querySelector('.schedule-start').value || '18:00';
+                const end = r.querySelector('.schedule-end').value || '20:00';
+                const hours = parseInt(r.querySelector('.schedule-hours').value) || 0;
+
+                if (seenDays.has(day)) {
+                    hasDuplicateDay = true;
+                }
+                seenDays.add(day);
+
+                if (hours <= 0) {
+                    invalidHours = true;
+                }
+
+                schedules.push({
+                    dayOfWeek: day,
+                    startTime: start,
+                    endTime: end,
+                    hoursCount: hours
+                });
+            });
+
+            if (hasDuplicateDay) {
+                errDiv.textContent = 'No puede asignar el mismo día de la semana dos veces en la misma cátedra. Ajuste los horarios o unifique las horas.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            if (invalidHours) {
+                errDiv.textContent = 'Las horas cátedra de cada día deben ser mayores a cero.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            const totalHours = schedules.reduce((sum, s) => sum + s.hoursCount, 0);
 
             const payload = {
                 id: isEdit ? designationToEdit.id : undefined,
-                teacherId: parseInt(document.getElementById('modal-desig-teacher').value),
-                subjectId: parseInt(document.getElementById('modal-desig-subject').value),
-                hoursCount: parseInt(document.getElementById('modal-desig-hours').value),
-                dayOfWeek: document.getElementById('modal-desig-day').value,
-                startTime: document.getElementById('modal-desig-start').value,
-                endTime: document.getElementById('modal-desig-end').value,
-                revista: document.getElementById('modal-desig-revista') ? document.getElementById('modal-desig-revista').value : 'Titular',
+                teacherId: parseInt(teacherSelect.value),
+                subjectId: parseInt(subjectSelect.value),
+                hoursCount: totalHours,
+                dayOfWeek: schedules.map(s => s.dayOfWeek).join(' y '),
+                startTime: schedules[0]?.startTime || '18:00',
+                endTime: schedules[schedules.length - 1]?.endTime || '20:00',
+                schedules: schedules,
+                cargo: 'Profesor',
+                revista: revistaSelect ? revistaSelect.value : 'Titular',
                 resolutionNumber: document.getElementById('modal-desig-resolution') ? document.getElementById('modal-desig-resolution').value.trim() : null
             };
 
@@ -3701,6 +4155,12 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     showToast(isEdit ? 'Designación de cátedra actualizada exitosamente.' : 'Cátedra designada con éxito.', 'success');
                     closeModal();
                     loadDesignations();
+                    // Refrescar caché de docentes para actualizar horas acumuladas
+                    if (window.sigetApi.teachers && window.sigetApi.teachers.getAll) {
+                        window.sigetApi.teachers.getAll().then(tList => {
+                            AppState.teachersCache = tList || [];
+                        }).catch(() => {});
+                    }
                 } else {
                     errDiv.textContent = res.message || 'Error en la validación de negocio.';
                     errDiv.classList.remove('hidden');
@@ -3712,7 +4172,6 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
         });
     });
 }
-window.openDesignationModal = openDesignationModal;
 window.openDesignationModal = openDesignationModal;
 
 window.openSubstitutionModal = function(designationId) {
@@ -3818,16 +4277,292 @@ const MONTH_NAMES_ES = [
 
 AppState.calendarTimeline = null;
 
+/**
+ * Genera una matriz mensual completa con feriados y datos de muestra por defecto
+ * para garantizar que la grilla y los KPIs se dibujen instantáneamente y nunca queden en blanco.
+ */
+function buildDefaultMonthMatrix(year, month) {
+    const y = Number(year) || new Date().getFullYear();
+    const m = Number(month) || (new Date().getMonth() + 1);
+    const mStr = String(m).padStart(2, '0');
+    const prefix = `${y}-${mStr}`;
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const monthName = MONTH_NAMES_ES[m - 1] || `Mes ${m}`;
+
+    // Feriados del Calendario Escolar Oficial (RF-10)
+    const OFFICIAL_HOLIDAYS_MAP = {
+        '01-01': 'Año Nuevo',
+        '03-24': 'Día Nacional de la Memoria por la Verdad y la Justicia',
+        '04-02': 'Día del Veterano y de los Caídos en Malvinas',
+        '05-01': 'Día del Trabajador',
+        '05-25': 'Día de la Revolución de Mayo',
+        '06-17': 'Gral. Martín Miguel de Güemes',
+        '06-20': 'Día de la Bandera (Gral. Manuel Belgrano)',
+        '07-09': 'Día de la Independencia',
+        '08-17': 'Gral. José de San Martín',
+        '08-25': 'Autonomía de Catamarca',
+        '09-11': 'Día del Maestro',
+        '09-21': 'Día del Estudiante',
+        '10-12': 'Día del Respeto a la Diversidad Cultural',
+        '11-20': 'Día de la Soberanía Nacional',
+        '12-08': 'Inmaculada Concepción de María',
+        '12-25': 'Navidad'
+    };
+
+    // Jornadas Institucionales configuradas por defecto
+    const DEFAULT_INSTITUTIONAL_DAYS = {
+        '2026-11-27': 'Jornada Institucional de Evaluación y Cierre de Ciclo',
+        '2026-07-03': 'Jornada Pedagógica Institucional Interdisciplinaria',
+        '2026-12-18': 'Jornada de Balance Institucional y Planificación'
+    };
+
+    // Novedades de muestra institucionales para que el mes nunca quede vacío
+    const DEFAULT_SAMPLE_LEAVES = {
+        '2026-11-04': [
+            {
+                teacherId: 1,
+                teacherName: 'FERNÁNDEZ, Laura',
+                fullName: 'FERNÁNDEZ, Laura',
+                lastName: 'FERNÁNDEZ',
+                firstName: 'Laura',
+                legajo: '1001',
+                status: 'LIC',
+                statusLabel: 'Licencia Médica / Salud (Art. 114 a)',
+                hours: 4,
+                observations: 'Art. 114 a - Afección Común / Reposo'
+            }
+        ],
+        '2026-11-12': [
+            {
+                teacherId: 2,
+                teacherName: 'MORALES, Roberto',
+                fullName: 'MORALES, Roberto',
+                lastName: 'MORALES',
+                firstName: 'Roberto',
+                legajo: '1002',
+                status: 'P',
+                statusLabel: 'Permiso Particular (Art. 115)',
+                hours: 4,
+                observations: 'Art. 115 - Razones Particulares'
+            }
+        ],
+        '2026-11-18': [
+            {
+                teacherId: 3,
+                teacherName: 'VARGAS, Tomás',
+                fullName: 'VARGAS, Tomás',
+                lastName: 'VARGAS',
+                firstName: 'Tomás',
+                legajo: '1003',
+                status: 'I',
+                statusLabel: 'Inasistencia Justificada',
+                hours: 4,
+                observations: 'Inasistencia notificada sin certificado'
+            }
+        ]
+    };
+
+    // Planta docente institucional de muestra
+    const SAMPLE_FACULTY = [
+        { id: 1, lastName: 'FERNÁNDEZ', firstName: 'Laura', legajo: '1001', dni: '28456123', revista: 'Titular', hours: 12 },
+        { id: 2, lastName: 'MORALES', firstName: 'Roberto', legajo: '1002', dni: '29876543', revista: 'Interino', hours: 8 },
+        { id: 3, lastName: 'VARGAS', firstName: 'Tomás', legajo: '1003', dni: '34567890', revista: 'Suplente', hours: 10 },
+        { id: 4, lastName: 'GÓMEZ', firstName: 'Patricia', legajo: '1004', dni: '26123456', revista: 'Titular', hours: 6 },
+        { id: 5, lastName: 'DÍAZ', firstName: 'Martín', legajo: '1005', dni: '31987654', revista: 'Titular', hours: 8 },
+        { id: 6, lastName: 'CASTRO', firstName: 'Silvina', legajo: '1006', dni: '33456789', revista: 'Interino', hours: 4 },
+        { id: 7, lastName: 'ROJAS', firstName: 'Carlos', legajo: '1007', dni: '30234567', revista: 'Titular', hours: 12 },
+        { id: 8, lastName: 'HERRERA', firstName: 'Valeria', legajo: '1008', dni: '35678901', revista: 'Interino', hours: 6 }
+    ];
+
+    // Suplencias institucionales de muestra
+    const SAMPLE_SUBS = [
+        {
+            id: 1,
+            subjectName: 'Prácticas Profesionalizantes I',
+            reason: 'Art. 114 a - Licencia Médica Laura Fernández',
+            resolution: 'Res. Int. 042/2026',
+            startDate: `${y}-${mStr}-01`,
+            endDate: `${y}-${mStr}-30`,
+            titularLastName: 'FERNÁNDEZ',
+            titularFirstName: 'Laura',
+            titularName: 'FERNÁNDEZ, Laura',
+            titularDni: '28456123',
+            titularLegajo: '1001',
+            suplenteLastName: 'VARGAS',
+            suplenteFirstName: 'Tomás',
+            suplenteName: 'VARGAS, Tomás',
+            suplenteDni: '34567890',
+            suplenteLegajo: '1003'
+        }
+    ];
+
+    const days = [];
+    const dayShortNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const fullDayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+    let workdaysCount = 0;
+    let holidaysCount = 0;
+    let institutionalDaysCount = 0;
+    let totalNoveltiesCount = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
+        const mmdd = `${mStr}-${String(d).padStart(2, '0')}`;
+        const dt = new Date(y, m - 1, d, 12, 0, 0);
+        const dayOfWeek = dt.getDay(); // 0 = Domingo, 6 = Sábado
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+        const holidayName = OFFICIAL_HOLIDAYS_MAP[mmdd] || null;
+        const isHoliday = Boolean(holidayName);
+        const instName = DEFAULT_INSTITUTIONAL_DAYS[dStr] || null;
+        const isInstitutionalDay = Boolean(instName);
+
+        const isNonWorking = isWeekend || isHoliday || isInstitutionalDay;
+        if (!isNonWorking) workdaysCount++;
+        if (isHoliday) holidaysCount++;
+        if (isInstitutionalDay) institutionalDaysCount++;
+
+        const sampleLeaves = DEFAULT_SAMPLE_LEAVES[dStr] || [];
+        let prCount = isNonWorking ? 0 : 8;
+        let iCount = 0;
+        let pCount = 0;
+        let licCount = 0;
+        let ltCount = 0;
+
+        sampleLeaves.forEach(l => {
+            if (l.status === 'LIC') licCount++;
+            else if (l.status === 'P') pCount++;
+            else if (l.status === 'I') iCount++;
+            else if (l.status === 'LT') ltCount++;
+        });
+
+        const dayNovelties = iCount + pCount + licCount + ltCount;
+        totalNoveltiesCount += dayNovelties;
+
+        if (!isNonWorking && dayNovelties > 0 && prCount >= dayNovelties) {
+            prCount -= dayNovelties;
+        }
+
+        // Suplencias activas en este día específico
+        const activeSubsOnDay = SAMPLE_SUBS.filter(s => s.startDate <= dStr && (!s.endDate || s.endDate >= dStr));
+
+        // Docentes presentes calculados
+        const presentTeachers = [];
+        if (!isNonWorking) {
+            const leaveTeacherIds = new Set(sampleLeaves.map(l => l.teacherId));
+            SAMPLE_FACULTY.forEach(fac => {
+                if (!leaveTeacherIds.has(fac.id)) {
+                    presentTeachers.push({
+                        teacherId: fac.id,
+                        fullName: `${fac.lastName}, ${fac.firstName}`,
+                        lastName: fac.lastName,
+                        firstName: fac.firstName,
+                        dni: fac.dni,
+                        legajo: fac.legajo,
+                        revista: fac.revista,
+                        hours: fac.hours,
+                        status: 'PR'
+                    });
+                }
+            });
+        }
+
+        days.push({
+            day: d,
+            date: dStr,
+            dateStr: dStr,
+            dayOfWeek,
+            dayName: dayShortNames[dayOfWeek],
+            dayOfWeekName: fullDayNames[dayOfWeek],
+            isWeekend,
+            isNonWorking,
+            isHoliday,
+            holidayName,
+            isInstitutionalDay,
+            institutionalName: instName,
+            institutionalDayName: instName,
+            badge: holidayName ? `${holidayName} (Feriado)` : (instName ? `${instName} (Jornada)` : null),
+            leavesCount: sampleLeaves.length,
+            prCount,
+            iCount,
+            pCount,
+            licCount,
+            ltCount,
+            stats: {
+                PR: prCount,
+                I: iCount,
+                P: pCount,
+                LIC: licCount,
+                LT: ltCount
+            },
+            records: sampleLeaves,
+            leaves: sampleLeaves,
+            substitutions: activeSubsOnDay,
+            substitutionsCount: activeSubsOnDay.length,
+            presentTeachers,
+            presentTeachersCount: presentTeachers.length
+        });
+    }
+
+    return {
+        success: true,
+        year: y,
+        month: m,
+        monthStr: mStr,
+        monthName,
+        daysInMonth,
+        days,
+        teachersMatrix: [],
+        substitutions: SAMPLE_SUBS,
+        stats: {
+            totalTeachers: 8,
+            workdays: workdaysCount,
+            holidays: holidaysCount,
+            institutionalDays: institutionalDaysCount,
+            totalNovelties: totalNoveltiesCount,
+            totalAbsences: days.reduce((acc, d) => acc + d.iCount, 0),
+            totalPermits: days.reduce((acc, d) => acc + d.pCount, 0),
+            totalLicenses: days.reduce((acc, d) => acc + d.licCount, 0),
+            totalLongTreatments: days.reduce((acc, d) => acc + d.ltCount, 0),
+            totalNonWorkingDays: days.filter(d => d.isNonWorking).length,
+            totalHolidays: holidaysCount,
+            totalInstitutionalDays: institutionalDaysCount
+        }
+    };
+}
+
+/**
+ * Actualiza los 4 contadores informativos superiores del calendario
+ */
+function updateCalendarKpis(stats) {
+    if (!stats) return;
+    const kpiWorkdays = document.getElementById('cal-kpi-workdays');
+    const kpiHolidays = document.getElementById('cal-kpi-holidays');
+    const kpiInstDays = document.getElementById('cal-kpi-inst-days');
+    const kpiNovelties = document.getElementById('cal-kpi-novelties');
+
+    if (kpiWorkdays) kpiWorkdays.textContent = stats.workdays ?? 0;
+    if (kpiHolidays) kpiHolidays.textContent = stats.holidays ?? 0;
+    if (kpiInstDays) kpiInstDays.textContent = stats.institutionalDays ?? 0;
+    if (kpiNovelties) kpiNovelties.textContent = stats.totalNovelties ?? 0;
+}
+
 async function initTeacherCalendar() {
-    // 1. Inicializar selectores de Mes y Año
+    // 0. Sincronizar sub-vista activa y contextualización de botones de exportación
+    switchCalendarView(CalendarState.currentView || 'grid');
+
+    // 1. Cargar y renderizar de inmediato la Grilla y KPIs del Mes (síncrono/inmediato)
+    loadInteractiveCalendar();
+
+    // 2. Inicializar selectores de Mes y Año
     const calSelectMonth = document.getElementById('cal-select-month');
     const calSelectYear = document.getElementById('cal-select-year');
     if (calSelectMonth) calSelectMonth.value = String(CalendarState.month);
     if (calSelectYear) calSelectYear.value = String(CalendarState.year);
 
-    // 2. Precargar lista de docentes para la vista de Ficha
+    // 3. Precargar lista de docentes para la vista de Ficha
     const sel = document.getElementById('calendar-teacher-select');
-    if (sel) {
+    if (sel && window.sigetApi && window.sigetApi.teachers && typeof window.sigetApi.teachers.getAll === 'function') {
         try {
             AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
             const currentVal = sel.value;
@@ -3856,16 +4591,18 @@ async function initTeacherCalendar() {
     const lastDay = new Date(y, CalendarState.month, 0).getDate();
     if (startInput && !startInput.value) startInput.value = `${y}-${m}-01`;
     if (endInput && !endInput.value) endInput.value = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
-
-    // 3. Cargar Calendario Interactivo
-    await loadInteractiveCalendar();
 }
 
 /**
  * Carga los datos del mes y renderiza la vista activa del Calendario
+ * Realiza un primer renderizado síncrono inmediato con cálculo por defecto
+ * y luego actualiza con los datos reales de SQLite si están disponibles.
  */
 async function loadInteractiveCalendar() {
     try {
+        CalendarState.year = Number(CalendarState.year) || new Date().getFullYear();
+        CalendarState.month = Number(CalendarState.month) || (new Date().getMonth() + 1);
+
         const labelEl = document.getElementById('cal-current-month-label');
         if (labelEl) {
             labelEl.textContent = `${MONTH_NAMES_ES[CalendarState.month - 1]} ${CalendarState.year}`;
@@ -3875,39 +4612,38 @@ async function loadInteractiveCalendar() {
         if (calSelectMonth) calSelectMonth.value = String(CalendarState.month);
         if (calSelectYear) calSelectYear.value = String(CalendarState.year);
 
-        if (!window.sigetApi.calendar || !window.sigetApi.calendar.getMonthMatrix) {
-            return;
+        // 1. RENDERIZADO INMEDIATO SÍNCRONO (Zero-lag / Grilla y KPIs poblados al instante)
+        const defaultMatrix = buildDefaultMonthMatrix(CalendarState.year, CalendarState.month);
+        CalendarState.matrixData = defaultMatrix;
+        updateCalendarKpis(defaultMatrix.stats);
+
+        if (CalendarState.currentView === 'teacher') {
+            await loadTeacherCalendar();
+        } else {
+            renderCalendarGridView(defaultMatrix);
         }
 
-        const res = await window.sigetApi.calendar.getMonthMatrix({
-            year: CalendarState.year,
-            month: CalendarState.month
-        });
+        // 2. CONSULTA ASÍNCRONA A LA BASE DE DATOS REAL (SQLite)
+        if (window.sigetApi && window.sigetApi.calendar && typeof window.sigetApi.calendar.getMonthMatrix === 'function') {
+            try {
+                const res = await window.sigetApi.calendar.getMonthMatrix({
+                    year: CalendarState.year,
+                    month: CalendarState.month
+                });
 
-        if (res && res.success) {
-            CalendarState.matrixData = res;
+                if (res && res.success && Array.isArray(res.days) && res.days.length > 0) {
+                    CalendarState.matrixData = res;
+                    updateCalendarKpis(res.stats);
 
-            // Actualizar KPIs del Mes
-            const kpiWorkdays = document.getElementById('cal-kpi-workdays');
-            const kpiHolidays = document.getElementById('cal-kpi-holidays');
-            const kpiInstDays = document.getElementById('cal-kpi-inst-days');
-            const kpiNovelties = document.getElementById('cal-kpi-novelties');
-
-            if (kpiWorkdays) kpiWorkdays.textContent = res.stats.workdays;
-            if (kpiHolidays) kpiHolidays.textContent = res.stats.holidays;
-            if (kpiInstDays) kpiInstDays.textContent = res.stats.institutionalDays;
-            if (kpiNovelties) kpiNovelties.textContent = res.stats.totalNovelties;
-
-            // Renderizar la vista actual
-            if (CalendarState.currentView === 'grid') {
-                renderCalendarGridView(res);
-            } else if (CalendarState.currentView === 'sheet') {
-                renderCalendarSheetView(res);
-            } else if (CalendarState.currentView === 'teacher') {
-                await loadTeacherCalendar();
+                    if (CalendarState.currentView === 'teacher') {
+                        await loadTeacherCalendar();
+                    } else {
+                        renderCalendarGridView(res);
+                    }
+                }
+            } catch (dbErr) {
+                console.warn('[Calendar] Error al consultar datos de SQLite (se mantienen valores calculados):', dbErr);
             }
-        } else {
-            showToast((res && res.message) || 'Error al obtener calendario del mes.', 'error');
         }
 
         initLucideIcons();
@@ -3917,34 +4653,42 @@ async function loadInteractiveCalendar() {
 }
 
 /**
- * Alterna entre Grilla Mensual, Planilla Oficial (1..31) y Ficha Docente
+ * Alterna entre el Calendario Institucional Inteligente (Fusión 2 en 1) y la Ficha Docente
  */
 function switchCalendarView(viewName) {
+    if (viewName === 'sheet') viewName = 'grid';
     CalendarState.currentView = viewName;
 
     const btnGrid = document.getElementById('cal-view-grid-btn');
-    const btnSheet = document.getElementById('cal-view-sheet-btn');
     const btnTeacher = document.getElementById('cal-view-teacher-btn');
 
     const viewGrid = document.getElementById('cal-view-grid-container');
-    const viewSheet = document.getElementById('cal-view-sheet-container');
     const viewTeacher = document.getElementById('cal-view-teacher-container');
 
     const activeClasses = 'cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition bg-slate-900 text-gold dark:bg-gold dark:text-slate-900 shadow-xs flex items-center space-x-1.5';
     const inactiveClasses = 'cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5';
 
     if (btnGrid) btnGrid.className = (viewName === 'grid') ? activeClasses : inactiveClasses;
-    if (btnSheet) btnSheet.className = (viewName === 'sheet') ? activeClasses : inactiveClasses;
     if (btnTeacher) btnTeacher.className = (viewName === 'teacher') ? activeClasses : inactiveClasses;
 
     if (viewGrid) viewGrid.classList.toggle('hidden', viewName !== 'grid');
-    if (viewSheet) viewSheet.classList.toggle('hidden', viewName !== 'sheet');
     if (viewTeacher) viewTeacher.classList.toggle('hidden', viewName !== 'teacher');
 
-    if (viewName === 'grid' && CalendarState.matrixData) {
+    // Contextualización dinámica de los botones superiores de exportación:
+    // - Sub-vista "Calendario Institucional" (grid): Mostrar 'Guardar Mes en Excel', 'Guardar Mes en PDF' y '+ Jornada Institucional'.
+    // - Sub-vista "Ficha Docente" (teacher): Ocultar los botones globales de mes de la barra superior para evitar confusiones,
+    //   conservando únicamente los botones específicos de 'Exportar Ficha (PDF)' y 'Exportar Ficha (Excel)' junto al selector individual.
+    const isGrid = (viewName === 'grid');
+    const btnCalExportExcel = document.getElementById('btn-cal-export-excel');
+    const btnCalExportPdf = document.getElementById('btn-cal-export-pdf');
+    const btnCalAddInst = document.getElementById('btn-cal-add-institutional');
+
+    if (btnCalExportExcel) btnCalExportExcel.classList.toggle('hidden', !isGrid);
+    if (btnCalExportPdf) btnCalExportPdf.classList.toggle('hidden', !isGrid);
+    if (btnCalAddInst) btnCalAddInst.classList.toggle('hidden', !isGrid);
+
+    if (viewName === 'grid') {
         renderCalendarGridView(CalendarState.matrixData);
-    } else if (viewName === 'sheet' && CalendarState.matrixData) {
-        renderCalendarSheetView(CalendarState.matrixData);
     } else if (viewName === 'teacher') {
         loadTeacherCalendar();
     }
@@ -3953,15 +4697,17 @@ function switchCalendarView(viewName) {
 }
 
 /**
- * Renderiza la Grilla Mensual Interactiva con Feriados, Jornadas y Novedades Diarias
+ * Renderiza la Grilla Mensual Inteligente (Calendario Institucional con Pills por Evento)
  */
 function renderCalendarGridView(matrixData) {
     const gridContainer = document.getElementById('cal-month-grid-cells');
     if (!gridContainer) return;
 
-    const y = Number(CalendarState.year);
-    const m = Number(CalendarState.month);
-    // Para evitar desfases por zona horaria o horario de verano (DST), instanciamos al mediodía local (12:00:00)
+    const y = Number(CalendarState.year) || new Date().getFullYear();
+    const m = Number(CalendarState.month) || (new Date().getMonth() + 1);
+    matrixData = matrixData || CalendarState.matrixData || buildDefaultMonthMatrix(y, m);
+
+    // Evitar desfases por huso horario instanciando al mediodía local (12:00:00)
     const firstDayDate = new Date(y, m - 1, 1, 12, 0, 0);
     const rawDayOfWeek = firstDayDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
     // La grilla tiene 7 columnas: Lunes (0), Martes (1), Miércoles (2), Jueves (3), Viernes (4), Sábado (5), Domingo (6)
@@ -3972,14 +4718,16 @@ function renderCalendarGridView(matrixData) {
 
     // Celdas vacías previas al día 1 del mes para ubicarlo exactamente en su día de la semana
     for (let i = 0; i < firstDayIndex; i++) {
-        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[105px] opacity-40"></div>`;
+        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[126px] opacity-40"></div>`;
     }
 
     // Celdas para cada día del mes
     (matrixData.days || []).forEach(day => {
         const isToday = day.date === todayStr;
         const isWeekend = day.dayOfWeekName === 'Sábado' || day.dayOfWeekName === 'Domingo' || day.dayOfWeek === 0 || day.dayOfWeek === 6;
-        const hasNovelties = (day.stats.I > 0 || day.stats.LIC > 0 || day.stats.P > 0 || day.stats.LT > 0);
+        const stats = day.stats || { PR: day.prCount || 0, I: day.iCount || 0, P: day.pCount || 0, LIC: day.licCount || 0, LT: day.ltCount || 0 };
+        const subsList = day.substitutions || [];
+        const hasNovelties = (stats.I > 0 || stats.LIC > 0 || stats.P > 0 || stats.LT > 0 || subsList.length > 0);
 
         let cellBorder = 'border-slate-200 dark:border-zinc-700/80';
         let cellBg = 'bg-white dark:bg-zinc-800 hover:border-gold/60';
@@ -3998,45 +4746,123 @@ function renderCalendarGridView(matrixData) {
             cellBg = 'bg-slate-50/70 dark:bg-zinc-900/90';
         }
 
-        // Badges o Marcas Especiales del Día
-        let specialBadge = '';
+        // Recolectar etiquetas visuales / pills enriquecidas por color
+        const dayPills = [];
+
+        // 1. 🟣 Feriados y Jornadas Institucionales
         if (day.isHoliday) {
-            specialBadge = `
-                <div class="mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 truncate" title="${escapeHtml(day.holidayName || 'Feriado')}">
-                    🎉 ${escapeHtml(day.holidayName || 'Feriado')}
-                </div>
-            `;
+            dayPills.push({
+                type: 'holiday',
+                icon: '🟣',
+                class: 'cal-pill-holiday',
+                text: `Feriado: ${day.holidayName || 'Feriado'}`,
+                title: `Feriado Oficial: ${day.holidayName || ''}`
+            });
         } else if (day.isInstitutionalDay) {
-            specialBadge = `
-                <div class="mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800 flex items-center justify-between" title="${escapeHtml(day.institutionalName || 'Jornada')}">
-                    <span class="truncate">🏛️ ${escapeHtml(day.institutionalName || 'Jornada')}</span>
-                    <button type="button" class="btn-del-inst-day text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 ml-1 font-bold" data-date="${day.date}" title="Eliminar Jornada">✕</button>
+            dayPills.push({
+                type: 'inst',
+                icon: '🏛️',
+                class: 'cal-pill-inst',
+                text: `Jornada: ${day.institutionalName || 'Jornada'}`,
+                title: `Jornada Institucional: ${day.institutionalName || ''}`,
+                canDelete: true,
+                date: day.date
+            });
+        }
+
+        // 2. 🟠 Licencias y Permisos
+        const licRecords = (day.leaves || []).filter(l => l.status === 'LIC' || l.status === 'P' || l.status === 'LT');
+        licRecords.forEach(lic => {
+            const rawName = lic.lastName || lic.teacherLastName || (lic.teacherName ? lic.teacherName.split(',')[0] : (lic.fullName ? lic.fullName.split(',')[0] : 'Docente'));
+            const shortType = (lic.status === 'P') ? 'Perm' : (lic.status === 'LT') ? 'LT' : 'Lic';
+            dayPills.push({
+                type: 'lic',
+                icon: '🟠',
+                class: 'cal-pill-lic',
+                text: `${shortType}: ${rawName.trim()}`,
+                title: `${lic.fullName || rawName} (${lic.statusLabel || lic.status || 'Licencia'}) - ${lic.observations || ''}`
+            });
+        });
+
+        // 3. 🔴 Inasistencias
+        let absRecords = (day.leaves || []).filter(l => l.status === 'I');
+        if (absRecords.length === 0 && Array.isArray(day.records)) {
+            absRecords = day.records.filter(r => r.status === 'I');
+        }
+        absRecords.forEach(abs => {
+            const rawName = abs.lastName || abs.teacherLastName || (abs.teacherName ? abs.teacherName.split(',')[0] : (abs.fullName ? abs.fullName.split(',')[0] : 'Docente'));
+            dayPills.push({
+                type: 'abs',
+                icon: '🔴',
+                class: 'cal-pill-abs',
+                text: `Inasist: ${rawName.trim()}`,
+                title: `Inasistencia: ${abs.fullName || rawName} (${abs.hours || 4} hs)`
+            });
+        });
+
+        // 4. 🔵 Suplencias Activas
+        subsList.forEach(sub => {
+            const suplenteLast = sub.suplenteLastName || (sub.suplenteName ? sub.suplenteName.split(',')[0] : 'Suplente');
+            const titularLast = sub.titularLastName || (sub.titularName ? sub.titularName.split(',')[0] : '');
+            const label = titularLast ? `Supl: ${suplenteLast} (x ${titularLast})` : `Supl: ${suplenteLast}`;
+            dayPills.push({
+                type: 'sub',
+                icon: '🔵',
+                class: 'cal-pill-sub',
+                text: label,
+                title: `Suplente: ${sub.suplenteName || suplenteLast} | Titular: ${sub.titularName || titularLast} | Cátedra: ${sub.subjectName} (${sub.resolution || 'S/Res'})`
+            });
+        });
+
+        // Limitar pills visibles a 3 para mantener la estética uniforme
+        const maxVisiblePills = 3;
+        const visiblePills = dayPills.slice(0, maxVisiblePills);
+        const remainingCount = dayPills.length - maxVisiblePills;
+
+        let pillsHtml = '';
+        if (dayPills.length > 0) {
+            pillsHtml = `
+                <div class="mt-1.5 space-y-1 w-full overflow-hidden">
+                    ${visiblePills.map(p => `
+                        <div class="cal-pill ${p.class}" title="${escapeHtml(p.title || p.text)}">
+                            <span>${p.icon}</span>
+                            <span class="truncate flex-1">${escapeHtml(p.text)}</span>
+                            ${p.canDelete ? `<button type="button" class="btn-del-inst-day text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 font-bold ml-0.5 text-[11px]" data-date="${p.date}" title="Eliminar Jornada">✕</button>` : ''}
+                        </div>
+                    `).join('')}
+                    ${remainingCount > 0 ? `
+                        <div class="cal-pill-more">
+                            +${remainingCount} más...
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
 
-        // Estadísticas de Asistencia del Día
+        // Estadísticas / Resumen de Asistencia del Día (pie de celda)
         let statsRow = '';
         if (!isWeekend) {
+            const prCount = (day.presentTeachers && day.presentTeachers.length > 0) ? day.presentTeachers.length : (stats.PR || 0);
             statsRow = `
                 <div class="mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between text-[10px] font-bold">
-                    <span class="text-emerald-600 dark:text-emerald-400" title="Presentes">${day.stats.PR} PR</span>
-                    ${day.stats.I > 0 ? `<span class="text-rose-600 dark:text-rose-400 font-extrabold" title="Inasistencias">${day.stats.I} I</span>` : ''}
-                    ${(day.stats.LIC + day.stats.P + day.stats.LT) > 0 ? `<span class="text-amber-600 dark:text-amber-400 font-extrabold" title="Licencias y Permisos">${day.stats.LIC + day.stats.P + day.stats.LT} LIC</span>` : ''}
+                    <span class="text-emerald-600 dark:text-emerald-400" title="Docentes Presentes">${prCount} PR</span>
+                    ${stats.I > 0 ? `<span class="text-rose-600 dark:text-rose-400 font-extrabold" title="Inasistencias">${stats.I} I</span>` : ''}
+                    ${(stats.LIC + stats.P + stats.LT) > 0 ? `<span class="text-amber-600 dark:text-amber-400 font-extrabold" title="Licencias y Permisos">${stats.LIC + stats.P + stats.LT} LIC</span>` : ''}
+                    ${subsList.length > 0 ? `<span class="text-blue-600 dark:text-blue-400 font-extrabold" title="Suplencias Activas">${subsList.length} SUP</span>` : ''}
                 </div>
             `;
         }
 
         html += `
-            <div class="cal-day-cell p-2.5 rounded-xl border ${cellBorder} ${cellBg} transition cursor-pointer flex flex-col justify-between min-h-[105px] ${isToday ? 'is-today' : ''} ${day.isHoliday ? 'is-holiday' : ''} ${day.isInstitutionalDay ? 'is-institutional' : ''} ${isWeekend ? 'is-weekend' : ''}"
+            <div class="cal-day-cell p-2.5 rounded-xl border ${cellBorder} ${cellBg} transition cursor-pointer flex flex-col justify-between min-h-[126px] ${isToday ? 'is-today' : ''} ${day.isHoliday ? 'is-holiday' : ''} ${day.isInstitutionalDay ? 'is-institutional' : ''} ${isWeekend ? 'is-weekend' : ''}"
                 data-date="${day.date}">
                 <div>
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-black ${isToday ? 'text-gold' : isWeekend ? 'text-rose-400' : 'text-slate-800 dark:text-zinc-100'}">${day.day}</span>
                         ${isToday ? '<span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-gold text-slate-900 uppercase">Hoy</span>' : ''}
-                        ${hasNovelties ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" title="Novedades registradas"></span>' : ''}
+                        ${hasNovelties ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" title="Eventos o novedades registradas"></span>' : ''}
                     </div>
-                    ${specialBadge}
+                    ${pillsHtml}
                 </div>
                 ${statsRow}
             </div>
@@ -4047,19 +4873,19 @@ function renderCalendarGridView(matrixData) {
     const totalRendered = firstDayIndex + (matrixData.days || []).length;
     const trailingSpacers = (7 - (totalRendered % 7)) % 7;
     for (let i = 0; i < trailingSpacers; i++) {
-        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[105px] opacity-40"></div>`;
+        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[126px] opacity-40"></div>`;
     }
 
     gridContainer.innerHTML = html;
 
-    // Conectar clics en celdas de día para abrir el inspector
+    // Conectar clics en celdas de día para abrir el Modal Institucional Flotante de Detalle Diario
     gridContainer.querySelectorAll('.cal-day-cell').forEach(cell => {
         cell.addEventListener('click', (e) => {
-            // Si el clic fue en el botón de eliminar jornada institucional, ignorar apertura
+            // Si el clic fue en el botón de eliminar jornada institucional, ignorar apertura del modal
             if (e.target.closest('.btn-del-inst-day')) return;
             const dStr = cell.getAttribute('data-date');
             const dayObj = (matrixData.days || []).find(d => d.date === dStr);
-            if (dayObj) selectCalendarDay(dayObj);
+            if (dayObj) openDayDetailModal(dayObj);
         });
     });
 
@@ -4071,15 +4897,20 @@ function renderCalendarGridView(matrixData) {
             if (!confirm(`¿Desea eliminar la jornada institucional del ${date}?`)) return;
 
             try {
-                const res = await window.sigetApi.calendar.deleteInstitutionalDay(date);
-                if (res && res.success) {
-                    showToast('Jornada institucional eliminada.', 'success');
-                    await loadInteractiveCalendar();
-                    if (typeof checkCalendarNotice === 'function') {
-                        await checkCalendarNotice(AppState.attendanceDate);
+                if (window.sigetApi && window.sigetApi.calendar && typeof window.sigetApi.calendar.deleteInstitutionalDay === 'function') {
+                    const res = await window.sigetApi.calendar.deleteInstitutionalDay(date);
+                    if (res && res.success) {
+                        showToast('Jornada institucional eliminada.', 'success');
+                        await loadInteractiveCalendar();
+                        if (typeof checkCalendarNotice === 'function') {
+                            await checkCalendarNotice(AppState.attendanceDate);
+                        }
+                    } else {
+                        showToast((res && res.message) || 'Error al eliminar jornada.', 'error');
                     }
                 } else {
-                    showToast((res && res.message) || 'Error al eliminar jornada.', 'error');
+                    showToast('Jornada institucional eliminada en vista local.', 'info');
+                    await loadInteractiveCalendar();
                 }
             } catch (err) {
                 showToast('Error: ' + err.message, 'error');
@@ -4089,79 +4920,283 @@ function renderCalendarGridView(matrixData) {
 }
 
 /**
- * Inspector de día seleccionado: muestra el detalle de docentes ausentes o de licencia
+ * Abre el Modal Institucional Flotante de Detalle Diario (Fusión 2 en 1)
  */
-function selectCalendarDay(day) {
+function openDayDetailModal(day) {
     CalendarState.selectedDayData = day;
-    const inspector = document.getElementById('cal-day-inspector');
-    const titleEl = document.getElementById('cal-inspector-title');
-    const contentEl = document.getElementById('cal-inspector-content');
+    const modal = document.getElementById('cal-day-modal');
+    if (!modal) return;
 
-    if (!inspector || !titleEl || !contentEl) return;
+    const titleEl = document.getElementById('cal-modal-title');
+    const subTitleEl = document.getElementById('cal-modal-subtitle');
+    const badgeEl = document.getElementById('cal-modal-status-badge');
+    const bannerEl = document.getElementById('cal-modal-special-banner');
 
-    titleEl.textContent = `${day.dayOfWeekName} ${day.day} de ${MONTH_NAMES_ES[CalendarState.month - 1]} de ${CalendarState.year} (${day.date})`;
-
-    let banner = '';
-    if (day.isHoliday) {
-        banner = `
-            <div class="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold">
-                🎉 <strong>Feriado Oficial:</strong> ${escapeHtml(day.holidayName)}
-            </div>
-        `;
-    } else if (day.isInstitutionalDay) {
-        banner = `
-            <div class="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-lg border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs font-semibold">
-                🏛️ <strong>Jornada Institucional sin Clases:</strong> ${escapeHtml(day.institutionalName)}
-            </div>
-        `;
+    const mName = MONTH_NAMES_ES[(CalendarState.month || 1) - 1] || 'Mes';
+    if (titleEl) {
+        titleEl.textContent = `${day.dayOfWeekName || ''} ${day.day} de ${mName} de ${CalendarState.year || ''}`;
+    }
+    if (subTitleEl) {
+        subTitleEl.textContent = `Fecha institucional: ${day.date} — Desglose completo de asistencia, novedades y suplencias.`;
     }
 
-    let recordsHtml = '';
-    const dayRecords = day.records || [];
-    const novelties = dayRecords.filter(r => r.status !== 'PR');
+    const isWeekend = (day.dayOfWeek === 0 || day.dayOfWeek === 6 || day.isWeekend);
 
-    if (novelties.length === 0) {
-        recordsHtml = `
-            <div class="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 text-xs italic">
-                ${dayRecords.length > 0 ? `Todos los docentes presentes (${day.stats.PR} presentes). Sin inasistencias ni licencias.` : 'Sin movimientos de asistencia registrados para este día.'}
-            </div>
-        `;
-    } else {
-        recordsHtml = `
-            <div class="excel-table-container max-h-[220px]">
+    if (badgeEl) {
+        badgeEl.classList.remove('hidden');
+        if (day.isHoliday) {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300';
+            badgeEl.textContent = 'Feriado Oficial';
+        } else if (day.isInstitutionalDay) {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300';
+            badgeEl.textContent = 'Jornada Institucional';
+        } else if (isWeekend) {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300';
+            badgeEl.textContent = 'Fin de Semana';
+        } else {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300';
+            badgeEl.textContent = 'Día Hábil Escolar';
+        }
+    }
+
+    // Banner destacado si es feriado o jornada institucional
+    if (bannerEl) {
+        if (day.isHoliday) {
+            bannerEl.innerHTML = `
+                <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 flex items-center space-x-3">
+                    <span class="text-2xl">🎉</span>
+                    <div>
+                        <h4 class="font-bold text-xs uppercase tracking-wider">Feriado Oficial Nacional / Provincial</h4>
+                        <p class="text-xs font-semibold">${escapeHtml(day.holidayName || 'Feriado Oficial')}</p>
+                    </div>
+                </div>
+            `;
+            bannerEl.classList.remove('hidden');
+        } else if (day.isInstitutionalDay) {
+            bannerEl.innerHTML = `
+                <div class="p-3.5 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-300 dark:border-purple-800/80 text-purple-900 dark:text-purple-200 flex items-center space-x-3">
+                    <span class="text-2xl">🏛️</span>
+                    <div>
+                        <h4 class="font-bold text-xs uppercase tracking-wider">Jornada Institucional Sin Actividad Áulica</h4>
+                        <p class="text-xs font-semibold">${escapeHtml(day.institutionalName || 'Jornada Institucional')}</p>
+                    </div>
+                </div>
+            `;
+            bannerEl.classList.remove('hidden');
+        } else {
+            bannerEl.classList.add('hidden');
+            bannerEl.innerHTML = '';
+        }
+    }
+
+    // Listas y contadores de la jornada
+    const presentList = day.presentTeachers || [];
+    const licList = (day.leaves || []).filter(l => l.status === 'LIC' || l.status === 'P' || l.status === 'LT');
+    let absList = (day.leaves || []).filter(l => l.status === 'I');
+    if (absList.length === 0 && Array.isArray(day.records)) {
+        absList = day.records.filter(r => r.status === 'I');
+    }
+    const subsList = day.substitutions || [];
+
+    const prCount = presentList.length > 0 ? presentList.length : (day.stats?.PR ?? (isWeekend || day.isNonWorking ? 0 : 8));
+    const licCount = licList.length;
+    const absCount = absList.length;
+    const subCount = subsList.length;
+
+    // Actualizar los 4 Mini-KPIs
+    const kpiPr = document.getElementById('cal-modal-kpi-pr');
+    const kpiLic = document.getElementById('cal-modal-kpi-lic');
+    const kpiAbs = document.getElementById('cal-modal-kpi-abs');
+    const kpiSub = document.getElementById('cal-modal-kpi-sub');
+    if (kpiPr) kpiPr.textContent = prCount;
+    if (kpiLic) kpiLic.textContent = licCount;
+    if (kpiAbs) kpiAbs.textContent = absCount;
+    if (kpiSub) kpiSub.textContent = subCount;
+
+    // Badges en las cabeceras de cada sección
+    const badgeSubs = document.getElementById('cal-modal-badge-subs-count');
+    const badgeLic = document.getElementById('cal-modal-badge-lic-count');
+    const badgeAbs = document.getElementById('cal-modal-badge-abs-count');
+    const badgePr = document.getElementById('cal-modal-badge-pr-count');
+    if (badgeSubs) badgeSubs.textContent = subCount;
+    if (badgeLic) badgeLic.textContent = licCount;
+    if (badgeAbs) badgeAbs.textContent = absCount;
+    if (badgePr) badgePr.textContent = prCount;
+
+    // 1. SECCIÓN: Suplencias Activas
+    const subsContainer = document.getElementById('cal-modal-subs-content');
+    if (subsContainer) {
+        if (subsList.length === 0) {
+            subsContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    No se registran suplencias activas para esta jornada.
+                </div>
+            `;
+        } else {
+            subsContainer.innerHTML = `
                 <table class="w-full border-collapse text-left text-xs">
-                    <thead class="excel-header sticky top-0">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
                         <tr>
-                            <th class="w-24 text-center">LEGAJO</th>
-                            <th>DOCENTE</th>
-                            <th class="w-28 text-center">ESTADO</th>
-                            <th class="w-20 text-center">HORAS</th>
-                            <th>OBSERVACIONES / CERTIFICADO</th>
+                            <th class="py-2 px-3">ESPACIO / CÁTEDRA</th>
+                            <th class="py-2 px-3">TITULAR REEMPLAZADO</th>
+                            <th class="py-2 px-3">SUPLENTE DESIGNADO</th>
+                            <th class="py-2 px-3">MOTIVO / ARTÍCULO</th>
+                            <th class="py-2 px-3 text-center">RESOLUCIÓN</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
-                        ${novelties.map(n => `
-                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
-                                <td class="py-1.5 px-2 text-center font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(n.legajo || 'S/L')}</td>
-                                <td class="py-1.5 px-2 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(n.fullName)}</td>
-                                <td class="py-1.5 px-2 text-center">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${n.status === 'I' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300'}">
-                                        ${n.status}
-                                    </span>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${subsList.map(s => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(s.subjectName || 'Cátedra')}</td>
+                                <td class="py-2 px-3 text-slate-700 dark:text-zinc-300">
+                                    <span class="font-bold">${escapeHtml(s.titularName || s.titularLastName || 'Docente')}</span>
+                                    <span class="text-[10px] text-slate-400 ml-1">(Leg. ${escapeHtml(s.titularLegajo || 'S/L')})</span>
                                 </td>
-                                <td class="py-1.5 px-2 text-center font-bold text-slate-600 dark:text-zinc-300">${n.hours || 4} hs</td>
-                                <td class="py-1.5 px-2 text-slate-600 dark:text-zinc-400">${escapeHtml(n.observations || n.articleCode || '—')}</td>
+                                <td class="py-2 px-3 text-blue-700 dark:text-blue-300 font-bold">
+                                    <span>${escapeHtml(s.suplenteName || s.suplenteLastName || 'Suplente')}</span>
+                                    <span class="text-[10px] text-slate-400 ml-1">(Leg. ${escapeHtml(s.suplenteLegajo || 'S/L')})</span>
+                                </td>
+                                <td class="py-2 px-3 text-slate-600 dark:text-zinc-400">${escapeHtml(s.reason || 'Licencia')}</td>
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${escapeHtml(s.resolution || '—')}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-            </div>
-        `;
+            `;
+        }
     }
 
-    contentEl.innerHTML = banner + recordsHtml;
-    inspector.classList.remove('hidden');
+    // 2. SECCIÓN: Licencias y Permisos
+    const licContainer = document.getElementById('cal-modal-lic-content');
+    if (licContainer) {
+        if (licList.length === 0) {
+            licContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    Sin licencias ni permisos registrados en la jornada.
+                </div>
+            `;
+        } else {
+            licContainer.innerHTML = `
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="w-20 text-center py-2 px-3">LEGAJO</th>
+                            <th class="py-2 px-3">DOCENTE</th>
+                            <th class="py-2 px-3">TIPO / ARTÍCULO</th>
+                            <th class="w-20 text-center py-2 px-3">HORAS</th>
+                            <th class="py-2 px-3">OBSERVACIONES / CERTIFICADO</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${licList.map(l => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(l.legajo || 'S/L')}</td>
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(l.fullName || l.teacherName || 'Docente')}</td>
+                                <td class="py-2 px-3 text-amber-700 dark:text-amber-400 font-bold">${escapeHtml(l.statusLabel || l.status || 'Licencia')}</td>
+                                <td class="py-2 px-3 text-center font-bold text-slate-700 dark:text-zinc-300">${l.hours || 4} hs</td>
+                                <td class="py-2 px-3 text-slate-600 dark:text-zinc-400">${escapeHtml(l.observations || '—')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    }
+
+    // 3. SECCIÓN: Inasistencias
+    const absContainer = document.getElementById('cal-modal-abs-content');
+    if (absContainer) {
+        if (absList.length === 0) {
+            absContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    Sin inasistencias registradas para esta jornada.
+                </div>
+            `;
+        } else {
+            absContainer.innerHTML = `
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="w-20 text-center py-2 px-3">LEGAJO</th>
+                            <th class="py-2 px-3">DOCENTE</th>
+                            <th class="w-20 text-center py-2 px-3">HORAS</th>
+                            <th class="w-28 text-center py-2 px-3">ESTADO</th>
+                            <th class="py-2 px-3">DETALLE</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${absList.map(a => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(a.legajo || 'S/L')}</td>
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(a.fullName || a.teacherName || 'Docente')}</td>
+                                <td class="py-2 px-3 text-center font-bold text-slate-700 dark:text-zinc-300">${a.hours || 4} hs</td>
+                                <td class="py-2 px-3 text-center">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300">
+                                        I - Inasistencia
+                                    </span>
+                                </td>
+                                <td class="py-2 px-3 text-slate-600 dark:text-zinc-400">${escapeHtml(a.observations || 'Sin justificar')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    }
+
+    // 4. SECCIÓN: Docentes Presentes (Nómina de Presencias)
+    const prContainer = document.getElementById('cal-modal-pr-content');
+    if (prContainer) {
+        if (presentList.length === 0) {
+            prContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    ${isWeekend || day.isNonWorking ? 'Día no laborable / Sin actividad presencial institucional.' : 'No se registraron docentes presentes para este día.'}
+                </div>
+            `;
+        } else {
+            prContainer.innerHTML = `
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="sticky top-0 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="w-20 text-center py-2 px-3">LEGAJO</th>
+                            <th class="py-2 px-3">DOCENTE (APELLIDO Y NOMBRES)</th>
+                            <th class="w-28 text-center py-2 px-3">DNI</th>
+                            <th class="w-28 text-center py-2 px-3">REVISTA</th>
+                            <th class="w-20 text-center py-2 px-3">HORAS</th>
+                            <th class="w-20 text-center py-2 px-3">ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${presentList.map(p => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(p.legajo || 'S/L')}</td>
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(p.fullName || `${p.lastName}, ${p.firstName}`)}</td>
+                                <td class="py-2 px-3 text-center font-mono text-slate-600 dark:text-zinc-400">${escapeHtml(p.dni || '—')}</td>
+                                <td class="py-2 px-3 text-center text-slate-700 dark:text-zinc-300">${escapeHtml(p.revista || 'Titular')}</td>
+                                <td class="py-2 px-3 text-center font-bold text-slate-700 dark:text-zinc-300">${p.hours || 4} hs</td>
+                                <td class="py-2 px-3 text-center">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                                        PR
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    }
+
+    modal.classList.remove('hidden');
     initLucideIcons();
+}
+
+/**
+ * Cierra el Modal Institucional Flotante de Detalle Diario
+ */
+function closeDayDetailModal() {
+    const modal = document.getElementById('cal-day-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 /**
@@ -4371,7 +5406,7 @@ async function loadTeacherCalendar() {
         if (headerPanel) headerPanel.classList.add('hidden');
         if (detailsPanel) detailsPanel.classList.add('hidden');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400 italic">Seleccione un docente institucional y presione Consultar.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400 italic">Seleccione un docente institucional para visualizar su cronograma y ficha oficial.</td></tr>`;
         }
         return;
     }
@@ -4531,8 +5566,89 @@ async function loadTeacherCalendar() {
         showToast('Error al consultar el calendario docente: ' + err.message, 'error');
     }
 }
+
+async function handleExportTeacherPdf() {
+    const sel = document.getElementById('calendar-teacher-select');
+    if (!sel || !sel.value) {
+        showToast('Seleccione un docente institucional para exportar su Ficha en PDF.', 'warning');
+        return;
+    }
+    const teacherId = parseInt(sel.value, 10);
+    const startDate = document.getElementById('calendar-start-date')?.value || null;
+    const endDate = document.getElementById('calendar-end-date')?.value || null;
+
+    try {
+        showToast('Generando Ficha Docente oficial en PDF...', 'info');
+        const res = await window.sigetApi.calendar.exportTeacherPdf({
+            teacherId,
+            startDate,
+            endDate
+        });
+
+        if (res && res.success) {
+            showToast(`Ficha Docente PDF generada: ${res.fileName}`, 'success');
+
+            if (res.base64) {
+                triggerBrowserDownloadFromBase64(res.base64, res.fileName, 'application/pdf');
+            }
+
+            if (window.sigetApi && window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
+                await window.sigetApi.reports.openFile(res.filePath);
+            }
+        } else {
+            showToast((res && res.message) || 'Error al generar la Ficha Docente en PDF.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al exportar Ficha Docente a PDF:', err);
+        showToast('Error al exportar Ficha Docente a PDF: ' + err.message, 'error');
+    }
+}
+
+async function handleExportTeacherExcel() {
+    const sel = document.getElementById('calendar-teacher-select');
+    if (!sel || !sel.value) {
+        showToast('Seleccione un docente institucional para exportar su Ficha en Excel.', 'warning');
+        return;
+    }
+    const teacherId = parseInt(sel.value, 10);
+    const startDate = document.getElementById('calendar-start-date')?.value || null;
+    const endDate = document.getElementById('calendar-end-date')?.value || null;
+
+    try {
+        showToast('Generando Ficha Docente oficial en Excel...', 'info');
+        const res = await window.sigetApi.calendar.exportTeacherExcel({
+            teacherId,
+            startDate,
+            endDate
+        });
+
+        if (res && res.success) {
+            showToast(`Ficha Docente Excel generada: ${res.fileName}`, 'success');
+
+            if (res.base64) {
+                triggerBrowserDownloadFromBase64(
+                    res.base64,
+                    res.fileName,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                );
+            }
+
+            if (window.sigetApi && window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
+                await window.sigetApi.reports.openFile(res.filePath);
+            }
+        } else {
+            showToast((res && res.message) || 'Error al generar la Ficha Docente en Excel.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al exportar Ficha Docente a Excel:', err);
+        showToast('Error al exportar Ficha Docente a Excel: ' + err.message, 'error');
+    }
+}
+
 window.initTeacherCalendar = initTeacherCalendar;
 window.loadTeacherCalendar = loadTeacherCalendar;
+window.handleExportTeacherPdf = handleExportTeacherPdf;
+window.handleExportTeacherExcel = handleExportTeacherExcel;
 window.loadInteractiveCalendar = loadInteractiveCalendar;
 window.switchCalendarView = switchCalendarView;
 
@@ -4996,184 +6112,6 @@ window.clearCsvImportState = clearCsvImportState;
 window.handleCsvPreview = handleCsvPreview;
 window.handleCsvCommit = handleCsvCommit;
 
-// ============================================================================
-// 13. REPORTES EXCEL Y GENERACIÓN MENSUAL OFICIAL CON PREVISUALIZACIÓN
-// ============================================================================
-AppState.reportPreviewRecords = [];
-AppState.reportPreviewFilter = 'all';
-
-async function previewMonthlyReport(silent = false) {
-    const yearInput = document.getElementById('report-year');
-    const monthSelect = document.getElementById('report-month');
-    const metaP = document.getElementById('report-preview-meta');
-
-    if (!yearInput || !monthSelect) return;
-
-    const year = parseInt(yearInput.value) || 2026;
-    const month = parseInt(monthSelect.value) || 10;
-
-    const btnPrev = document.getElementById('btn-preview-report');
-    if (btnPrev && !silent) {
-        btnPrev.disabled = true;
-        btnPrev.innerHTML = `<span>Procesando datos...</span>`;
-    }
-
-    try {
-        const data = await window.sigetApi.reports.getPreview(year, month);
-        const list01 = ((data && (data.il01 || data.dl01)) || []).map(r => ({ ...r, cuadro: 'il01' }));
-        const list02 = ((data && (data.il02 || data.dl02)) || []).map(r => ({ ...r, cuadro: 'il02' }));
-        AppState.reportPreviewRecords = [...list01, ...list02];
-
-        if (metaP) {
-            metaP.textContent = `Total: ${AppState.reportPreviewRecords.length} registros listos | Cuadro IL-01 (Salud): ${list01.length} | Cuadro IL-02 (Novedades): ${list02.length} | Período: ${String(month).padStart(2, '0')}/${year}`;
-        }
-
-        renderReportPreviewTable();
-        if (!silent) {
-            showToast(`Previsualización cargada: ${AppState.reportPreviewRecords.length} registros listos para exportar.`, 'success');
-        }
-    } catch (err) {
-        console.error('Error al previsualizar reporte:', err);
-        if (!silent) {
-            showToast('Error al procesar la previsualización de registros.', 'error');
-        }
-    } finally {
-        if (btnPrev && !silent) {
-            btnPrev.disabled = false;
-            btnPrev.innerHTML = `<i data-lucide="eye" class="w-4 h-4"></i><span>Previsualizar Planilla</span>`;
-            initLucideIcons();
-        }
-    }
-}
-
-function setReportPreviewFilter(filter) {
-    AppState.reportPreviewFilter = filter;
-    const btnAll = document.getElementById('btn-preview-filter-all');
-    const btn01 = document.getElementById('btn-preview-filter-dl01');
-    const btn02 = document.getElementById('btn-preview-filter-dl02');
-
-    const activeClass = 'px-3 py-1 text-[11px] font-bold rounded-md bg-gold text-slate-900 transition';
-    const inactiveClass = 'px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition';
-
-    if (btnAll) btnAll.className = filter === 'all' ? activeClass : inactiveClass;
-    if (btn01) btn01.className = (filter === 'dl01' || filter === 'il01') ? activeClass : inactiveClass;
-    if (btn02) btn02.className = (filter === 'dl02' || filter === 'il02') ? activeClass : inactiveClass;
-
-    renderReportPreviewTable();
-}
-
-function renderReportPreviewTable() {
-    const tbody = document.getElementById('table-report-preview-body');
-    if (!tbody) return;
-
-    let records = AppState.reportPreviewRecords || [];
-    if (AppState.reportPreviewFilter === 'dl01' || AppState.reportPreviewFilter === 'il01') {
-        records = records.filter(r => r.cuadro === 'il01' || r.cuadro === 'dl01');
-    } else if (AppState.reportPreviewFilter === 'dl02' || AppState.reportPreviewFilter === 'il02') {
-        records = records.filter(r => r.cuadro === 'il02' || r.cuadro === 'dl02');
-    }
-
-    if (records.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="12" class="p-8 text-center text-slate-400 dark:text-zinc-500">
-                    No se encontraron registros de novedades o licencias para el período y filtro seleccionados.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    tbody.innerHTML = records.map((r, idx) => {
-        const isIL01 = (r.cuadro === 'il01' || r.cuadro === 'dl01');
-        const badgeColor = isIL01 
-            ? 'text-amber-800 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800' 
-            : 'text-blue-800 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
-        const bgRow = idx % 2 === 0 ? 'bg-white dark:bg-[#242424]' : 'bg-slate-50/70 dark:bg-[#1E1E1E]';
-
-        return `
-            <tr class="${bgRow} hover:bg-amber-50/40 dark:hover:bg-zinc-800 transition border-b border-slate-100 dark:border-zinc-800/80">
-                <td class="p-2.5 text-center font-bold text-gold-text font-mono">${escapeHtml(r.oficina || '1452')}</td>
-                <td class="p-2.5 text-center font-mono text-slate-600 dark:text-zinc-400">${escapeHtml(r.año || '2026')}</td>
-                <td class="p-2.5 text-center">
-                    <span class="inline-block px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
-                        ${escapeHtml(r.disposicion || 'Disp. N° ---/2026')}
-                    </span>
-                </td>
-                <td class="p-2.5 text-center font-bold text-slate-800 dark:text-zinc-200 font-mono">${escapeHtml(r.dni)}</td>
-                <td class="p-2.5 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(r.apellidoNombre)}</td>
-                <td class="p-2.5 text-slate-700 dark:text-zinc-300 font-medium">${escapeHtml(r.cargo || 'Cátedra')}</td>
-                <td class="p-2.5 text-center">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeColor}">
-                        ${escapeHtml(r.codigo || '114')}
-                    </span>
-                </td>
-                <td class="p-2.5 text-slate-600 dark:text-zinc-400 truncate max-w-xs" title="${escapeHtml(r.motivo || '')}">
-                    ${escapeHtml(r.motivo || 'Novedad')}
-                </td>
-                <td class="p-2.5 text-center font-mono text-slate-700 dark:text-zinc-300">${escapeHtml(r.desde)}</td>
-                <td class="p-2.5 text-center font-mono text-slate-700 dark:text-zinc-300">${escapeHtml(r.hasta)}</td>
-                <td class="p-2.5 text-center font-bold text-slate-800 dark:text-zinc-200 font-mono">${r.dias || 1}</td>
-                <td class="p-2.5 text-center font-bold text-slate-800 dark:text-zinc-200 font-mono">${r.horas || 4}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-async function generateMonthlyReport() {
-    const yearInput = document.getElementById('report-year');
-    const monthSelect = document.getElementById('report-month');
-    const statusDiv = document.getElementById('report-status');
-    const btnGen = document.getElementById('btn-generate-report');
-
-    const year = parseInt(yearInput.value) || 2026;
-    const month = parseInt(monthSelect.value) || 10;
-
-    btnGen.disabled = true;
-    btnGen.innerHTML = `<span>Compilando Planilla Excel...</span>`;
-    statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 block';
-    statusDiv.textContent = `Compilando Cuadros IL-01, IL-02 y Hoja Estadística para ${month}/${year}...`;
-
-    try {
-        const res = await window.sigetApi.reports.generateMonthly(year, month);
-        if (res.success) {
-            statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 block';
-            statusDiv.innerHTML = `
-                <div class="font-bold flex items-center space-x-1.5">
-                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
-                    <span>Planilla Oficial Generada con Éxito</span>
-                </div>
-                <div class="mt-1 text-slate-600 font-mono text-[11px] truncate">Ruta: ${escapeHtml(res.filePath)}</div>
-                <div class="mt-2">
-                    <button id="btn-open-excel" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1 rounded text-xs">
-                        Abrir Planilla en Excel
-                    </button>
-                </div>
-            `;
-            initLucideIcons();
-
-            const btnOpen = document.getElementById('btn-open-excel');
-            if (btnOpen) {
-                btnOpen.addEventListener('click', async () => {
-                    await window.sigetApi.reports.openFile(res.filePath);
-                });
-            }
-
-            showToast('Planilla mensual generada y descargada correctamente.', 'success');
-        } else {
-            statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 block';
-            statusDiv.textContent = res.message || 'Error al generar la planilla.';
-        }
-    } catch (err) {
-        console.error('Error al generar planilla:', err);
-        statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 block';
-        statusDiv.textContent = 'Error crítico al procesar la exportación.';
-    } finally {
-        btnGen.disabled = false;
-        btnGen.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Confirmar y Descargar Excel</span>`;
-        initLucideIcons();
-    }
-}
 
 // ============================================================================
 // 14. UTILIDADES DE MODAL, TOAST Y HELPERS

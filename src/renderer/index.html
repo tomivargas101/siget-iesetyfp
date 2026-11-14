@@ -575,11 +575,6 @@
                         <span>Carga CSV</span>
                     </button>
 
-                    <!-- Botón Reportes Excel (Secretaría) -->
-                    <button data-view="reports" id="nav-btn-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
-                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
-                        <span>Planillas Excel</span>
-                    </button>
 
                     <!-- Botón Gestión de Usuarios (Secretaría) -->
                     <button data-view="users" id="nav-btn-users" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
@@ -626,8 +621,6 @@
                         <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500"></i>
                         <span id="current-date-display">Cargando fecha...</span>
                     </div>
-                    <span class="text-slate-300 dark:text-zinc-700">|</span>
-                    <span class="text-slate-400 dark:text-zinc-400 font-bold uppercase text-[11px]">Oficina 1452</span>
                 </div>
             </header>
 
@@ -849,8 +842,14 @@
 
                                 <button id="btn-att-save-all" type="button"
                                     class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-lg text-xs flex items-center space-x-1.5 shadow-sm transition">
-                                    <i data-lucide="save" class="w-3.5 h-3.5"></i>
-                                    <span>Guardar Planilla</span>
+                                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                                    <span>Guardar y Descargar Excel</span>
+                                </button>
+
+                                <button id="btn-att-export-printable" type="button" title="Descargar Planilla Imprimible de Control Diario para Oficina de Bedelía"
+                                    class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center space-x-1.5 shadow-sm transition">
+                                    <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                                    <span>Descargar Planilla Imprimible (PDF/Excel)</span>
                                 </button>
                             </div>
                         </div>
@@ -1005,17 +1004,12 @@
                                 </div>
                             </div>
 
-                            <!-- Selector de Modos de Visualización -->
+                            <!-- Selector de Modos de Visualización: Calendario Institucional Inteligente (Fusión 2 en 1) y Ficha Docente -->
                             <div class="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
                                 <button type="button" id="cal-view-grid-btn"
                                     class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition bg-slate-900 text-gold dark:bg-gold dark:text-slate-900 shadow-xs flex items-center space-x-1.5">
-                                    <i data-lucide="grid" class="w-3.5 h-3.5"></i>
-                                    <span>Grilla Mensual</span>
-                                </button>
-                                <button type="button" id="cal-view-sheet-btn"
-                                    class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5">
-                                    <i data-lucide="table" class="w-3.5 h-3.5"></i>
-                                    <span>Planilla Oficial (1..31)</span>
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                                    <span>Calendario Institucional</span>
                                 </button>
                                 <button type="button" id="cal-view-teacher-btn"
                                     class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5">
@@ -1089,7 +1083,7 @@
                             </div>
                         </div>
 
-                        <!-- 3. CONTENEDOR VISTA 1: GRILLA MENSUAL INTERACTIVA (ALMANAQUE 7 COLUMNAS) -->
+                        <!-- 3. CONTENEDOR VISTA 1: CALENDARIO INSTITUCIONAL (GRILLA MENSUAL 7 COLUMNAS) -->
                         <div id="cal-view-grid-container" class="space-y-4 w-full">
                             <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs w-full">
                                 <!-- Cabecera de Días de la Semana (Lunes a Domingo) -->
@@ -1110,46 +1104,9 @@
                                     <!-- Renderizado interactivo dinámico -->
                                 </div>
                             </div>
-
-                            <!-- Panel Inspector del Día Seleccionado -->
-                            <div id="cal-day-inspector" class="hidden bg-white dark:bg-[#282828] p-4 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                                <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                                    <div class="flex items-center space-x-2">
-                                        <i data-lucide="info" class="w-4 h-4 text-gold"></i>
-                                        <h4 id="cal-inspector-title" class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
-                                            Detalle del Día
-                                        </h4>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <button type="button" id="btn-inspector-goto-attendance"
-                                            class="btn-gold px-3 py-1.5 text-[11px] font-bold rounded-lg flex items-center space-x-1 shadow-xs">
-                                            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i>
-                                            <span>Ir a Planilla de este día</span>
-                                        </button>
-                                        <button type="button" id="btn-close-inspector" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-1 font-bold">✕</button>
-                                    </div>
-                                </div>
-                                <div id="cal-inspector-content" class="mt-3 text-xs space-y-2">
-                                    <!-- Lista de novedades o estado del día -->
-                                </div>
-                            </div>
                         </div>
 
-                        <!-- 4. CONTENEDOR VISTA 2: PLANILLA OFICIAL (MATRIZ 1..31) -->
-                        <div id="cal-view-sheet-container" class="hidden space-y-4">
-                            <div class="excel-table-container max-h-[560px] overflow-auto bg-white dark:bg-[#282828] shadow-xs">
-                                <table class="w-full border-collapse text-left text-xs" id="table-cal-month-matrix">
-                                    <thead class="excel-header sticky top-0" id="thead-cal-month-matrix">
-                                        <!-- Generado dinámicamente con columnas 1..31 -->
-                                    </thead>
-                                    <tbody id="tbody-cal-month-matrix" class="divide-y divide-slate-100 dark:divide-zinc-800 font-mono">
-                                        <!-- Renderizado dinámico de docentes -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- 5. CONTENEDOR VISTA 3: FICHA DOCENTE / DETALLE INDIVIDUAL -->
+                        <!-- 4. CONTENEDOR VISTA 2: FICHA DOCENTE / DETALLE INDIVIDUAL -->
                         <div id="cal-view-teacher-container" class="hidden space-y-6">
                             <!-- Barra de Selección y Filtro Cronológico -->
                             <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xs">
@@ -1168,10 +1125,14 @@
                                         <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Hasta</label>
                                         <input type="date" id="calendar-end-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
                                     </div>
-                                    <div class="pt-5">
-                                        <button id="btn-load-calendar" class="btn-gold px-5 py-2.5 text-xs font-bold flex items-center space-x-2 shadow-sm rounded-lg hover:shadow transition">
-                                            <i data-lucide="search" class="w-4 h-4"></i>
-                                            <span>Consultar Cronograma</span>
+                                    <div class="pt-5 flex items-center space-x-2.5">
+                                        <button id="btn-export-teacher-pdf" type="button" title="Exportar Ficha Oficial en PDF" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                                            <span>Exportar Ficha (PDF)</span>
+                                        </button>
+                                        <button id="btn-export-teacher-excel" type="button" title="Exportar Ficha Oficial en Planilla Excel" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                                            <span>Exportar Ficha (Excel)</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1311,10 +1272,10 @@
                 <section id="view-designations" class="view-panel hidden space-y-4">
                     <div class="flex space-x-2 border-b border-slate-200 pb-2">
                         <button id="tab-btn-desig" class="desig-tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition">
-                            Planta de Cátedras y Designaciones
+                            Cátedras
                         </button>
                         <button id="tab-btn-subst" class="desig-tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition">
-                            Suplencias y Reemplazos Oficiales
+                            Suplencias
                         </button>
                     </div>
 
@@ -1406,28 +1367,6 @@
                             <div>
                                 <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Módulo de Carga Masiva de Archivos</h3>
                                 <p class="text-xs text-slate-500 dark:text-zinc-400">Importación unificada para Planta Docente ("Datos del personal") y Asistencias con detección dinámica de formato.</p>
-                            </div>
-                        </div>
-
-                        <!-- Selector Unificado de Tipo de Ingesta -->
-                        <div class="mb-5 p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex items-center space-x-2">
-                                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300">Tipo de Ingesta:</span>
-                                <div class="inline-flex rounded-lg bg-slate-200 dark:bg-zinc-800 p-0.5" id="csv-type-selector">
-                                    <button type="button" id="btn-mode-auto" data-mode="auto" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs transition">
-                                        Auto-Detectar
-                                    </button>
-                                    <button type="button" id="btn-mode-personnel" data-mode="personnel" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
-                                        Planta Funcional
-                                    </button>
-                                    <button type="button" id="btn-mode-attendance" data-mode="attendance" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
-                                        Asistencias y Novedades
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="csv-mode-badge" class="hidden items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
-                                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
-                                <span id="csv-mode-badge-text">Auto-detección activa</span>
                             </div>
                         </div>
 
@@ -1560,106 +1499,7 @@
                     </div>
                 </section>
 
-                <!-- VISTA 5: REPORTES EXCEL -->
-                <section id="view-reports" class="view-panel hidden space-y-6">
-                    <div class="bg-white dark:bg-[#282828] p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                        <div class="flex items-center space-x-3 mb-4">
-                            <div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
-                                <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Generación Oficial de Planillas Mensuales y Planta Docente</h3>
-                                <p class="text-xs text-slate-500 dark:text-zinc-400">Previsualización interactiva con procesamiento normativo (DL-01 y DL-02) y exportación final en Excel.</p>
-                            </div>
-                        </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-5 max-w-xl">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Año Académico</label>
-                                <input type="number" id="report-year" value="2026" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg focus:outline-none focus:border-gold">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Mes de Cierre</label>
-                                <select id="report-month" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg focus:outline-none focus:border-gold">
-                                    <option value="1">Enero</option>
-                                    <option value="2">Febrero</option>
-                                    <option value="3">Marzo</option>
-                                    <option value="4">Abril</option>
-                                    <option value="5">Mayo</option>
-                                    <option value="6">Junio</option>
-                                    <option value="7">Julio</option>
-                                    <option value="8">Agosto</option>
-                                    <option value="9">Septiembre</option>
-                                    <option value="10" selected>Octubre</option>
-                                    <option value="11">Noviembre</option>
-                                    <option value="12">Diciembre</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Botones de Acción -->
-                        <div class="flex flex-wrap items-center gap-3">
-                            <button id="btn-preview-report" class="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold py-2.5 px-5 rounded-lg text-xs flex items-center space-x-2 border border-slate-200 dark:border-zinc-700 transition">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
-                                <span>Previsualizar Planilla</span>
-                            </button>
-                            <button id="btn-generate-report" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-lg text-xs flex items-center space-x-2 shadow transition">
-                                <i data-lucide="download" class="w-4 h-4"></i>
-                                <span>Confirmar y Descargar Excel</span>
-                            </button>
-                        </div>
-
-                        <div id="report-status" class="mt-4 hidden p-3 rounded-lg text-xs font-medium"></div>
-                    </div>
-
-                    <!-- PREVISUALIZACIÓN INTERACTIVA DE PLANILLAS EXCEL -->
-                    <div id="report-preview-card" class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs p-5 space-y-4">
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <h3 class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
-                                    Previsualización de Registros a Exportar (Cuadros IL-01 e IL-02)
-                                </h3>
-                                <p id="report-preview-meta" class="text-[11px] text-slate-500 dark:text-zinc-400">
-                                    Mostrando los registros procesados para el período seleccionado.
-                                </p>
-                            </div>
-                            <div class="flex items-center space-x-1.5 bg-slate-50 dark:bg-[#202020] p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
-                                <button id="btn-preview-filter-all" class="px-3 py-1 text-[11px] font-bold rounded-md bg-gold text-slate-900 transition">Todos</button>
-                                <button id="btn-preview-filter-dl01" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">IL-01 Salud</button>
-                                <button id="btn-preview-filter-dl02" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">IL-02 Novedades</button>
-                            </div>
-                        </div>
-
-                        <!-- TABLA PREVIA INTERACTIVA: OFICINA, AÑO, DISPOSICIÓN, DNI, DOCENTE, CÁTEDRA, CÓDIGO, MOTIVO, DESDE, HASTA, DÍAS, HORAS -->
-                        <div class="excel-table-container bg-white dark:bg-[#282828] shadow-xs max-h-[460px] overflow-auto border border-slate-200 dark:border-zinc-800 rounded-lg">
-                            <table class="w-full border-collapse text-left" id="table-report-preview">
-                                <thead class="excel-header sticky top-0">
-                                    <tr>
-                                        <th class="w-16 text-center">OFICINA</th>
-                                        <th class="w-16 text-center">AÑO</th>
-                                        <th class="w-32 text-center">DISPOSICIÓN</th>
-                                        <th class="w-24 text-center">DNI</th>
-                                        <th class="w-48">DOCENTE</th>
-                                        <th class="w-44">CÁTEDRA / CARGO</th>
-                                        <th class="w-24 text-center">CÓDIGO</th>
-                                        <th class="w-44">MOTIVO</th>
-                                        <th class="w-24 text-center">DESDE</th>
-                                        <th class="w-24 text-center">HASTA</th>
-                                        <th class="w-16 text-center">DÍAS</th>
-                                        <th class="w-16 text-center">HORAS</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-report-preview-body" class="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
-                                    <tr>
-                                        <td colspan="12" class="p-8 text-center text-slate-400 dark:text-zinc-500">
-                                            Presione "Previsualizar Planilla" para procesar y ver los registros.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- VISTA 6: GESTIÓN DE USUARIOS Y ROLES (SOLO RECTOR) -->
                 <section id="view-users" class="view-panel hidden space-y-4">
@@ -1704,6 +1544,125 @@
     <div id="modal-container" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
         <div id="modal-content" class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <!-- Inyectado dinámicamente -->
+        </div>
+    </div>
+
+    <!-- MODAL INSTITUCIONAL FLOTANTE DE DETALLE DIARIO (CALENDARIO) -->
+    <div id="cal-day-modal" class="fixed inset-0 z-50 hidden bg-slate-900/70 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#202022] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-700/80 w-full max-w-4xl p-0 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-800/60">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gold/15 text-gold flex items-center justify-center font-black">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 id="cal-modal-title" class="text-base font-bold text-slate-900 dark:text-zinc-100">
+                                Detalle Institucional de la Jornada
+                            </h3>
+                            <span id="cal-modal-status-badge" class="hidden px-2.5 py-0.5 rounded-full text-[11px] font-bold"></span>
+                        </div>
+                        <p id="cal-modal-subtitle" class="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                            Nómina de personal, licencias, inasistencias y cobertura de suplencias.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-cal-day-modal" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 transition font-bold text-base">✕</button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+                <!-- Banner Especial (Feriado o Jornada) -->
+                <div id="cal-modal-special-banner" class="hidden"></div>
+
+                <!-- 4 Mini-KPIs del Día -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50">
+                        <div class="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Presentes</div>
+                        <div id="cal-modal-kpi-pr" class="text-xl font-black text-emerald-600 dark:text-emerald-300">0</div>
+                        <div class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">Docentes en aula</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+                        <div class="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400">Licencias y Permisos</div>
+                        <div id="cal-modal-kpi-lic" class="text-xl font-black text-amber-600 dark:text-amber-300">0</div>
+                        <div class="text-[10px] text-amber-600/80 dark:text-amber-400/80">Justificadas</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50">
+                        <div class="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-400">Inasistencias</div>
+                        <div id="cal-modal-kpi-abs" class="text-xl font-black text-rose-600 dark:text-rose-300">0</div>
+                        <div class="text-[10px] text-rose-600/80 dark:text-rose-400/80">Sin justificar</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50">
+                        <div class="text-[10px] uppercase font-bold text-blue-700 dark:text-blue-400">Suplencias Activas</div>
+                        <div id="cal-modal-kpi-sub" class="text-xl font-black text-blue-600 dark:text-blue-300">0</div>
+                        <div class="text-[10px] text-blue-600/80 dark:text-blue-400/80">Cátedras cubiertas</div>
+                    </div>
+                </div>
+
+                <!-- Sección: Suplencias Activas (si existen) -->
+                <div id="cal-modal-section-subs" class="space-y-2">
+                    <div class="flex items-center space-x-2 text-slate-800 dark:text-zinc-200 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <h4 class="text-xs uppercase tracking-wider">Suplencias Activas en la Jornada</h4>
+                        <span id="cal-modal-badge-subs-count" class="px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 text-[10px] font-bold">0</span>
+                    </div>
+                    <div id="cal-modal-subs-content" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+
+                <!-- Sección: Licencias y Permisos -->
+                <div id="cal-modal-section-lic" class="space-y-2">
+                    <div class="flex items-center space-x-2 text-slate-800 dark:text-zinc-200 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <h4 class="text-xs uppercase tracking-wider">Licencias y Permisos Especiales</h4>
+                        <span id="cal-modal-badge-lic-count" class="px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[10px] font-bold">0</span>
+                    </div>
+                    <div id="cal-modal-lic-content" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+
+                <!-- Sección: Inasistencias -->
+                <div id="cal-modal-section-abs" class="space-y-2">
+                    <div class="flex items-center space-x-2 text-slate-800 dark:text-zinc-200 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <h4 class="text-xs uppercase tracking-wider">Inasistencias Registradas</h4>
+                        <span id="cal-modal-badge-abs-count" class="px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 text-[10px] font-bold">0</span>
+                    </div>
+                    <div id="cal-modal-abs-content" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+
+                <!-- Sección: Docentes Presentes (Planilla de Presencias) -->
+                <div id="cal-modal-section-pr" class="space-y-2">
+                    <div class="flex items-center justify-between text-slate-800 dark:text-zinc-200 font-bold">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <h4 class="text-xs uppercase tracking-wider">Nómina de Docentes Presentes</h4>
+                            <span id="cal-modal-badge-pr-count" class="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">0</span>
+                        </div>
+                    </div>
+                    <div id="cal-modal-pr-content" class="max-h-56 overflow-y-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-3.5 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 flex items-center justify-between">
+                <button type="button" id="btn-cal-modal-goto-attendance"
+                    class="btn-gold px-4 py-2 text-xs font-bold rounded-lg flex items-center space-x-2 shadow-xs transition hover:brightness-105">
+                    <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                    <span>Gestionar Asistencias de este Día</span>
+                </button>
+                <button type="button" id="btn-cal-modal-close"
+                    class="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition">
+                    Cerrar
+                </button>
+            </div>
         </div>
     </div>
 

@@ -3,6 +3,23 @@
  * Sistema Integral de Gestión Educativa Terciaria
  */
 
+// Supresión de advertencias experimentales de Node.js / SQLite al inicio y cierre
+if (process && typeof process.emitWarning === 'function') {
+    const originalEmitWarning = process.emitWarning;
+    process.emitWarning = function(warning, ...args) {
+        if (typeof warning === 'string' && warning.includes('SQLite is an experimental feature')) {
+            return;
+        }
+        if (warning && typeof warning === 'object') {
+            const msg = String(warning.message || '');
+            if (msg.includes('SQLite is an experimental feature') || (warning.name === 'ExperimentalWarning' && msg.includes('SQLite'))) {
+                return;
+            }
+        }
+        return originalEmitWarning.apply(process, [warning, ...args]);
+    };
+}
+
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const { registerIpcHandlers } = require('./ipcHandlers');

@@ -3,6 +3,23 @@
  * Utiliza el motor nativo de alto rendimiento `node:sqlite` (DatabaseSync).
  */
 
+// Supresión de advertencias experimentales de SQLite en Node.js
+if (process && typeof process.emitWarning === 'function') {
+    const originalEmitWarning = process.emitWarning;
+    process.emitWarning = function(warning, ...args) {
+        if (typeof warning === 'string' && warning.includes('SQLite is an experimental feature')) {
+            return;
+        }
+        if (warning && typeof warning === 'object') {
+            const msg = String(warning.message || '');
+            if (msg.includes('SQLite is an experimental feature') || (warning.name === 'ExperimentalWarning' && msg.includes('SQLite'))) {
+                return;
+            }
+        }
+        return originalEmitWarning.apply(process, [warning, ...args]);
+    };
+}
+
 const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
@@ -151,9 +168,56 @@ function _ensureCleanOfficialSeed(db) {
 
         // 3. Normalizar registros de docentes con columnas desplazadas o números en nombres
         _normalizeCorruptedTeachers(db);
+
+        // 4. Asegurar Jornadas Institucionales y Novedades Iniciales en Calendario (RF-10)
+        _ensureOfficialCalendarSeed(db);
     } catch (e) {
         // No detener ejecución si falla
         console.warn('[DB] Advertencia al verificar datos iniciales:', e.message);
+    }
+}
+
+/**
+ * Asegura la presencia de al menos una jornada institucional oficial y registros de muestra
+ * para el ciclo activo (Noviembre 2026) a fin de que el calendario nunca quede vacío.
+ */
+function _ensureOfficialCalendarSeed(db) {
+    try {
+        // Asegurar jornada institucional de cierre de ciclo para Noviembre 2026
+        const instCheck = db.prepare("SELECT count(*) as c FROM institutional_days WHERE date = '2026-11-27'").get();
+        if (!instCheck || instCheck.c === 0) {
+            db.prepare(`
+                INSERT OR IGNORE INTO institutional_days (date, name, type, created_by, created_at)
+                VALUES ('2026-11-27', 'Jornada Institucional de Evaluación y Cierre de Ciclo', 'jornada', 'secretaria', CURRENT_TIMESTAMP)
+            `).run();
+        }
+
+        // Asegurar registros de asistencia de prueba con novedades para Noviembre 2026 si no hay licencias
+        const leavesNov = db.prepare("SELECT count(*) as c FROM attendances WHERE date LIKE '2026-11%' AND status IN ('LIC', 'P', 'I', 'LT')").get();
+        if (!leavesNov || leavesNov.c === 0) {
+            const activeTeachers = db.prepare("SELECT id FROM teachers WHERE is_active = 1 ORDER BY id ASC LIMIT 3").all();
+            if (activeTeachers.length >= 3) {
+                // Nov 4: Licencia médica Art. 114 a
+                db.prepare(`
+                    INSERT INTO attendances (teacher_id, date, status, hours, observations, is_active, created_at)
+                    VALUES (?, '2026-11-04', 'LIC', 4, 'Art. 114 a - Afección Común / Reposo Médico', 1, CURRENT_TIMESTAMP)
+                `).run(activeTeachers[0].id);
+
+                // Nov 12: Permiso particular Art. 115
+                db.prepare(`
+                    INSERT INTO attendances (teacher_id, date, status, hours, observations, is_active, created_at)
+                    VALUES (?, '2026-11-12', 'P', 4, 'Art. 115 - Razones Particulares', 1, CURRENT_TIMESTAMP)
+                `).run(activeTeachers[1].id);
+
+                // Nov 18: Inasistencia sin justificar
+                db.prepare(`
+                    INSERT INTO attendances (teacher_id, date, status, hours, observations, is_active, created_at)
+                    VALUES (?, '2026-11-18', 'I', 4, 'Inasistencia sin justificación', 1, CURRENT_TIMESTAMP)
+                `).run(activeTeachers[2].id);
+            }
+        }
+    } catch (e) {
+        console.warn('[DB] Advertencia al sembrar calendario oficial:', e.message);
     }
 }
 
@@ -229,7 +293,6 @@ function closeDatabase() {
     if (dbInstance) {
         try {
             dbInstance.close();
-            console.log('[DB] Conexión cerrada.');
         } catch (e) {
             console.error('[DB] Error cerrando base de datos:', e);
         }

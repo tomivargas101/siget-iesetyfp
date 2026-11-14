@@ -62,7 +62,10 @@ contextBridge.exposeInMainWorld('sigetApi', {
         saveBatch: (dateStr, records) => ipcRenderer.invoke('attendance:saveBatch', { dateStr, records }),
         receivePhysicalForm: (payload) => ipcRenderer.invoke('attendance:receivePhysicalForm', payload),
         parseJustificationFile: (payload) => ipcRenderer.invoke('attendance:parseJustificationFile', payload),
-        getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr)
+        getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr),
+        exportDailyExcel: (dateStr) => ipcRenderer.invoke('attendance:exportDailyExcel', dateStr),
+        exportPrintablePdf: (params) => ipcRenderer.invoke('attendance:exportPrintablePdf', params),
+        exportPrintableExcel: (params) => ipcRenderer.invoke('attendance:exportPrintableExcel', params)
     },
 
     // Catálogo Maestro Normativo (IL-01 / IL-02) y Calendario Escolar (RF-10)
@@ -90,7 +93,9 @@ contextBridge.exposeInMainWorld('sigetApi', {
         saveInstitutionalDay: (payload) => ipcRenderer.invoke('calendar:saveInstitutionalDay', payload),
         deleteInstitutionalDay: (date) => ipcRenderer.invoke('calendar:deleteInstitutionalDay', date),
         exportMonthExcel: (params) => ipcRenderer.invoke('calendar:exportMonthExcel', params),
-        exportMonthPdf: (params) => ipcRenderer.invoke('calendar:exportMonthPdf', params)
+        exportMonthPdf: (params) => ipcRenderer.invoke('calendar:exportMonthPdf', params),
+        exportTeacherPdf: (params) => ipcRenderer.invoke('calendar:exportTeacherPdf', params),
+        exportTeacherExcel: (params) => ipcRenderer.invoke('calendar:exportTeacherExcel', params)
     },
 
     // Auditoría y Registro Oficial de Acciones
