@@ -63,7 +63,9 @@ contextBridge.exposeInMainWorld('sigetApi', {
         receivePhysicalForm: (payload) => ipcRenderer.invoke('attendance:receivePhysicalForm', payload),
         parseJustificationFile: (payload) => ipcRenderer.invoke('attendance:parseJustificationFile', payload),
         getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr),
-        exportDailyExcel: (dateStr) => ipcRenderer.invoke('attendance:exportDailyExcel', dateStr)
+        exportDailyExcel: (dateStr) => ipcRenderer.invoke('attendance:exportDailyExcel', dateStr),
+        exportPrintablePdf: (params) => ipcRenderer.invoke('attendance:exportPrintablePdf', params),
+        exportPrintableExcel: (params) => ipcRenderer.invoke('attendance:exportPrintableExcel', params)
     },
 
     // Catálogo Maestro Normativo (IL-01 / IL-02) y Calendario Escolar (RF-10)

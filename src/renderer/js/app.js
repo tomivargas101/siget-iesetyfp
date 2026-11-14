@@ -390,6 +390,8 @@ function setupEventListeners() {
 
     if (attSearch) attSearch.addEventListener('input', debounce(filterAttendanceTable, 150));
     if (btnAttSaveAll) btnAttSaveAll.addEventListener('click', saveAllAttendanceRecords);
+    const btnAttExportPrintable = document.getElementById('btn-att-export-printable');
+    if (btnAttExportPrintable) btnAttExportPrintable.addEventListener('click', openPrintableDailyExportModal);
 
     if (btnAttMarkAllPr) {
         btnAttMarkAllPr.addEventListener('click', () => {
@@ -3381,6 +3383,170 @@ async function saveAllAttendanceRecords() {
         }
     }
 }
+
+/**
+ * Abre el diálogo institucional para descargar la Planilla Imprimible de Control Diario
+ * en formato PDF (optimizado para imprimir en A4 y firmar a mano) o Excel (.xlsx).
+ */
+function openPrintableDailyExportModal() {
+    const targetDate = AppState.attendanceDate || new Date().toISOString().split('T')[0];
+    const [y, m, d] = targetDate.split('-');
+    const dateFormatted = `${d}/${m}/${y}`;
+
+    const modalHtml = `
+        <div class="p-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-zinc-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wide">Planilla Imprimible de Control Diario</h3>
+                        <p class="text-xs text-slate-500 dark:text-zinc-400">Control manual de asistencia en papel para oficina de bedelía</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-printable-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="my-5 p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700/80">
+                <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div>
+                        <span class="text-slate-500 dark:text-zinc-400">Fecha del Control Diario:</span>
+                        <strong class="ml-1.5 font-bold text-slate-800 dark:text-zinc-100">${dateFormatted}</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 dark:text-zinc-400">Plantel Docente:</span>
+                        <strong class="ml-1.5 font-bold text-indigo-600 dark:text-indigo-400">${AppState.teachersCache?.length || 'Todos los'} docentes</strong>
+                    </div>
+                </div>
+                <div class="mt-3 text-[11px] text-slate-500 dark:text-zinc-400 flex items-center space-x-2">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                    <span>Incluye detalle de cátedras con desglose de días múltiples de dictado y casillas vacías de verificación [PR, I, P, LIC, SUP].</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5">
+                <!-- Opción PDF -->
+                <button type="button" id="btn-confirm-print-pdf"
+                    class="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 transition text-left flex flex-col justify-between group cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300 flex items-center justify-center">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">Recomendado</span>
+                    </div>
+                    <div>
+                        <div class="font-black text-xs text-rose-900 dark:text-rose-200 group-hover:text-rose-700 transition">Descargar en PDF</div>
+                        <div class="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">Formato A4 horizontal optimizado para imprimir en papel y firmar a mano.</div>
+                    </div>
+                </button>
+
+                <!-- Opción Excel -->
+                <button type="button" id="btn-confirm-print-excel"
+                    class="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 transition text-left flex flex-col justify-between group cursor-pointer">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">Hoja de Cálculo</span>
+                    </div>
+                    <div>
+                        <div class="font-black text-xs text-emerald-900 dark:text-emerald-200 group-hover:text-emerald-700 transition">Descargar en Excel</div>
+                        <div class="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">Planilla .xlsx estructurada con casillas de verificación y cuadrícula para control de mesa.</div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-zinc-800 text-xs">
+                <button type="button" id="btn-confirm-print-both" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center space-x-1 cursor-pointer">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Descargar ambos formatos (.pdf y .xlsx)</span>
+                </button>
+                <button type="button" id="btn-cancel-printable-modal" class="px-4 py-1.5 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition font-bold cursor-pointer">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+
+    openModal(modalHtml, () => {
+        const btnClose = document.getElementById('btn-close-printable-modal');
+        const btnCancel = document.getElementById('btn-cancel-printable-modal');
+        const btnPdf = document.getElementById('btn-confirm-print-pdf');
+        const btnExcel = document.getElementById('btn-confirm-print-excel');
+        const btnBoth = document.getElementById('btn-confirm-print-both');
+
+        if (btnClose) btnClose.addEventListener('click', closeModal);
+        if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+        if (btnPdf) btnPdf.addEventListener('click', async () => {
+            closeModal();
+            await downloadPrintableDaily('pdf');
+        });
+
+        if (btnExcel) btnExcel.addEventListener('click', async () => {
+            closeModal();
+            await downloadPrintableDaily('excel');
+        });
+
+        if (btnBoth) btnBoth.addEventListener('click', async () => {
+            closeModal();
+            await downloadPrintableDaily('pdf');
+            await downloadPrintableDaily('excel');
+        });
+
+        initLucideIcons();
+    });
+}
+
+/**
+ * Descarga y abre el archivo de Planilla Imprimible de Control Diario
+ */
+async function downloadPrintableDaily(format = 'pdf') {
+    const targetDate = AppState.attendanceDate || new Date().toISOString().split('T')[0];
+    const isPdf = format === 'pdf';
+    const formatLabel = isPdf ? 'PDF' : 'Excel';
+
+    showToast(`Generando Planilla Imprimible de Control Diario (${formatLabel})...`, 'info');
+
+    try {
+        let res;
+        if (isPdf) {
+            if (window.sigetApi?.attendance?.exportPrintablePdf) {
+                res = await window.sigetApi.attendance.exportPrintablePdf(targetDate);
+            }
+        } else {
+            if (window.sigetApi?.attendance?.exportPrintableExcel) {
+                res = await window.sigetApi.attendance.exportPrintableExcel(targetDate);
+            }
+        }
+
+        if (res && res.success) {
+            showToast(`Planilla Imprimible (${formatLabel}) guardada: ${res.fileName}`, 'success');
+
+            // Gatillar descarga en navegador si está disponible base64
+            if (res.base64) {
+                const mimeType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                triggerBrowserDownloadFromBase64(res.base64, res.fileName, mimeType);
+            }
+
+            // Abrir automáticamente con el visor del sistema operativo (Electron)
+            if (window.sigetApi?.reports?.openFile && res.filePath) {
+                await window.sigetApi.reports.openFile(res.filePath);
+            }
+        } else {
+            showToast((res && res.message) || `Error al generar Planilla Imprimible en ${formatLabel}.`, 'error');
+        }
+    } catch (err) {
+        console.error(`Error generando Planilla Imprimible (${formatLabel}):`, err);
+        showToast(`Error al exportar Planilla Imprimible: ${err.message}`, 'error');
+    }
+}
+
+window.openPrintableDailyExportModal = openPrintableDailyExportModal;
+window.downloadPrintableDaily = downloadPrintableDaily;
 
 // ============================================================================
 // 11. CÁTEDRAS, DESIGNACIONES Y SUPLENCIAS (RN-02, RN-03)

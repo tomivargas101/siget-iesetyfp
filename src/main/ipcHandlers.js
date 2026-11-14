@@ -195,6 +195,32 @@ function registerIpcHandlers() {
         }
     });
 
+    ipcMain.handle('attendance:exportPrintablePdf', async (event, params) => {
+        try {
+            const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const currentUser = AuthService.getCurrentUser();
+            const res = await AttendanceService.exportPrintableDailyPdf({
+                dateStr,
+                exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
+            });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC attendance:exportPrintablePdf] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('attendance:exportPrintableExcel', async (event, params) => {
+        try {
+            const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const res = await AttendanceService.exportPrintableDailyExcel({ dateStr });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC attendance:exportPrintableExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
     // -------------------------------------------------------------
     // CATÁLOGO MAESTRO NORMATIVO (IL-01 / IL-02)
     // -------------------------------------------------------------

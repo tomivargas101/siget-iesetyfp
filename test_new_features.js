@@ -141,8 +141,27 @@ async function runTests() {
         console.log(`  ✅ [PASS] Exportar Ficha Docente a PDF exitoso: ${teacherPdfRes.fileName}`);
     }
 
+    console.log('\n6. Test: Planilla Imprimible de Control Diario (PDF y Excel)');
+    const printData = AttendanceService.getPrintableDailyData({ dateStr: '2026-11-14' });
+    assert(printData.rows.length > 0, 'Debe retornar docentes para control diario');
+    assert(printData.rows[0].legajo, 'Debe incluir legajo en cada fila');
+    assert(printData.rows[0].fullName, 'Debe incluir nombre completo en cada fila');
+    assert(printData.rows[0].revista, 'Debe incluir situación de revista');
+    assert(printData.rows[0].chairsText, 'Debe incluir cátedras con desglose de días');
+    console.log(`  ✅ [PASS] Estructura nominal de control diario verificada (${printData.rows.length} docentes)`);
+
+    const printExcelRes = await AttendanceService.exportPrintableDailyExcel({ dateStr: '2026-11-14' });
+    assert.strictEqual(printExcelRes.success, true, 'Debe exportar Planilla Imprimible a Excel');
+    assert(fs.existsSync(printExcelRes.filePath), 'El archivo Excel de control diario debe existir en disco');
+    console.log(`  ✅ [PASS] Planilla Imprimible en Excel generada: ${printExcelRes.fileName}`);
+
+    const printPdfRes = await AttendanceService.exportPrintableDailyPdf({ dateStr: '2026-11-14', exportedBy: 'Bedelía de Turno' });
+    assert.strictEqual(printPdfRes.success, true, 'Debe exportar Planilla Imprimible a PDF');
+    assert(fs.existsSync(printPdfRes.filePath), 'El archivo PDF de control diario debe existir en disco');
+    console.log(`  ✅ [PASS] Planilla Imprimible en PDF generada: ${printPdfRes.fileName}`);
+
     console.log('\n========================================================');
-    console.log('   TODAS LAS PRUEBAS DE LAS 5 MEJORAS HAN PASADO CON ÉXITO');
+    console.log('   TODAS LAS PRUEBAS DE LAS 6 MEJORAS HAN PASADO CON ÉXITO');
     console.log('========================================================\n');
 }
 
