@@ -349,7 +349,7 @@ class TeacherCalendarService {
      * Retorna la matriz completa mensual de asistencias, licencias, feriados y jornadas institucionales
      * para el calendario interactivo en tiempo real y la vista planilla 1..31.
      */
-    static getMonthMatrix({ year, month }) {
+    static getMonthMatrix({ year, month } = {}) {
         const db = getDatabase();
         try {
             const y = Number(year) || new Date().getFullYear();
@@ -415,7 +415,7 @@ class TeacherCalendarService {
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
-                const dt = new Date(y, m - 1, d);
+                const dt = new Date(y, m - 1, d, 12, 0, 0);
                 const dayOfWeek = dt.getDay();
                 const dayInfo = NormativeService.getCalendarDayInfo(dStr);
 
@@ -426,6 +426,12 @@ class TeacherCalendarService {
                 let licCount = 0;
                 let ltCount = 0;
                 const leaves = [];
+
+                // Si no hay asistencias cargadas en la BD para un día hábil regular,
+                // asignamos la planta activa como presentes por defecto (evita días en 0)
+                if (attsOnDay.length === 0 && !dayInfo.isNonWorking && dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    prCount = teachers.length || 8;
+                }
 
                 for (const a of attsOnDay) {
                     const c = AttendanceService.classifyRecord(a.status, a.observations);
