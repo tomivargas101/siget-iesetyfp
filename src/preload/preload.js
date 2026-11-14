@@ -58,8 +58,10 @@ contextBridge.exposeInMainWorld('sigetApi', {
     attendance: {
         getDaily: (dateStr) => ipcRenderer.invoke('attendance:getDaily', dateStr),
         save: (payload) => ipcRenderer.invoke('attendance:save', payload),
+        saveDailyRecord: (payload) => ipcRenderer.invoke('attendance:save', payload),
         saveBatch: (dateStr, records) => ipcRenderer.invoke('attendance:saveBatch', { dateStr, records }),
         receivePhysicalForm: (payload) => ipcRenderer.invoke('attendance:receivePhysicalForm', payload),
+        parseJustificationFile: (payload) => ipcRenderer.invoke('attendance:parseJustificationFile', payload),
         getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr)
     },
 
@@ -82,7 +84,19 @@ contextBridge.exposeInMainWorld('sigetApi', {
     // Calendario Institucional del Profesorado
     calendar: {
         getTeacherTimeline: (params) => ipcRenderer.invoke('calendar:getTeacherTimeline', params),
-        getInstitutionalOverview: (params) => ipcRenderer.invoke('calendar:getInstitutionalOverview', params)
+        getInstitutionalOverview: (params) => ipcRenderer.invoke('calendar:getInstitutionalOverview', params),
+        getMonthMatrix: (params) => ipcRenderer.invoke('calendar:getMonthMatrix', params),
+        getInstitutionalDays: (params) => ipcRenderer.invoke('calendar:getInstitutionalDays', params),
+        saveInstitutionalDay: (payload) => ipcRenderer.invoke('calendar:saveInstitutionalDay', payload),
+        deleteInstitutionalDay: (date) => ipcRenderer.invoke('calendar:deleteInstitutionalDay', date),
+        exportMonthExcel: (params) => ipcRenderer.invoke('calendar:exportMonthExcel', params),
+        exportMonthPdf: (params) => ipcRenderer.invoke('calendar:exportMonthPdf', params)
+    },
+
+    // Auditoría y Registro Oficial de Acciones
+    audit: {
+        getAll: (params) => ipcRenderer.invoke('audit:getAll', params),
+        exportPdf: (params) => ipcRenderer.invoke('audit:exportPdf', params)
     },
 
     // Dashboard y Estadísticas

@@ -172,10 +172,10 @@ class AttendanceView(ctk.CTkFrame):
         self.var_filter = ctk.StringVar(value="Todos")
         combo_filter = ctk.CTkComboBox(
             actions_bar,
-            values=["Todos", "Presente", "Ausente c/aviso", "Ausente s/aviso", "Licencia", "Sin Registrar"],
+            values=["Todos", "PR (Presente)", "I (Inasistencia)", "P (Permiso)", "LIC (Licencia)", "LT (Largo Tratamiento)"],
             variable=self.var_filter,
             command=lambda v: self._filter_table(),
-            width=160,
+            width=175,
             height=34,
             fg_color=Theme.BG_INPUT,
             border_color=Theme.BORDER_INPUT,
@@ -267,12 +267,11 @@ class AttendanceView(ctk.CTkFrame):
         headers_frame.pack(fill="x", pady=(0, 6))
 
         cols = [
-            ("Docente (Apellido y Nombre)", 240, "w"),
-            ("Legajo", 110, "center"),
-            ("Situación", 110, "center"),
-            ("Estado Asistencia", 170, "center"),
+            ("Docente (Apellido y Nombre)", 320, "w"),
+            ("Legajo", 120, "center"),
+            ("Situación", 120, "center"),
+            ("Estado Asistencia", 180, "center"),
             ("Hs Cátedra", 90, "center"),
-            ("Observaciones / Justificación", 240, "w"),
             ("Acción", 90, "center")
         ]
 
@@ -297,8 +296,11 @@ class AttendanceView(ctk.CTkFrame):
             if query and (query not in r["full_name"].lower() and query not in r["legajo"].lower() and query not in r["dni"]):
                 continue
             # Filtro estado
-            if filter_st != "Todos" and r["status"] != filter_st:
-                continue
+            if filter_st != "Todos":
+                filter_code = filter_st.split()[0]
+                status_code = r["status"].split()[0] if r["status"] else ""
+                if filter_code != status_code and filter_st != r["status"]:
+                    continue
 
             displayed += 1
             self._render_row(r)
@@ -348,12 +350,26 @@ class AttendanceView(ctk.CTkFrame):
             anchor="center"
         ).pack(side="left", padx=6)
 
-        # Estado Asistencia (Combobox)
-        var_status = ctk.StringVar(value=r["status"])
+        # Estado Asistencia (Combobox con catálogo cerrado institucional)
+        raw_st = r["status"]
+        if raw_st in ("PR", "Presente"):
+            display_st = "PR (Presente)"
+        elif raw_st in ("I", "Inasistencia", "Ausente s/aviso"):
+            display_st = "I (Inasistencia)"
+        elif raw_st in ("P", "Permiso", "Ausente c/aviso"):
+            display_st = "P (Permiso)"
+        elif raw_st in ("LIC", "Licencia"):
+            display_st = "LIC (Licencia)"
+        elif raw_st in ("LT", "Largo Tratamiento", "Largo tratamiento"):
+            display_st = "LT (Largo Tratamiento)"
+        else:
+            display_st = "PR (Presente)"
+
+        var_status = ctk.StringVar(value=display_st)
 
         combo_status = ctk.CTkComboBox(
             row,
-            values=["Presente", "Ausente c/aviso", "Ausente s/aviso", "Licencia", "Sin Registrar"],
+            values=["PR (Presente)", "I (Inasistencia)", "P (Permiso)", "LIC (Licencia)", "LT (Largo Tratamiento)"],
             variable=var_status,
             width=170,
             height=30,
@@ -361,7 +377,8 @@ class AttendanceView(ctk.CTkFrame):
             fg_color=Theme.BG_INPUT,
             border_color=Theme.BORDER_INPUT,
             text_color=Theme.TEXT_PRIMARY,
-            button_color=Theme.SECONDARY
+            button_color=Theme.SECONDARY,
+            command=lambda choice, tid=tid: self._on_status_change(tid, choice)
         )
         combo_status.pack(side="left", padx=6)
 
@@ -378,20 +395,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         entry_hours.insert(0, str(r["hours"]))
         entry_hours.pack(side="left", padx=6)
-
-        # Observaciones
-        entry_obs = ctk.CTkEntry(
-            row,
-            placeholder_text="Observaciones / N° Res...",
-            width=240,
-            height=30,
-            font=ctk.CTkFont(size=11),
-            fg_color=Theme.BG_INPUT,
-            border_color=Theme.BORDER_INPUT,
-            text_color=Theme.TEXT_PRIMARY
-        )
-        entry_obs.insert(0, r["observations"])
-        entry_obs.pack(side="left", padx=6)
 
         # Botón Guardar Individual
         btn_save_row = ctk.CTkButton(
@@ -411,9 +414,27 @@ class AttendanceView(ctk.CTkFrame):
         self.row_widgets[tid] = {
             "var_status": var_status,
             "entry_hours": entry_hours,
-            "entry_obs": entry_obs,
             "record": r
         }
+
+    def _on_status_change(self, teacher_id, choice):
+        w = self.row_widgets.get(teacher_id)
+        if not w:
+            return
+        st_code = choice.split()[0] if choice else "PR"
+        try:
+            hs = int(w["entry_hours"].get().strip())
+        except (ValueError, AttributeError):
+            hs = 4
+
+        AttendanceService.save_record(
+            teacher_id=teacher_id,
+            target_date=self.current_date,
+            status=st_code,
+            hours=hs,
+            observations=""
+        )
+        self._update_kpis()
 
     def _filter_table(self):
         self._render_table()
@@ -424,18 +445,18 @@ class AttendanceView(ctk.CTkFrame):
             return
 
         st = w["var_status"].get()
+        st_code = st.split()[0] if st else "PR"
         try:
             hs = int(w["entry_hours"].get().strip())
         except ValueError:
             hs = 4
-        obs = w["entry_obs"].get().strip()
 
         ok, msg = AttendanceService.save_record(
             teacher_id=teacher_id,
             target_date=self.current_date,
-            status=st,
+            status=st_code,
             hours=hs,
-            observations=obs
+            observations=""
         )
         if ok:
             self._update_kpis()
@@ -447,18 +468,18 @@ class AttendanceView(ctk.CTkFrame):
         saved_count = 0
         for tid, w in self.row_widgets.items():
             st = w["var_status"].get()
+            st_code = st.split()[0] if st else "PR"
             try:
                 hs = int(w["entry_hours"].get().strip())
             except ValueError:
                 hs = 4
-            obs = w["entry_obs"].get().strip()
 
             ok, _ = AttendanceService.save_record(
                 teacher_id=tid,
                 target_date=self.current_date,
-                status=st,
+                status=st_code,
                 hours=hs,
-                observations=obs
+                observations=""
             )
             if ok:
                 saved_count += 1

@@ -531,6 +531,8 @@ class NormativeService {
         if (holiday) {
             return {
                 isNonWorking: true,
+                isHoliday: true,
+                isInstitutionalDay: false,
                 reason: holiday.name,
                 type: holiday.type,
                 isWeekend,
@@ -538,10 +540,30 @@ class NormativeService {
             };
         }
 
+        // Consultar jornadas institucionales configuradas en BD (sin clases)
+        try {
+            const { getDatabase } = require('../database/db');
+            const db = getDatabase();
+            const instDay = db.prepare('SELECT name, type FROM institutional_days WHERE date = ?').get(dateStr);
+            if (instDay) {
+                return {
+                    isNonWorking: true,
+                    isHoliday: false,
+                    isInstitutionalDay: true,
+                    reason: instDay.name,
+                    type: instDay.type || 'Jornada Institucional',
+                    isWeekend,
+                    badge: `${instDay.name} (Jornada Institucional sin clases)`
+                };
+            }
+        } catch (_) {}
+
         if (isWeekend) {
             const dayName = dayOfWeek === 0 ? 'Domingo' : 'Sábado';
             return {
                 isNonWorking: true,
+                isHoliday: false,
+                isInstitutionalDay: false,
                 reason: dayName,
                 type: 'Fin de Semana',
                 isWeekend: true,
@@ -551,11 +573,73 @@ class NormativeService {
 
         return {
             isNonWorking: false,
+            isHoliday: false,
+            isInstitutionalDay: false,
             reason: null,
             type: null,
             isWeekend: false,
             badge: null
         };
+    }
+
+    /**
+     * Retorna todas las jornadas institucionales configuradas
+     */
+    static getInstitutionalDays(year = null, month = null) {
+        try {
+            const { getDatabase } = require('../database/db');
+            const db = getDatabase();
+            if (year && month) {
+                const prefix = `${year}-${String(month).padStart(2, '0')}`;
+                return db.prepare('SELECT id, date, name, type, created_by, created_at FROM institutional_days WHERE date LIKE ? ORDER BY date ASC').all(`${prefix}%`);
+            } else if (year) {
+                return db.prepare('SELECT id, date, name, type, created_by, created_at FROM institutional_days WHERE date LIKE ? ORDER BY date ASC').all(`${year}%`);
+            }
+            return db.prepare('SELECT id, date, name, type, created_by, created_at FROM institutional_days ORDER BY date ASC').all();
+        } catch (e) {
+            console.error('[NormativeService] Error obteniendo jornadas institucionales:', e.message);
+            return [];
+        }
+    }
+
+    /**
+     * Registra o actualiza una jornada institucional (día sin clases)
+     */
+    static saveInstitutionalDay({ date, name, type = 'jornada', username = 'SECRETARÍA' }) {
+        try {
+            const { getDatabase } = require('../database/db');
+            const db = getDatabase();
+            const now = new Date().toISOString();
+            db.prepare(`
+                INSERT INTO institutional_days (date, name, type, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(date) DO UPDATE SET
+                    name = excluded.name,
+                    type = excluded.type,
+                    created_by = excluded.created_by,
+                    created_at = excluded.created_at
+            `).run(date, name.trim(), type || 'jornada', username, now);
+
+            return { success: true, message: `Jornada institucional guardada para ${date}.` };
+        } catch (e) {
+            console.error('[NormativeService] Error guardando jornada institucional:', e.message);
+            return { success: false, message: e.message };
+        }
+    }
+
+    /**
+     * Elimina una jornada institucional
+     */
+    static deleteInstitutionalDay(date) {
+        try {
+            const { getDatabase } = require('../database/db');
+            const db = getDatabase();
+            db.prepare('DELETE FROM institutional_days WHERE date = ?').run(date);
+            return { success: true, message: `Jornada institucional eliminada para ${date}.` };
+        } catch (e) {
+            console.error('[NormativeService] Error eliminando jornada institucional:', e.message);
+            return { success: false, message: e.message };
+        }
     }
 }
 

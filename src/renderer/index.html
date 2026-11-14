@@ -569,12 +569,6 @@
                         <span>Cátedras y Suplencias</span>
                     </button>
 
-                    <!-- Botón Calendario Institucional del Profesorado -->
-                    <button data-view="calendar" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
-                        <i data-lucide="calendar" class="w-4 h-4 text-purple-600"></i>
-                        <span>Calendario</span>
-                    </button>
-
                     <!-- Botón Carga Masiva CSV (Secretaría) -->
                     <button data-view="csv-import" id="nav-btn-csv" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
                         <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-600"></i>
@@ -687,24 +681,81 @@
                         </div>
                     </div>
 
-                    <!-- Auditoría Reciente -->
-                    <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
-                        <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100 mb-3">Auditoría y Actividad Reciente</h3>
-                        <div id="dashboard-audit-logs" class="space-y-1.5 text-xs text-slate-600 dark:text-zinc-400 font-mono">
-                            <!-- Logs -->
+                    <!-- Registro Oficial de Auditoría y Trazabilidad Institucional -->
+                    <div class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-2">
+                                    <i data-lucide="shield-check" class="w-4 h-4 text-gold"></i>
+                                    <span>Registro Oficial de Auditoría y Trazabilidad Institucional</span>
+                                </h3>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Historial inmutable de modificaciones de estado, designaciones, asistencias y cargas masivas.</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button type="button" id="btn-export-audit-pdf"
+                                    class="btn-gold px-3.5 py-2 text-xs font-bold rounded-lg flex items-center space-x-2 shadow-xs transition hover:brightness-110">
+                                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                                    <span>Descargar Registro de Acciones (PDF)</span>
+                                </button>
+                            </div>
                         </div>
+
+                        <!-- Filtros del Registro de Auditoría -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div class="relative flex-1 min-w-[240px]">
+                                <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400"></i>
+                                <input type="text" id="audit-search-input" placeholder="Buscar por usuario, acción o detalle del registro..."
+                                    class="w-full pl-8 pr-3 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-gold">
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <label class="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Categoría:</label>
+                                <select id="audit-category-filter"
+                                    class="px-2.5 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-gold">
+                                    <option value="ALL">Todas las acciones</option>
+                                    <option value="ASISTENCIA">Asistencias y Licencias</option>
+                                    <option value="DOCENTES">Docentes y Legajos</option>
+                                    <option value="DESIGNACIONES">Cátedras y Suplencias</option>
+                                    <option value="CARGA_MASIVA">Cargas Masivas</option>
+                                    <option value="SEGURIDAD">Seguridad y Usuarios</option>
+                                    <option value="SISTEMA">Configuraciones Institucionales</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Auditoría Oficial -->
+                        <div class="excel-table-container max-h-[360px] overflow-y-auto">
+                            <table class="w-full border-collapse text-left" id="table-audit-logs">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-36 text-center">FECHA / HORA</th>
+                                        <th class="w-28 text-center">USUARIO</th>
+                                        <th class="w-40 text-center">ACCIÓN / MÓDULO</th>
+                                        <th>DETALLE / DESCRIPCIÓN DE LA OPERACIÓN</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-audit-logs" class="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
+                                    <!-- Render dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Elemento de compatibilidad interna -->
+                        <div id="dashboard-audit-logs" class="hidden"></div>
                     </div>
                 </section>
 
                 <!-- VISTA 2: DOCENTES UNIFICADO -->
                 <section id="view-teachers" class="view-panel hidden space-y-4">
                     <!-- Solapas internas -->
-                    <div class="flex space-x-2 border-b border-slate-200 pb-2">
+                    <div class="flex space-x-2 border-b border-slate-200 dark:border-zinc-800 pb-2">
                         <button id="tab-btn-legajos" class="tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition">
-                            Planta Funcional y Legajos
+                            Legajos
                         </button>
-                        <button id="tab-btn-asistencias" class="tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition">
-                            Control Diario de Asistencias
+                        <button id="tab-btn-asistencias" class="tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 transition">
+                            Asistencias
+                        </button>
+                        <button id="tab-btn-calendario" class="tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 transition">
+                            Calendario
                         </button>
                     </div>
 
@@ -883,22 +934,376 @@
                             </div>
                         </div>
 
-                        <!-- 4. CONTENEDOR PRINCIPAL: TARJETAS MODERNAS DE DOCENTES -->
-                        <div id="attendance-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                            <!-- Inyectado dinámicamente -->
+                        <!-- 4. TABLA EXCEL DE CONTROL DE ASISTENCIA DIARIA -->
+                        <div class="excel-table-container bg-white dark:bg-[#282828] shadow-xs max-h-[600px]">
+                            <table class="w-full border-collapse text-left" id="table-attendance">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-24 text-center">LEGAJO</th>
+                                        <th>DOCENTE (APELLIDO Y NOMBRES)</th>
+                                        <th class="w-28 text-center">DNI</th>
+                                        <th class="w-32 text-center">SITUACIÓN REVISTA</th>
+                                        <th class="w-48 text-center">ESTADO DIARIO</th>
+                                        <th class="w-20 text-center">HS CÁT.</th>
+                                        <th class="w-36 text-center">FORMULARIO</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-attendance" class="divide-y divide-slate-100 dark:divide-zinc-800">
+                                    <!-- Renderizado dinámico -->
+                                </tbody>
+                            </table>
                         </div>
 
-                        <!-- Estado Vacío / Sin Resultados -->
-                        <div id="attendance-empty-state" class="hidden py-12 text-center bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                            <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 flex items-center justify-center mb-3">
-                                <i data-lucide="search-x" class="w-6 h-6"></i>
+                        <!-- Elementos de compatibilidad -->
+                        <div id="attendance-cards-grid" class="hidden"></div>
+                        <div id="attendance-empty-state" class="hidden"></div>
+                    </div>
+
+                    <!-- SUB-TAB 3: CALENDARIO INTERACTIVO EN TIEMPO REAL -->
+                    <div id="subtab-calendario" class="space-y-5 hidden">
+                        <!-- 1. Barra de Control del Calendario: Navegación, Vistas y Exportaciones -->
+                        <div class="bg-white dark:bg-[#282828] p-4 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                            <!-- Navegación de Mes y Año -->
+                            <div class="flex items-center space-x-2">
+                                <button type="button" id="btn-cal-prev-month" title="Mes Anterior"
+                                    class="px-2.5 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition flex items-center shadow-xs">
+                                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                </button>
+
+                                <div class="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 dark:bg-zinc-800/80 rounded-lg border border-slate-200 dark:border-zinc-700">
+                                    <i data-lucide="calendar" class="w-4 h-4 text-gold"></i>
+                                    <span id="cal-current-month-label" class="text-xs font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
+                                        Noviembre 2026
+                                    </span>
+                                </div>
+
+                                <button type="button" id="btn-cal-next-month" title="Mes Siguiente"
+                                    class="px-2.5 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition flex items-center shadow-xs">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+
+                                <div class="hidden sm:flex items-center space-x-1 ml-2">
+                                    <select id="cal-select-month" class="px-2 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-gold">
+                                        <option value="1">Enero</option>
+                                        <option value="2">Febrero</option>
+                                        <option value="3">Marzo</option>
+                                        <option value="4">Abril</option>
+                                        <option value="5">Mayo</option>
+                                        <option value="6">Junio</option>
+                                        <option value="7">Julio</option>
+                                        <option value="8">Agosto</option>
+                                        <option value="9">Septiembre</option>
+                                        <option value="10">Octubre</option>
+                                        <option value="11">Noviembre</option>
+                                        <option value="12">Diciembre</option>
+                                    </select>
+                                    <select id="cal-select-year" class="px-2 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-gold">
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                    </select>
+                                </div>
                             </div>
-                            <h4 class="text-sm font-bold text-slate-800 dark:text-zinc-100">No se encontraron docentes</h4>
-                            <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">Prueba cambiando la fecha o el criterio de búsqueda o filtro.</p>
+
+                            <!-- Selector de Modos de Visualización -->
+                            <div class="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
+                                <button type="button" id="cal-view-grid-btn"
+                                    class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition bg-slate-900 text-gold dark:bg-gold dark:text-slate-900 shadow-xs flex items-center space-x-1.5">
+                                    <i data-lucide="grid" class="w-3.5 h-3.5"></i>
+                                    <span>Grilla Mensual</span>
+                                </button>
+                                <button type="button" id="cal-view-sheet-btn"
+                                    class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5">
+                                    <i data-lucide="table" class="w-3.5 h-3.5"></i>
+                                    <span>Planilla Oficial (1..31)</span>
+                                </button>
+                                <button type="button" id="cal-view-teacher-btn"
+                                    class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5">
+                                    <i data-lucide="user" class="w-3.5 h-3.5"></i>
+                                    <span>Ficha Docente</span>
+                                </button>
+                            </div>
+
+                            <!-- Botones de Acción y Exportación -->
+                            <div class="flex items-center flex-wrap gap-2">
+                                <button type="button" id="btn-cal-add-institutional"
+                                    class="px-3 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-xs">
+                                    <i data-lucide="calendar-plus" class="w-3.5 h-3.5 text-purple-600"></i>
+                                    <span>+ Jornada Institucional</span>
+                                </button>
+
+                                <button type="button" id="btn-cal-export-excel"
+                                    class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-xs">
+                                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                    <span>Guardar Mes en Excel</span>
+                                </button>
+
+                                <button type="button" id="btn-cal-export-pdf"
+                                    class="btn-gold px-3.5 py-2 text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition hover:brightness-110">
+                                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                                    <span>Guardar Mes en PDF</span>
+                                </button>
+                            </div>
                         </div>
 
-                        <!-- Elemento de compatibilidad oculta -->
-                        <table class="hidden" id="table-attendance"><tbody id="tbody-attendance"></tbody></table>
+                        <!-- 2. KPIs Informativos del Mes -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-between">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Días Hábiles</span>
+                                    <div id="cal-kpi-workdays" class="text-xl font-black text-slate-900 dark:text-zinc-100 mt-0.5">0</div>
+                                </div>
+                                <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center">
+                                    <i data-lucide="calendar-check" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 shadow-xs flex items-center justify-between">
+                                <div>
+                                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Feriados y Puentes</span>
+                                    <div id="cal-kpi-holidays" class="text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">0</div>
+                                </div>
+                                <div class="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                                    <i data-lucide="flag" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-purple-200 dark:border-purple-900/60 shadow-xs flex items-center justify-between">
+                                <div>
+                                    <span class="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Jornadas Institucionales</span>
+                                    <div id="cal-kpi-inst-days" class="text-xl font-black text-purple-600 dark:text-purple-400 mt-0.5">0</div>
+                                </div>
+                                <div class="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                                    <i data-lucide="award" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-zinc-900 p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/60 shadow-xs flex items-center justify-between">
+                                <div>
+                                    <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Novedades y Licencias</span>
+                                    <div id="cal-kpi-novelties" class="text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">0</div>
+                                </div>
+                                <div class="w-9 h-9 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. CONTENEDOR VISTA 1: GRILLA MENSUAL INTERACTIVA (ALMANAQUE 7 COLUMNAS) -->
+                        <div id="cal-view-grid-container" class="space-y-4 w-full">
+                            <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs w-full">
+                                <!-- Cabecera de Días de la Semana (Lunes a Domingo) -->
+                                <div class="cal-weekday-header grid grid-cols-7 gap-2.5 text-center font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-400 pb-3 mb-3 border-b border-slate-100 dark:border-zinc-800 w-full"
+                                    style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));">
+                                    <div class="py-1">Lunes</div>
+                                    <div class="py-1">Martes</div>
+                                    <div class="py-1">Miércoles</div>
+                                    <div class="py-1">Jueves</div>
+                                    <div class="py-1">Viernes</div>
+                                    <div class="py-1 text-rose-500 dark:text-rose-400">Sábado</div>
+                                    <div class="py-1 text-rose-500 dark:text-rose-400">Domingo</div>
+                                </div>
+
+                                <!-- Celdas de la Grilla Mensual (Cuadrícula del Mes) -->
+                                <div id="cal-month-grid-cells" class="cal-month-grid grid grid-cols-7 gap-2.5 min-h-[440px] w-full"
+                                    style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));">
+                                    <!-- Renderizado interactivo dinámico -->
+                                </div>
+                            </div>
+
+                            <!-- Panel Inspector del Día Seleccionado -->
+                            <div id="cal-day-inspector" class="hidden bg-white dark:bg-[#282828] p-4 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                                    <div class="flex items-center space-x-2">
+                                        <i data-lucide="info" class="w-4 h-4 text-gold"></i>
+                                        <h4 id="cal-inspector-title" class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
+                                            Detalle del Día
+                                        </h4>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button type="button" id="btn-inspector-goto-attendance"
+                                            class="btn-gold px-3 py-1.5 text-[11px] font-bold rounded-lg flex items-center space-x-1 shadow-xs">
+                                            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i>
+                                            <span>Ir a Planilla de este día</span>
+                                        </button>
+                                        <button type="button" id="btn-close-inspector" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-1 font-bold">✕</button>
+                                    </div>
+                                </div>
+                                <div id="cal-inspector-content" class="mt-3 text-xs space-y-2">
+                                    <!-- Lista de novedades o estado del día -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. CONTENEDOR VISTA 2: PLANILLA OFICIAL (MATRIZ 1..31) -->
+                        <div id="cal-view-sheet-container" class="hidden space-y-4">
+                            <div class="excel-table-container max-h-[560px] overflow-auto bg-white dark:bg-[#282828] shadow-xs">
+                                <table class="w-full border-collapse text-left text-xs" id="table-cal-month-matrix">
+                                    <thead class="excel-header sticky top-0" id="thead-cal-month-matrix">
+                                        <!-- Generado dinámicamente con columnas 1..31 -->
+                                    </thead>
+                                    <tbody id="tbody-cal-month-matrix" class="divide-y divide-slate-100 dark:divide-zinc-800 font-mono">
+                                        <!-- Renderizado dinámico de docentes -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 5. CONTENEDOR VISTA 3: FICHA DOCENTE / DETALLE INDIVIDUAL -->
+                        <div id="cal-view-teacher-container" class="hidden space-y-6">
+                            <!-- Barra de Selección y Filtro Cronológico -->
+                            <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+                                <div class="flex flex-wrap items-center gap-4 flex-1">
+                                    <div class="min-w-[280px] flex-1">
+                                        <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Docente Institucional</label>
+                                        <select id="calendar-teacher-select" class="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-lg font-medium text-slate-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
+                                            <option value="">Seleccione un Docente...</option>
+                                        </select>
+                                    </div>
+                                    <div class="w-40">
+                                        <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Desde</label>
+                                        <input type="date" id="calendar-start-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
+                                    </div>
+                                    <div class="w-40">
+                                        <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Hasta</label>
+                                        <input type="date" id="calendar-end-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
+                                    </div>
+                                    <div class="pt-5">
+                                        <button id="btn-load-calendar" class="btn-gold px-5 py-2.5 text-xs font-bold flex items-center space-x-2 shadow-sm rounded-lg hover:shadow transition">
+                                            <i data-lucide="search" class="w-4 h-4"></i>
+                                            <span>Consultar Cronograma</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ficha del Docente y Topes Legales -->
+                            <div id="calendar-teacher-header" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6 my-6">
+                                <!-- Perfil y Carga Horaria -->
+                                <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between">
+                                    <div>
+                                        <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800/80">
+                                            <h3 id="cal-docente-name" class="text-sm font-black text-gray-100">Apellido, Nombre</h3>
+                                            <span id="cal-avail-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black border">Disponible</span>
+                                        </div>
+                                        <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                                            <span>DNI: <strong id="cal-docente-dni" class="text-gray-200 font-semibold">-</strong></span>
+                                            <span>•</span>
+                                            <span>Legajo: <strong id="cal-docente-legajo" class="text-gray-200 font-semibold">-</strong></span>
+                                            <span>•</span>
+                                            <span>Revista: <strong id="cal-docente-revista" class="text-gray-200 font-semibold">-</strong></span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800">
+                                        <div class="flex justify-between text-xs mb-1.5">
+                                            <span class="font-bold text-gray-400">Carga Horaria Semanal</span>
+                                            <span id="cal-hours-text" class="font-bold text-gray-100">0 / 30 hs</span>
+                                        </div>
+                                        <div class="w-full bg-slate-100 dark:bg-zinc-700 rounded-full h-2.5 overflow-hidden">
+                                            <div id="cal-hours-bar" class="h-full bg-gold rounded-full transition-all duration-300" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Topes Anuales Estatutarios -->
+                                <div class="lg:col-span-2 bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-3.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">Seguimiento Anual de Límites (Ciclo Lectivo)</h4>
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <!-- Inasistencias Injustificadas -->
+                                        <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
+                                            <div class="flex justify-between items-center text-xs mb-1.5">
+                                                <span class="font-bold text-gray-200">Inasistencias (I)</span>
+                                                <span id="cal-stat-i-text" class="font-bold text-rose-400">0 / 5</span>
+                                            </div>
+                                            <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                                                <div id="cal-stat-i-bar" class="h-full bg-rose-500 rounded-full" style="width: 0%"></div>
+                                            </div>
+                                            <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 5 anuales</div>
+                                        </div>
+
+                                        <!-- Permisos Art. 115 -->
+                                        <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
+                                            <div class="flex justify-between items-center text-xs mb-1.5">
+                                                <span class="font-bold text-gray-200">Permisos (P 115)</span>
+                                                <span id="cal-stat-p-text" class="font-bold text-amber-400">0 / 6</span>
+                                            </div>
+                                            <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                                                <div id="cal-stat-p-bar" class="h-full bg-amber-500 rounded-full" style="width: 0%"></div>
+                                            </div>
+                                            <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 6 anuales</div>
+                                        </div>
+
+                                        <!-- Licencias Médicas Art. 114 a -->
+                                        <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
+                                            <div class="flex justify-between items-center text-xs mb-1.5">
+                                                <span class="font-bold text-gray-200">Lic. Médica (114 a)</span>
+                                                <span id="cal-stat-lic-text" class="font-bold text-purple-400">0 / 25</span>
+                                            </div>
+                                            <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                                                <div id="cal-stat-lic-bar" class="h-full bg-purple-500 rounded-full" style="width: 0%"></div>
+                                            </div>
+                                            <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 25 días/año</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Panel de Cátedras y Suplencias en Curso -->
+                            <div id="calendar-details-panel" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6 my-6">
+                                <!-- Cátedras Activas -->
+                                <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-gray-100 flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                                        <i data-lucide="book-open" class="w-4 h-4 text-gold"></i>
+                                        <span>Cátedras y Horarios Asignados</span>
+                                    </h4>
+                                    <div id="cal-designations-list" class="space-y-3 text-xs flex-1">
+                                        <!-- Render cátedras -->
+                                    </div>
+                                </div>
+
+                                <!-- Suplencias Activas -->
+                                <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-gray-100 flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                                        <i data-lucide="user-check" class="w-4 h-4 text-purple-400"></i>
+                                        <span>Suplencias en Curso (Titular / Suplente)</span>
+                                    </h4>
+                                    <div id="cal-substitutions-list" class="space-y-3 text-xs flex-1">
+                                        <!-- Render suplencias -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cronograma / Historial de Novedades y Asistencias -->
+                            <div id="calendar-timeline-container" class="mt-6 mb-8 bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+                                <div class="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30">
+                                    <h4 class="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider flex items-center space-x-2">
+                                        <i data-lucide="clock" class="w-4 h-4 text-slate-500"></i>
+                                        <span>Línea de Tiempo de Novedades y Asistencias</span>
+                                    </h4>
+                                    <span id="cal-events-count" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-700/60 text-slate-600 dark:text-zinc-300">0 registros</span>
+                                </div>
+                                <div class="excel-table-container max-h-[480px]">
+                                    <table class="w-full border-collapse text-left" id="table-calendar-events">
+                                        <thead class="excel-header sticky top-0">
+                                            <tr>
+                                                <th class="w-28 text-center">FECHA</th>
+                                                <th class="w-44 text-center">ESTADO / MARCA</th>
+                                                <th class="w-20 text-center">HORAS</th>
+                                                <th class="w-60">CÁTEDRA</th>
+                                                <th>OBSERVACIONES / MOTIVO</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbody-calendar-events">
+                                            <tr>
+                                                <td colspan="5" class="py-10 text-center text-xs text-slate-400">
+                                                    Seleccione un docente y presione Consultar para visualizar su cronograma institucional.
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -989,161 +1394,7 @@
                     </div>
                 </section>
 
-                <!-- VISTA 4: CALENDARIO INSTITUCIONAL DEL PROFESORADO -->
-                <section id="view-calendar" class="view-panel hidden space-y-6">
-                    <!-- Barra de Selección y Filtro Cronológico -->
-                    <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xs">
-                        <div class="flex flex-wrap items-center gap-4 flex-1">
-                            <div class="min-w-[280px] flex-1">
-                                <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Docente Institucional</label>
-                                <select id="calendar-teacher-select" class="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-lg font-medium text-slate-700 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
-                                    <option value="">Seleccione un Docente...</option>
-                                </select>
-                            </div>
-                            <div class="w-40">
-                                <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Desde</label>
-                                <input type="date" id="calendar-start-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
-                            </div>
-                            <div class="w-40">
-                                <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Hasta</label>
-                                <input type="date" id="calendar-end-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
-                            </div>
-                            <div class="pt-5">
-                                <button id="btn-load-calendar" class="btn-gold px-5 py-2.5 text-xs font-bold flex items-center space-x-2 shadow-sm rounded-lg hover:shadow transition">
-                                    <i data-lucide="search" class="w-4 h-4"></i>
-                                    <span>Consultar Cronograma</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Ficha del Docente y Topes Legales -->
-                    <div id="calendar-teacher-header" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6 my-6">
-                        <!-- Perfil y Carga Horaria -->
-                        <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between">
-                            <div>
-                                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800/80">
-                                    <h3 id="cal-docente-name" class="text-sm font-black text-gray-100">Apellido, Nombre</h3>
-                                    <span id="cal-avail-badge" class="px-2.5 py-1 rounded-full text-[10px] font-black border">Disponible</span>
-                                </div>
-                                <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                                    <span>DNI: <strong id="cal-docente-dni" class="text-gray-200 font-semibold">-</strong></span>
-                                    <span>•</span>
-                                    <span>Legajo: <strong id="cal-docente-legajo" class="text-gray-200 font-semibold">-</strong></span>
-                                    <span>•</span>
-                                    <span>Revista: <strong id="cal-docente-revista" class="text-gray-200 font-semibold">-</strong></span>
-                                </div>
-                            </div>
-                            <div class="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800">
-                                <div class="flex justify-between text-xs mb-1.5">
-                                    <span class="font-bold text-gray-400">Carga Horaria Semanal</span>
-                                    <span id="cal-hours-text" class="font-bold text-gray-100">0 / 30 hs</span>
-                                </div>
-                                <div class="w-full bg-slate-100 dark:bg-zinc-700 rounded-full h-2.5 overflow-hidden">
-                                    <div id="cal-hours-bar" class="h-full bg-gold rounded-full transition-all duration-300" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Topes Anuales Estatutarios -->
-                        <div class="lg:col-span-2 bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-3.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">Seguimiento Anual de Límites (Ciclo Lectivo)</h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <!-- Inasistencias Injustificadas -->
-                                <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
-                                    <div class="flex justify-between items-center text-xs mb-1.5">
-                                        <span class="font-bold text-gray-200">Inasistencias (I)</span>
-                                        <span id="cal-stat-i-text" class="font-bold text-rose-400">0 / 5</span>
-                                    </div>
-                                    <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
-                                        <div id="cal-stat-i-bar" class="h-full bg-rose-500 rounded-full" style="width: 0%"></div>
-                                    </div>
-                                    <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 5 anuales</div>
-                                </div>
-
-                                <!-- Permisos Art. 115 -->
-                                <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
-                                    <div class="flex justify-between items-center text-xs mb-1.5">
-                                        <span class="font-bold text-gray-200">Permisos (P 115)</span>
-                                        <span id="cal-stat-p-text" class="font-bold text-amber-400">0 / 6</span>
-                                    </div>
-                                    <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
-                                        <div id="cal-stat-p-bar" class="h-full bg-amber-500 rounded-full" style="width: 0%"></div>
-                                    </div>
-                                    <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 6 anuales</div>
-                                </div>
-
-                                <!-- Licencias Médicas Art. 114 a -->
-                                <div class="p-3.5 rounded-xl border border-zinc-700/80 bg-zinc-800">
-                                    <div class="flex justify-between items-center text-xs mb-1.5">
-                                        <span class="font-bold text-gray-200">Lic. Médica (114 a)</span>
-                                        <span id="cal-stat-lic-text" class="font-bold text-purple-400">0 / 25</span>
-                                    </div>
-                                    <div class="w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
-                                        <div id="cal-stat-lic-bar" class="h-full bg-purple-500 rounded-full" style="width: 0%"></div>
-                                    </div>
-                                    <div class="text-[10px] text-gray-400 mt-1.5">Tope máx: 25 días/año</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Panel de Cátedras y Suplencias en Curso -->
-                    <div id="calendar-details-panel" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6 my-6">
-                        <!-- Cátedras Activas -->
-                        <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-100 flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
-                                <i data-lucide="book-open" class="w-4 h-4 text-gold"></i>
-                                <span>Cátedras y Horarios Asignados</span>
-                            </h4>
-                            <div id="cal-designations-list" class="space-y-3 text-xs flex-1">
-                                <!-- Render cátedras -->
-                            </div>
-                        </div>
-
-                        <!-- Suplencias Activas -->
-                        <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-100 flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
-                                <i data-lucide="user-check" class="w-4 h-4 text-purple-400"></i>
-                                <span>Suplencias en Curso (Titular / Suplente)</span>
-                            </h4>
-                            <div id="cal-substitutions-list" class="space-y-3 text-xs flex-1">
-                                <!-- Render suplencias -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Cronograma / Historial de Novedades y Asistencias -->
-                    <div id="calendar-timeline-container" class="mt-6 mb-8 bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-                        <div class="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center bg-slate-50/50 dark:bg-zinc-800/30">
-                            <h4 class="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider flex items-center space-x-2">
-                                <i data-lucide="clock" class="w-4 h-4 text-slate-500"></i>
-                                <span>Línea de Tiempo de Novedades y Asistencias</span>
-                            </h4>
-                            <span id="cal-events-count" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-700/60 text-slate-600 dark:text-zinc-300">0 registros</span>
-                        </div>
-                        <div class="excel-table-container max-h-[480px]">
-                            <table class="w-full border-collapse text-left" id="table-calendar-events">
-                                <thead class="excel-header sticky top-0">
-                                    <tr>
-                                        <th class="w-28 text-center">FECHA</th>
-                                        <th class="w-44 text-center">ESTADO / MARCA</th>
-                                        <th class="w-20 text-center">HORAS</th>
-                                        <th class="w-60">CÁTEDRA</th>
-                                        <th>OBSERVACIONES / MOTIVO</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-calendar-events">
-                                    <tr>
-                                        <td colspan="5" class="py-10 text-center text-xs text-slate-400">
-                                            Seleccione un docente y presione Consultar para visualizar su cronograma institucional.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- VISTA 5: CARGA MASIVA DE ARCHIVOS (UNIFICADA) -->
                 <section id="view-csv-import" class="view-panel hidden space-y-5">

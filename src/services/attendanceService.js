@@ -294,6 +294,15 @@ class AttendanceService {
             const now = AuditService.getArgentinaTimestamp();
             const normalizedStatus = this.normalizeStatusCode(status);
 
+            // Sanitización y anulación de licencias: si el estado pasa a Presente (PR) o Inasistencia injustificada (I),
+            // se anulan y limpian automáticamente las justificaciones o notas de formulario físico previas.
+            let cleanObs = observations ? observations.trim() : null;
+            if (normalizedStatus === 'PR') {
+                cleanObs = null;
+            } else if (normalizedStatus === 'I' && cleanObs && (cleanObs.includes('[Formulario Físico') || cleanObs.toLowerCase().includes('licencia') || cleanObs.toLowerCase().includes('certificado') || cleanObs.toLowerCase().includes('reposo'))) {
+                cleanObs = null;
+            }
+
             // Verificar si ya existen registros para esa fecha y docente
             const existing = db.prepare('SELECT id FROM attendances WHERE teacher_id = ? AND date = ?').all(teacherId, dateStr);
 
@@ -311,7 +320,7 @@ class AttendanceService {
                 `).run(
                     normalizedStatus,
                     hours !== null ? Number(hours) : null,
-                    observations ? observations.trim() : null,
+                    cleanObs,
                     username,
                     primaryId
                 );
@@ -326,7 +335,7 @@ class AttendanceService {
                     dateStr,
                     normalizedStatus,
                     hours !== null ? Number(hours) : null,
-                    observations ? observations.trim() : null,
+                    cleanObs,
                     username,
                     now,
                     designationId
@@ -466,6 +475,221 @@ class AttendanceService {
         } catch (error) {
             console.error('[AttendanceService] Error obteniendo resumen:', error);
             return { totalTeachers: 0, presentes: 0, inasistencias: 0, ausentes: 0, permisos: 0, licencias: 0, sinRegistrar: 0 };
+        }
+    }
+
+    /**
+     * Extrae y precarga automáticamente la información relevante de archivos de justificación
+     * (.pdf, .docx, .doc, .txt, .csv) para agilizar la carga administrativa en el modal institucional.
+     */
+    static parseJustificationFile({ fileBuffer, fileName = '' }) {
+        if (!fileBuffer || fileBuffer.length === 0) {
+            return { success: false, message: 'El archivo está vacío o no contiene datos válidos.' };
+        }
+
+        const ext = (fileName.split('.').pop() || '').toLowerCase();
+        let extractedText = '';
+
+        try {
+            if (ext === 'docx') {
+                const zlib = require('zlib');
+                let offset = 0;
+                while (offset < fileBuffer.length - 30) {
+                    if (fileBuffer.readUInt32LE(offset) === 0x04034b50) {
+                        const compMethod = fileBuffer.readUInt16LE(offset + 8);
+                        const compSize = fileBuffer.readUInt32LE(offset + 18);
+                        const nameLen = fileBuffer.readUInt16LE(offset + 26);
+                        const extraLen = fileBuffer.readUInt16LE(offset + 28);
+                        const entryName = fileBuffer.toString('utf8', offset + 30, offset + 30 + nameLen);
+                        const dataStart = offset + 30 + nameLen + extraLen;
+
+                        if (entryName === 'word/document.xml') {
+                            const compData = fileBuffer.subarray(dataStart, dataStart + compSize);
+                            const xml = compMethod === 8 ? zlib.inflateRawSync(compData).toString('utf8') : compData.toString('utf8');
+                            extractedText = xml.replace(/<[^>]+>/g, ' ');
+                            break;
+                        }
+                        offset = dataStart + compSize;
+                    } else {
+                        offset++;
+                    }
+                }
+            } else if (ext === 'doc') {
+                const raw = fileBuffer.toString('binary');
+                extractedText = raw.replace(/[^\x20-\x7E\t\r\n\xC0-\xFF]/g, ' ');
+            } else if (ext === 'pdf') {
+                const zlib = require('zlib');
+                const str = fileBuffer.toString('binary');
+                let pdfTexts = [];
+                const directMatches = str.match(/\(([^()]{2,100})\)\s*(?:Tj|'|")/g) || [];
+                for (const m of directMatches) {
+                    const clean = m.replace(/^\(/, '').replace(/\)\s*(?:Tj|'|")$/, '').trim();
+                    if (clean.length > 2) pdfTexts.push(clean);
+                }
+
+                const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
+                let sMatch;
+                while ((sMatch = streamRegex.exec(str)) !== null) {
+                    try {
+                        const streamData = Buffer.from(sMatch[1], 'binary');
+                        const decompressed = zlib.inflateSync(streamData).toString('utf8');
+                        const textMatches = decompressed.match(/\(([^()]+)\)\s*(?:Tj|'|")/g) || [];
+                        for (const tm of textMatches) {
+                            const clean = tm.replace(/^\(/, '').replace(/\)\s*(?:Tj|'|")$/, '').trim();
+                            if (clean.length > 2) pdfTexts.push(clean);
+                        }
+                        const btRegex = /BT[\s\S]*?ET/g;
+                        const btBlocks = decompressed.match(btRegex) || [];
+                        for (const b of btBlocks) {
+                            const words = b.replace(/\[|\]|<|>|\/|T[a-z]|T[A-Z]/g, ' ').replace(/\s+/g, ' ').trim();
+                            if (words.length > 3) pdfTexts.push(words);
+                        }
+                    } catch (_) {}
+                }
+                extractedText = pdfTexts.join(' ') || str.replace(/[^\x20-\x7E\t\r\n\xC0-\xFF]/g, ' ');
+            } else {
+                // txt o csv
+                extractedText = fileBuffer.toString('utf8');
+            }
+
+            extractedText = extractedText.replace(/\s+/g, ' ').trim();
+
+            // Heurística de Extracción:
+            let formNumber = '';
+            let articleCode = '114-A-1';
+            let status = 'LIC';
+            let doctorName = '';
+            let matricula = '';
+            let diasReposo = '';
+            let diagnostico = '';
+
+            // Si es CSV estructurado, extraer directamente por encabezados
+            if (ext === 'csv') {
+                const lines = fileBuffer.toString('utf8').split(/\r?\n/).filter(l => l.trim().length > 0);
+                if (lines.length > 1) {
+                    const sep = lines[0].includes(';') ? ';' : ',';
+                    const headers = lines[0].split(sep).map(h => h.trim().toUpperCase());
+                    const values = lines[1].split(sep).map(v => v.trim());
+                    headers.forEach((h, idx) => {
+                        const val = values[idx] || '';
+                        if (!val) return;
+                        if (h.includes('FORM') || h.includes('CERT') || h.includes('NUM')) {
+                            formNumber = val.toUpperCase();
+                        } else if (h.includes('ART')) {
+                            articleCode = val.toUpperCase();
+                        } else if (h.includes('ESTADO') || h.includes('STATUS')) {
+                            status = val.toUpperCase();
+                        } else if (h.includes('OBS') || h.includes('DIAG') || h.includes('MOTIVO')) {
+                            diagnostico = val;
+                        }
+                    });
+                }
+            }
+
+            // 1. Número de certificado / formulario (si no provino de CSV)
+            if (!formNumber) {
+                const formMatch = extractedText.match(/(?:formulario(?:\s*f[ií]sico)?|form\.?|certificado(?:\s*m[eé]dico)?|cert\.?|constancia|acta|num_formulario)\s*(?:n[°ºo\.]|nro\.?|num\.?|#)[:;\s]*([A-Za-z0-9\-\/]{2,25})/i) ||
+                                  extractedText.match(/(?:n[°ºo\.]|nro\.?|#)[:;\s]*([A-Za-z0-9\-\/]{2,25})/i) ||
+                                  extractedText.match(/(?:formulario(?:\s*f[ií]sico)?|form\.?|certificado(?:\s*m[eé]dico)?|cert\.?)\s*[:;\s]+([A-Za-z0-9\-_]*\d+[A-Za-z0-9\-_]*)/i);
+                if (formMatch && formMatch[1] && !/^(?:oficial|nacional|provincial|medico|fisico)$/i.test(formMatch[1])) {
+                    let rawVal = formMatch[1].trim().toUpperCase();
+                    if (rawVal.startsWith('-')) rawVal = 'FORM' + rawVal;
+                    if (rawVal.startsWith('FORM') || rawVal.startsWith('CERT') || rawVal.startsWith('MED') || rawVal.startsWith('CONST')) {
+                        formNumber = rawVal;
+                    } else {
+                        const prefix = fileName.toLowerCase().includes('form') ? 'Form. F-' : 'Cert. Médico N° ';
+                        formNumber = `${prefix}${rawVal}`;
+                    }
+                } else {
+                    const numInFile = fileName.match(/(\d{3,8})/);
+                    if (numInFile) {
+                        formNumber = `Cert. Adjunto N° ${numInFile[1]}`;
+                    } else {
+                        const cleanName = fileName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9\-_]/g, ' ').trim();
+                        formNumber = `Constancia Doc. "${cleanName}"`;
+                    }
+                }
+            }
+
+            // 2. Artículo y Estado
+            const lowerText = extractedText.toLowerCase();
+            if (lowerText.includes('115') || lowerText.includes('razones particulares') || lowerText.includes('asuntos particulares')) {
+                articleCode = '115';
+                status = 'P';
+            } else if (lowerText.includes('114 b') || lowerText.includes('114-b') || lowerText.includes('114b') || lowerText.includes('art. 48') || lowerText.includes('art 48') || lowerText.includes('largo tratamiento')) {
+                articleCode = '114-B';
+                status = 'LT';
+            } else if (lowerText.includes('114 c') || lowerText.includes('114-c') || lowerText.includes('114c') || lowerText.includes('familiar')) {
+                articleCode = '114-C';
+                status = 'LIC';
+            } else if (lowerText.includes('art. 70') || lowerText.includes('art 70') || lowerText.includes('examen') || lowerText.includes('estudio')) {
+                articleCode = '114L';
+                status = 'LIC';
+            } else {
+                articleCode = '114-A-1';
+                status = 'LIC';
+            }
+
+            // 3. Médico / Profesional
+            const docMatch = extractedText.match(/(?:dr[a\.]?|m[eé]dico\s+firmante|profesional|firmante)\s*:?\s*([A-Za-zÁÉÍÓÚáéíóúñ\s\.]{3,35})(?=,|\.|\n|mat|mp|mn|$)/i) ||
+                             extractedText.match(/m[eé]dico\s*:\s*([A-Za-zÁÉÍÓÚáéíóúñ\s\.]{3,35})(?=,|\.|\n|mat|mp|mn|$)/i);
+            if (docMatch && docMatch[1]) {
+                const dName = docMatch[1].trim().replace(/\s+/g, ' ');
+                if (!/^(?:oficial|general|de turno|nacional)$/i.test(dName)) {
+                    doctorName = dName;
+                }
+            }
+
+            // 4. Matrícula
+            const matMatch = extractedText.match(/(?:mat(?:r[ií]cula)?|m\.?p\.?|m\.?n\.?)\s*(?:n[°ºo\.]|nro\.?)?\s*([0-9]{3,8})/i);
+            if (matMatch && matMatch[1]) {
+                matricula = matMatch[1];
+            }
+
+            // 5. Reposo / Días
+            const reposoMatch = extractedText.match(/reposo\s*(?:m[eé]dico)?\s*(?:por)?\s*(\d+\s*(?:horas|d[ií]as|hs))/i) ||
+                                extractedText.match(/(\d+)\s*(?:d[ií]as|hs|horas)\s*de\s*reposo/i);
+            if (reposoMatch && reposoMatch[1]) {
+                diasReposo = reposoMatch[1].trim();
+            }
+
+            // 6. Diagnóstico
+            const diagMatch = extractedText.match(/(?:diagn[oó]stico|causal(?:\s*\/\s*diagn[oó]stico)?|motivo)\s*:?\s*([A-Za-zÁÉÍÓÚáéíóúñ0-9\s,\-\.]{4,80})(?=\.|\n|reposo|m[eé]dico|dr|$)/i);
+            if (diagMatch && diagMatch[1]) {
+                diagnostico = diagMatch[1].trim();
+            }
+
+            // Construir observaciones sugeridas
+            let obsParts = [];
+            if (doctorName) {
+                obsParts.push(`Emitido por Dr/a. ${doctorName}${matricula ? ` (Mat. ${matricula})` : ''}`);
+            }
+            if (diagnostico) {
+                obsParts.push(`Diagnóstico: ${diagnostico}`);
+            }
+            if (diasReposo) {
+                obsParts.push(`Reposo: ${diasReposo}`);
+            }
+            if (obsParts.length === 0) {
+                obsParts.push(`Constancia adjunta: ${fileName}`);
+            }
+
+            return {
+                success: true,
+                fileName,
+                fileSize: fileBuffer.length,
+                formNumber,
+                articleCode,
+                status,
+                observations: obsParts.join('. ') + '.',
+                extractedSummary: extractedText.substring(0, 160)
+            };
+        } catch (err) {
+            console.error('[AttendanceService] Error procesando archivo de justificación:', err);
+            return {
+                success: false,
+                message: `Error al extraer datos del archivo: ${err.message}`
+            };
         }
     }
 }

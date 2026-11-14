@@ -175,6 +175,11 @@ function registerIpcHandlers() {
         return AttendanceService.receivePhysicalForm(payload);
     });
 
+    ipcMain.handle('attendance:parseJustificationFile', async (event, { fileBufferBase64, fileName }) => {
+        const fileBuffer = fileBufferBase64 ? Buffer.from(fileBufferBase64, 'base64') : Buffer.alloc(0);
+        return await AttendanceService.parseJustificationFile({ fileBuffer, fileName });
+    });
+
     ipcMain.handle('attendance:getSummary', (event, dateStr) => {
         return AttendanceService.getSummary(dateStr);
     });
@@ -230,6 +235,44 @@ function registerIpcHandlers() {
 
     ipcMain.handle('calendar:getInstitutionalOverview', (event, params) => {
         return TeacherCalendarService.getInstitutionalOverview(params);
+    });
+
+    ipcMain.handle('calendar:getMonthMatrix', async (event, params) => {
+        return await TeacherCalendarService.getMonthMatrix(params);
+    });
+
+    ipcMain.handle('calendar:getInstitutionalDays', (event, params) => {
+        const { NormativeService } = require('../services/normativeService');
+        return NormativeService.getInstitutionalDays(params?.year, params?.month);
+    });
+
+    ipcMain.handle('calendar:saveInstitutionalDay', (event, payload) => {
+        const { NormativeService } = require('../services/normativeService');
+        return NormativeService.saveInstitutionalDay(payload);
+    });
+
+    ipcMain.handle('calendar:deleteInstitutionalDay', (event, date) => {
+        const { NormativeService } = require('../services/normativeService');
+        return NormativeService.deleteInstitutionalDay(date);
+    });
+
+    ipcMain.handle('calendar:exportMonthExcel', async (event, params) => {
+        return await TeacherCalendarService.exportMonthExcel(params);
+    });
+
+    ipcMain.handle('calendar:exportMonthPdf', async (event, params) => {
+        return await TeacherCalendarService.exportMonthPdf(params);
+    });
+
+    // -------------------------------------------------------------
+    // REGISTRO OFICIAL DE AUDITORÍA Y TRAZABILIDAD
+    // -------------------------------------------------------------
+    ipcMain.handle('audit:getAll', (event, params) => {
+        return AuditService.getAllLogs(params);
+    });
+
+    ipcMain.handle('audit:exportPdf', async (event, params) => {
+        return await AuditService.generateAuditPdf(params);
     });
 
     // -------------------------------------------------------------

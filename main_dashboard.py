@@ -193,7 +193,6 @@ class MainDashboardWindow(ctk.CTk):
                 ("dashboard", "Dashboard General", True),
                 ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Cátedras y Suplencias", True),
-                ("calendar", "Calendario", True),
                 ("csv_import", "Carga CSV", True),
                 ("reports", "Reportes y Planillas Excel", True),
                 ("config", "Configuración de BD", True),
@@ -203,7 +202,6 @@ class MainDashboardWindow(ctk.CTk):
                 ("dashboard", "Dashboard Operativo", True),
                 ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Consulta de Cátedras", True),
-                ("calendar", "Calendario", True),
             ]
 
         for key, text, allowed in nav_items:
@@ -317,8 +315,8 @@ class MainDashboardWindow(ctk.CTk):
             DatabaseConfigDialog(self, on_saved=self._on_db_config_saved)
             return
 
-        # Mapeo de botón activo (si se solicita attendance desde accesos directos, resalta Docentes)
-        active_key = "teachers" if view_name == "attendance" else view_name
+        # Mapeo de botón activo (si se solicita attendance o calendar desde accesos directos, resalta Docentes)
+        active_key = "teachers" if view_name in ("attendance", "calendar") else view_name
 
         # Actualizar resaltado de botón activo en la barra lateral con paleta institucional
         for key, btn in self.nav_buttons.items():
@@ -357,7 +355,8 @@ class MainDashboardWindow(ctk.CTk):
                 # Abre el módulo de docentes directamente posicionado en Asistencias
                 self.current_view = TeachersView(self.view_container, default_tab="attendance")
             elif view_name == "calendar":
-                self.current_view = CalendarView(self.view_container)
+                # Abre el módulo de docentes directamente posicionado en Calendario
+                self.current_view = TeachersView(self.view_container, default_tab="calendar")
             elif view_name == "csv_import":
                 self.current_view = CsvImportView(self.view_container)
             elif view_name == "designations":

@@ -5,6 +5,7 @@ from models.auth import CurrentSession
 from views.theme import Theme, apply_window_icon
 from views.excel_table import ExcelTableFrame
 from views.attendance_view import AttendanceView
+from views.calendar_view import CalendarView
 
 class TeacherModal(ctk.CTkToplevel):
     def __init__(self, parent, teacher_data=None, on_saved=None):
@@ -206,8 +207,9 @@ class TeachersView(ctk.CTkFrame):
         )
         self.tabview.pack(fill="both", expand=True, padx=5, pady=0)
 
-        self.tab_teachers = self.tabview.add("Planta Funcional y Legajos")
-        self.tab_attendance = self.tabview.add("Control Diario de Asistencias")
+        self.tab_teachers = self.tabview.add("Legajos")
+        self.tab_attendance = self.tabview.add("Asistencias")
+        self.tab_calendar = self.tabview.add("Calendario")
 
         # ---------------------------------------------------------
         # TAB 1: PLANTA FUNCIONAL Y LEGAJOS DOCENTES
@@ -219,9 +221,16 @@ class TeachersView(ctk.CTkFrame):
         # ---------------------------------------------------------
         self._build_attendance_tab()
 
+        # ---------------------------------------------------------
+        # TAB 3: CALENDARIO INSTITUCIONAL DEL PROFESORADO
+        # ---------------------------------------------------------
+        self._build_calendar_tab()
+
         # Selección de solapa inicial si se solicitó expresamente
-        if self.default_tab == "attendance":
-            self.tabview.set("Control Diario de Asistencias")
+        if self.default_tab in ("attendance", "asistencias"):
+            self.tabview.set("Asistencias")
+        elif self.default_tab in ("calendar", "calendario"):
+            self.tabview.set("Calendario")
 
     def _build_teachers_tab(self):
         # Barra de herramientas superior
@@ -298,12 +307,18 @@ class TeachersView(ctk.CTkFrame):
         self.attendance_view = AttendanceView(self.tab_attendance)
         self.attendance_view.pack(fill="both", expand=True)
 
+    def _build_calendar_tab(self):
+        self.calendar_view = CalendarView(self.tab_calendar)
+        self.calendar_view.pack(fill="both", expand=True)
+
     def _on_tab_change(self):
         tab = self.tabview.get()
-        if tab == "Control Diario de Asistencias" and hasattr(self, "attendance_view"):
+        if tab == "Asistencias" and hasattr(self, "attendance_view"):
             self.attendance_view.refresh()
-        elif tab == "Planta Funcional y Legajos":
+        elif tab == "Legajos":
             self.refresh()
+        elif tab == "Calendario" and hasattr(self, "calendar_view"):
+            self.calendar_view.refresh()
 
     def refresh(self):
         self.teachers_table.clear_all()
