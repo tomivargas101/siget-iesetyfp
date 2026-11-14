@@ -3,6 +3,23 @@
  * Utiliza el motor nativo de alto rendimiento `node:sqlite` (DatabaseSync).
  */
 
+// Supresión de advertencias experimentales de SQLite en Node.js
+if (process && typeof process.emitWarning === 'function') {
+    const originalEmitWarning = process.emitWarning;
+    process.emitWarning = function(warning, ...args) {
+        if (typeof warning === 'string' && warning.includes('SQLite is an experimental feature')) {
+            return;
+        }
+        if (warning && typeof warning === 'object') {
+            const msg = String(warning.message || '');
+            if (msg.includes('SQLite is an experimental feature') || (warning.name === 'ExperimentalWarning' && msg.includes('SQLite'))) {
+                return;
+            }
+        }
+        return originalEmitWarning.apply(process, [warning, ...args]);
+    };
+}
+
 const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
@@ -276,7 +293,6 @@ function closeDatabase() {
     if (dbInstance) {
         try {
             dbInstance.close();
-            console.log('[DB] Conexión cerrada.');
         } catch (e) {
             console.error('[DB] Error cerrando base de datos:', e);
         }
