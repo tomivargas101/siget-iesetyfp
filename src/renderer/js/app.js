@@ -1310,7 +1310,7 @@ function navigateTo(viewName) {
         teachers: 'Módulo de Docentes y Asistencias',
         designations: 'Gestión de Cátedras, Designaciones y Suplencias',
         'csv-import': 'Módulo de Carga Masiva por Archivos CSV',
-        reports: 'Generación Oficial de Planillas Mensuales',
+        reports: 'Planilla Mensual',
         users: 'Gestión de Usuarios y Accesos Institucionales'
     };
     const titleElem = document.getElementById('topbar-title');
@@ -2933,7 +2933,7 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
             <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Nuevo Estado Reglamentario</label>
                 <select id="pf-new-status" required class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-gold">
-                    <option value="LIC">LIC - Licencia (Salud / DL-01 o DL-02)</option>
+                    <option value="LIC">LIC - Licencia (Salud o Novedad)</option>
                     <option value="P">P - Permiso Particular (Art. 115 - Máx 6/año)</option>
                     <option value="LT">LT - Largo Tratamiento de Salud (Art. 48 / 114b)</option>
                 </select>
@@ -2942,10 +2942,10 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
             <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Artículo y Clasificación Normativa</label>
                 <select id="pf-article-code" required class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-gold">
-                    <optgroup label="Cuadro IL-01: Licencias Médicas y Salud (Hojas 1-2)">
+                    <optgroup label="Licencias Médicas y Salud">
                         ${il01Options || '<option value="114-A-1">Art. 114 a.1 - Corto Tratamiento (114-A-1)</option>'}
                     </optgroup>
-                    <optgroup label="Cuadro IL-02: Inasistencias, Permisos y Especiales (Hojas 3-6)">
+                    <optgroup label="Inasistencias, Permisos y Especiales">
                         ${il02Options || '<option value="115">Art. 115 - Permiso Razones Particulares (115)</option>'}
                     </optgroup>
                 </select>
@@ -6159,7 +6159,7 @@ async function previewMonthlyReport(silent = false) {
         AppState.reportPreviewRecords = [...list01, ...list02];
 
         if (metaP) {
-            metaP.textContent = `Total: ${AppState.reportPreviewRecords.length} registros listos | Cuadro IL-01 (Salud): ${list01.length} | Cuadro IL-02 (Novedades): ${list02.length} | Período: ${String(month).padStart(2, '0')}/${year}`;
+            metaP.textContent = `Total: ${AppState.reportPreviewRecords.length} registros listos | Salud: ${list01.length} | Novedades: ${list02.length} | Período: ${String(month).padStart(2, '0')}/${year}`;
         }
 
         renderReportPreviewTable();
@@ -6266,7 +6266,7 @@ async function generateMonthlyReport() {
     btnGen.disabled = true;
     btnGen.innerHTML = `<span>Compilando Planilla Excel...</span>`;
     statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 block';
-    statusDiv.textContent = `Compilando Cuadros IL-01, IL-02 y Hoja Estadística para ${month}/${year}...`;
+    statusDiv.textContent = `Compilando Planilla Mensual para ${month}/${year}...`;
 
     try {
         const res = await window.sigetApi.reports.generateMonthly(year, month);

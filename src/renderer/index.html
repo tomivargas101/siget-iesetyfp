@@ -575,10 +575,10 @@
                         <span>Carga CSV</span>
                     </button>
 
-                    <!-- Botón Reportes Excel (Secretaría) -->
+                    <!-- Botón Planilla Mensual (Secretaría) -->
                     <button data-view="reports" id="nav-btn-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
                         <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
-                        <span>Planillas Excel</span>
+                        <span>Planilla Mensual</span>
                     </button>
 
                     <!-- Botón Gestión de Usuarios (Secretaría) -->
@@ -1277,10 +1277,10 @@
                 <section id="view-designations" class="view-panel hidden space-y-4">
                     <div class="flex space-x-2 border-b border-slate-200 pb-2">
                         <button id="tab-btn-desig" class="desig-tab-btn active px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-gold transition">
-                            Planta de Cátedras y Designaciones
+                            Cátedras
                         </button>
                         <button id="tab-btn-subst" class="desig-tab-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200 transition">
-                            Suplencias y Reemplazos Oficiales
+                            Suplencias
                         </button>
                     </div>
 
@@ -1372,28 +1372,6 @@
                             <div>
                                 <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Módulo de Carga Masiva de Archivos</h3>
                                 <p class="text-xs text-slate-500 dark:text-zinc-400">Importación unificada para Planta Docente ("Datos del personal") y Asistencias con detección dinámica de formato.</p>
-                            </div>
-                        </div>
-
-                        <!-- Selector Unificado de Tipo de Ingesta -->
-                        <div class="mb-5 p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex items-center space-x-2">
-                                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300">Tipo de Ingesta:</span>
-                                <div class="inline-flex rounded-lg bg-slate-200 dark:bg-zinc-800 p-0.5" id="csv-type-selector">
-                                    <button type="button" id="btn-mode-auto" data-mode="auto" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs transition">
-                                        Auto-Detectar
-                                    </button>
-                                    <button type="button" id="btn-mode-personnel" data-mode="personnel" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
-                                        Planta Funcional
-                                    </button>
-                                    <button type="button" id="btn-mode-attendance" data-mode="attendance" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition">
-                                        Asistencias y Novedades
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="csv-mode-badge" class="hidden items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800">
-                                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
-                                <span id="csv-mode-badge-text">Auto-detección activa</span>
                             </div>
                         </div>
 
@@ -1534,8 +1512,8 @@
                                 <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
                             </div>
                             <div>
-                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Generación Oficial de Planillas Mensuales y Planta Docente</h3>
-                                <p class="text-xs text-slate-500 dark:text-zinc-400">Previsualización interactiva con procesamiento normativo (DL-01 y DL-02) y exportación final en Excel.</p>
+                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Planilla Mensual</h3>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400">Previsualización interactiva y exportación oficial en formato Excel.</p>
                             </div>
                         </div>
 
@@ -1583,7 +1561,7 @@
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h3 class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
-                                    Previsualización de Registros a Exportar (Cuadros IL-01 e IL-02)
+                                    Previsualización de Registros a Exportar
                                 </h3>
                                 <p id="report-preview-meta" class="text-[11px] text-slate-500 dark:text-zinc-400">
                                     Mostrando los registros procesados para el período seleccionado.
@@ -1591,8 +1569,8 @@
                             </div>
                             <div class="flex items-center space-x-1.5 bg-slate-50 dark:bg-[#202020] p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
                                 <button id="btn-preview-filter-all" class="px-3 py-1 text-[11px] font-bold rounded-md bg-gold text-slate-900 transition">Todos</button>
-                                <button id="btn-preview-filter-dl01" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">IL-01 Salud</button>
-                                <button id="btn-preview-filter-dl02" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">IL-02 Novedades</button>
+                                <button id="btn-preview-filter-dl01" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">Salud</button>
+                                <button id="btn-preview-filter-dl02" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">Novedades</button>
                             </div>
                         </div>
 
