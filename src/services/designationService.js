@@ -574,23 +574,31 @@ class DesignationService {
         }
     }
 
-    static deleteDesignation(id) {
+    static deleteDesignation(idOrIds) {
         const db = getDatabase();
         try {
-            const desig = db.prepare(`
+            const targetIds = Array.isArray(idOrIds) ? idOrIds.map(Number) : [Number(idOrIds)];
+            if (targetIds.length === 0 || targetIds.some(isNaN)) {
+                return { success: false, message: 'Identificador de designación inválido.' };
+            }
+
+            const placeholders = targetIds.map(() => '?').join(',');
+            const desigs = db.prepare(`
                 SELECT d.id, d.teacher_id, d.subject_id, s.name as subject_name, t.last_name, t.first_name
                 FROM designations d
                 JOIN subjects s ON d.subject_id = s.id
                 JOIN teachers t ON d.teacher_id = t.id
-                WHERE d.id = ?
-            `).get(id);
+                WHERE d.id IN (${placeholders})
+            `).all(...targetIds);
 
-            if (!desig) {
+            if (!desigs || desigs.length === 0) {
                 return { success: false, message: 'La designación no existe o ya fue eliminada.' };
             }
 
-            // Verificar si existen asistencias asociadas
-            const attCountRow = db.prepare('SELECT COUNT(*) as count FROM attendances WHERE designation_id = ?').get(id);
+            const firstDesig = desigs[0];
+
+            // Verificar si existen asistencias asociadas en cualquiera de los IDs a eliminar
+            const attCountRow = db.prepare(`SELECT COUNT(*) as count FROM attendances WHERE designation_id IN (${placeholders})`).get(...targetIds);
             const attCount = attCountRow ? attCountRow.count : 0;
 
             const currentUser = AuthService.getCurrentUser();
@@ -598,14 +606,14 @@ class DesignationService {
 
             if (attCount > 0) {
                 // Baja lógica estricta para preservar registros históricos (RN-03)
-                db.prepare('UPDATE designations SET is_active = 0 WHERE id = ?').run(id);
-                db.prepare('UPDATE substitutions SET is_active = 0 WHERE designation_id = ?').run(id);
+                db.prepare(`UPDATE designations SET is_active = 0 WHERE id IN (${placeholders})`).run(...targetIds);
+                db.prepare(`UPDATE substitutions SET is_active = 0 WHERE designation_id IN (${placeholders})`).run(...targetIds);
 
                 AuditService.log(
                     currentUser ? currentUser.id : null,
                     username,
                     'BAJA_LOGICA_DESIGNACION',
-                    `Baja lógica de cátedra ID ${id} (${desig.subject_name} - ${desig.last_name}, ${desig.first_name}) preservando ${attCount} registros de asistencia (RN-03).`
+                    `Baja lógica de cátedra (${firstDesig.subject_name} - ${firstDesig.last_name}, ${firstDesig.first_name}, IDs: ${targetIds.join(', ')}) preservando ${attCount} registros de asistencia (RN-03).`
                 );
 
                 return { 
@@ -615,20 +623,20 @@ class DesignationService {
                 };
             } else {
                 // Borrado definitivo seguro si fue creada por error sin asistencias
-                db.prepare('DELETE FROM substitutions WHERE designation_id = ?').run(id);
-                db.prepare('DELETE FROM designations WHERE id = ?').run(id);
+                db.prepare(`DELETE FROM substitutions WHERE designation_id IN (${placeholders})`).run(...targetIds);
+                db.prepare(`DELETE FROM designations WHERE id IN (${placeholders})`).run(...targetIds);
 
                 AuditService.log(
                     currentUser ? currentUser.id : null,
                     username,
                     'ELIMINAR_DESIGNACION',
-                    `Eliminación definitiva de cátedra errónea ID ${id} (${desig.subject_name} - ${desig.last_name}, ${desig.first_name}) sin asistencias asociadas.`
+                    `Eliminación definitiva de cátedra errónea (${firstDesig.subject_name} - ${firstDesig.last_name}, ${firstDesig.first_name}) sin asistencias asociadas.`
                 );
 
                 return { 
                     success: true, 
                     isLogical: false,
-                    message: 'La designación de cátedra ha sido eliminada exitosamente del sistema.' 
+                    message: 'La designación de cátedra y sus horarios han sido eliminados exitosamente del sistema.' 
                 };
             }
         } catch (error) {

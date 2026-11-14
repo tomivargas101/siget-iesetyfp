@@ -3579,22 +3579,14 @@ async function loadDesignations() {
                         <div class="text-[11px] text-slate-400 font-mono">DNI ${escapeHtml(d.teacherDni)} | ${escapeHtml(d.revista || 'Titular')}</div>
                     </td>
                     <td class="py-2.5 px-3">
-                        ${d.schedules && d.schedules.length > 1 ? `
-                            <div class="space-y-1 text-left inline-block w-full">
-                                ${d.schedules.map(s => `
-                                    <div class="flex items-center justify-between text-[11px] gap-2 py-0.5 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
-                                        <span class="font-bold text-slate-800 dark:text-zinc-200">${escapeHtml(s.dayOfWeek)}:</span>
-                                        <span class="font-mono text-slate-500 dark:text-zinc-400 text-[10px]">${escapeHtml(s.startTime)} - ${escapeHtml(s.endTime)}</span>
-                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">${s.hoursCount} hs</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : `
-                            <div class="text-center">
-                                <div class="font-bold text-slate-700 dark:text-zinc-200">${escapeHtml((d.schedules && d.schedules[0]?.dayOfWeek) || d.dayOfWeek || 'Lunes')}</div>
-                                <div class="text-[11px] text-slate-400 font-mono">${escapeHtml((d.schedules && d.schedules[0]?.startTime) || d.startTime || '18:00')} - ${escapeHtml((d.schedules && d.schedules[0]?.endTime) || d.endTime || '20:00')}</div>
-                            </div>
-                        `}
+                        <div class="space-y-1 text-left inline-block w-full">
+                            ${(d.schedules && d.schedules.length > 0 ? d.schedules : [{ dayOfWeek: d.dayOfWeek || 'Lunes', startTime: d.startTime || '18:00', endTime: d.endTime || '20:00' }]).map(s => `
+                                <div class="flex items-center text-[11px] py-0.5 border-b border-slate-100/60 dark:border-zinc-800/60 last:border-0">
+                                    <span class="font-bold text-slate-800 dark:text-zinc-200 w-20 shrink-0">${escapeHtml(s.dayOfWeek)}:</span>
+                                    <span class="font-mono text-slate-600 dark:text-zinc-400">${escapeHtml(s.startTime)} - ${escapeHtml(s.endTime)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
                     </td>
                     <td class="py-2.5 px-3 text-center">
                         <span class="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-black text-slate-800 dark:text-zinc-100">${d.hoursCount} hs</span>
@@ -3611,7 +3603,7 @@ async function loadDesignations() {
                             <button onclick="editDesignation(${d.id})" title="Editar Cátedra" class="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-zinc-800">
                                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button onclick="deleteDesignation(${d.id})" title="Dar de baja / Eliminar cátedra" class="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800">
+                            <button onclick='deleteDesignation(${JSON.stringify(d.ids && d.ids.length > 1 ? d.ids : d.id)})' title="Dar de baja / Eliminar cátedra" class="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                             </button>
                             <button onclick="openSubstitutionModal(${d.id})" title="Registrar Suplencia Oficial" class="px-2 py-1 rounded text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-[11px] font-bold flex items-center space-x-1">

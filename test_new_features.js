@@ -165,8 +165,8 @@ async function runTests() {
     // 7. Verificación de Cátedras con Días Múltiples y Horarios Variables
     console.log('\n7. Test: DesignationService (Cátedras Multi-Día con Horas y Horarios Variables)');
     const tMulti = db.prepare("SELECT id, first_name, last_name FROM teachers LIMIT 1").get();
-    const sMulti = db.prepare("SELECT id, name, career_id FROM subjects LIMIT 1").get();
-    assert(tMulti && sMulti, 'Se requieren docente y materia en base de datos para prueba');
+    const sMulti = db.prepare("SELECT id, name, career_id FROM subjects WHERE id NOT IN (SELECT subject_id FROM designations WHERE teacher_id = ? AND is_active = 1) LIMIT 1").get(tMulti.id);
+    assert(tMulti && sMulti, 'Se requieren docente y materia disponible en base de datos para prueba');
 
     // 7.1 Validación: Rechazar días duplicados en el mismo payload
     const dupRes = await DesignationService.saveDesignation({
@@ -226,26 +226,26 @@ async function runTests() {
     assert(chairsFormatted.includes('Total: 4 hs'), 'El formato imprimible debe indicar el total de horas');
     console.log(`  ✅ [PASS] Formato de control imprimible: "${chairsFormatted}"`);
 
-    // 7.6 Modificación: Cambiar horarios y agregar un tercer día (Miércoles 2hs)
+    // 7.6 Modificación: Cambiar horarios y agregar un tercer día (Viernes 2hs)
     const updateMultiRes = await DesignationService.saveDesignation({
         id: createdDesigId,
         teacherId: tMulti.id,
         subjectId: sMulti.id,
         schedules: [
             { dayOfWeek: 'Lunes', startTime: '18:00', endTime: '20:15', hoursCount: 3 },
-            { dayOfWeek: 'Miércoles', startTime: '19:00', endTime: '20:30', hoursCount: 2 },
+            { dayOfWeek: 'Viernes', startTime: '19:00', endTime: '20:30', hoursCount: 2 },
             { dayOfWeek: 'Jueves', startTime: '18:00', endTime: '18:40', hoursCount: 1 }
         ],
         revista: 'Titular'
     });
-    assert.strictEqual(updateMultiRes.success, true, 'Debe actualizar cátedra agregando un día');
+    assert.strictEqual(updateMultiRes.success, true, `Debe actualizar cátedra agregando un día: ${updateMultiRes.message}`);
     const updatedDetail = DesignationService.getDesignationById(createdDesigId);
     assert.strictEqual(updatedDetail.schedules.length, 3, 'Ahora debe tener 3 días');
     assert.strictEqual(updatedDetail.totalHours, 6, 'Total de horas debe ser 6 (3 + 2 + 1)');
     console.log('  ✅ [PASS] Actualización dinámica de días y horas comprobada (ahora 6 hs semanales)');
 
     // 7.7 Limpieza de la designación de prueba
-    const delRes = await DesignationService.deleteDesignation(createdDesigId);
+    const delRes = await DesignationService.deleteDesignation(updatedDetail.schedules.map(s => s.id));
     assert.strictEqual(delRes.success, true, 'Debe eliminar la designación');
     console.log('  ✅ [PASS] Limpieza de cátedra multi-día efectuada');
 
