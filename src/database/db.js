@@ -35,6 +35,7 @@ function getDatabase() {
             dbInstance.exec('PRAGMA foreign_keys = ON;');
             dbInstance.exec('PRAGMA synchronous = NORMAL;');
             _ensureSecuritySchema(dbInstance);
+            _ensureInstitutionalSchema(dbInstance);
             _ensureCleanOfficialSeed(dbInstance);
         } catch (err) {
             console.error('[DB] Error configurando PRAGMAs y migraciones:', err.message);
@@ -64,6 +65,23 @@ function _ensureSecuritySchema(db) {
         }
     } catch (e) {
         console.error('[DB] Error asegurando esquema de seguridad en users:', e.message);
+    }
+}
+
+function _ensureInstitutionalSchema(db) {
+    try {
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS institutional_days (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                type TEXT DEFAULT 'jornada',
+                created_by TEXT,
+                created_at TEXT
+            );
+        `);
+    } catch (e) {
+        console.error('[DB] Error asegurando esquema de días institucionales:', e.message);
     }
 }
 
