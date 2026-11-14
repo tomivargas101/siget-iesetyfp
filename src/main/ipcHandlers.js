@@ -230,15 +230,23 @@ function registerIpcHandlers() {
     // CALENDARIO INSTITUCIONAL DEL PROFESORADO
     // -------------------------------------------------------------
     ipcMain.handle('calendar:getTeacherTimeline', (event, params) => {
-        return TeacherCalendarService.getTeacherTimeline(params);
+        const res = TeacherCalendarService.getTeacherTimeline(params);
+        return JSON.parse(JSON.stringify(res));
     });
 
     ipcMain.handle('calendar:getInstitutionalOverview', (event, params) => {
-        return TeacherCalendarService.getInstitutionalOverview(params);
+        const res = TeacherCalendarService.getInstitutionalOverview(params);
+        return JSON.parse(JSON.stringify(res));
     });
 
     ipcMain.handle('calendar:getMonthMatrix', async (event, params) => {
-        return await TeacherCalendarService.getMonthMatrix(params);
+        try {
+            const matrix = await TeacherCalendarService.getMonthMatrix(params);
+            return JSON.parse(JSON.stringify(matrix));
+        } catch (err) {
+            console.error('[IPC calendar:getMonthMatrix] Error serializando matriz del mes:', err);
+            return { success: false, message: err.message, days: [] };
+        }
     });
 
     ipcMain.handle('calendar:getInstitutionalDays', (event, params) => {

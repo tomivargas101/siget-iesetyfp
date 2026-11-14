@@ -615,8 +615,7 @@ class TeacherCalendarService {
                     dayMap[dayNum] = {
                         status: code,
                         hours: a.hours || 4,
-                        observations: a.observations || '',
-                        toString() { return this.status; }
+                        observations: a.observations || ''
                     };
                     if (code === 'PR') totPr++;
                     else if (code === 'I') totI++;
@@ -652,7 +651,7 @@ class TeacherCalendarService {
                 };
             });
 
-            return {
+            const result = {
                 success: true,
                 year: y,
                 month: m,
@@ -677,6 +676,8 @@ class TeacherCalendarService {
                     totalInstitutionalDays: days.filter(d => d.isInstitutionalDay).length
                 }
             };
+
+            return JSON.parse(JSON.stringify(result));
         } catch (error) {
             console.error('[TeacherCalendarService] Error generando month matrix:', error);
             return { success: false, message: error.message };
