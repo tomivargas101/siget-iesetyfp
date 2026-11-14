@@ -1126,10 +1126,14 @@
                                         <label class="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Hasta</label>
                                         <input type="date" id="calendar-end-date" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-gold">
                                     </div>
-                                    <div class="pt-5">
-                                        <button id="btn-load-calendar" class="btn-gold px-5 py-2.5 text-xs font-bold flex items-center space-x-2 shadow-sm rounded-lg hover:shadow transition">
-                                            <i data-lucide="search" class="w-4 h-4"></i>
-                                            <span>Consultar Cronograma</span>
+                                    <div class="pt-5 flex items-center space-x-2.5">
+                                        <button id="btn-export-teacher-pdf" type="button" title="Exportar Ficha Oficial en PDF" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                                            <span>Exportar Ficha (PDF)</span>
+                                        </button>
+                                        <button id="btn-export-teacher-excel" type="button" title="Exportar Ficha Oficial en Planilla Excel" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                                            <span>Exportar Ficha (Excel)</span>
                                         </button>
                                     </div>
                                 </div>

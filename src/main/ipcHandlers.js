@@ -283,6 +283,30 @@ function registerIpcHandlers() {
         return await TeacherCalendarService.exportMonthPdf(params);
     });
 
+    ipcMain.handle('calendar:exportTeacherPdf', async (event, params) => {
+        try {
+            const currentUser = AuthService.getCurrentUser();
+            const res = await TeacherCalendarService.exportTeacherRecordPdf({
+                ...params,
+                exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
+            });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC calendar:exportTeacherPdf] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
+    ipcMain.handle('calendar:exportTeacherExcel', async (event, params) => {
+        try {
+            const res = await TeacherCalendarService.exportTeacherRecordExcel(params);
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC calendar:exportTeacherExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
     // -------------------------------------------------------------
     // REGISTRO OFICIAL DE AUDITORÍA Y TRAZABILIDAD
     // -------------------------------------------------------------

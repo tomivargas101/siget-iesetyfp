@@ -797,13 +797,26 @@ class TeacherCalendarService {
             }
         });
 
-        await workbook.xlsx.writeFile(filePath);
+        let finalFilePath = filePath;
+        let finalFileName = fileName;
+        try {
+            await workbook.xlsx.writeFile(filePath);
+        } catch (writeErr) {
+            if (writeErr.code === 'EBUSY') {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                finalFilePath = path.join(outDir, finalFileName);
+                await workbook.xlsx.writeFile(finalFilePath);
+            } else {
+                throw writeErr;
+            }
+        }
 
         return {
             success: true,
-            filePath,
-            fileName,
-            message: `Planilla mensual de asistencia guardada en Excel: ${fileName}`
+            filePath: finalFilePath,
+            fileName: finalFileName,
+            message: `Planilla mensual de asistencia guardada en Excel: ${finalFileName}`
         };
     }
 
@@ -987,6 +1000,508 @@ class TeacherCalendarService {
                 fileName,
                 totalLeaves: allLeaves.length,
                 message: `Calendario mensual exportado a PDF: ${fileName}`
+            };
+        }
+    }
+
+    /**
+     * Exporta la Ficha Docente completa en formato Excel (.xlsx).
+     * Incluye datos personales, revista, carga horaria, límites anuales estatutarios,
+     * cátedras y horarios asignados, suplencias en curso y la línea de tiempo de novedades.
+     */
+    static async exportTeacherRecordExcel({ teacherId, startDate = null, endDate = null, outputDir = null }) {
+        const path = require('path');
+        const fs = require('fs');
+        const ExcelJS = require('exceljs');
+
+        const timeline = this.getTeacherTimeline({ teacherId, startDate, endDate });
+        if (!timeline || !timeline.success) {
+            throw new Error(timeline?.message || 'Error al obtener datos del docente para exportación.');
+        }
+
+        const t = timeline.teacher;
+        const period = timeline.period;
+        const desigs = timeline.designations || [];
+        const allSubs = [
+            ...(timeline.substitutions?.asTitular || []),
+            ...(timeline.substitutions?.asSuplente || [])
+        ];
+        const events = timeline.events || [];
+        const m = timeline.annualMetrics || {};
+
+        const outDir = outputDir || path.resolve(__dirname, '../../reportes');
+        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+        const safeLegajo = (t.legajo || t.dni || 'DOC').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.xlsx`;
+        const filePath = path.join(outDir, fileName);
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'SIGET - IESETYFP';
+        workbook.created = new Date();
+
+        const sheetName = `Ficha ${t.lastName}`.substring(0, 31);
+        const sheet = workbook.addWorksheet(sheetName);
+        sheet.views = [{ showGridLines: true }];
+
+        // Fila 1: Encabezado Institucional Principal
+        sheet.mergeCells('A1:G1');
+        const header1 = sheet.getCell('A1');
+        header1.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
+        header1.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        header1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        header1.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(1).height = 28;
+
+        // Fila 2: Subtítulo de Ficha Docente
+        sheet.mergeCells('A2:G2');
+        const header2 = sheet.getCell('A2');
+        const nowStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        header2.value = `FICHA INSTITUCIONAL DE DOCENTE • CONTROL ESTATUTARIO Y CRONOGRAMA ACADÉMICO • EMISIÓN: ${nowStr}`;
+        header2.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } };
+        header2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        header2.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(2).height = 22;
+
+        // Fila 3: Espaciador
+        sheet.getRow(3).height = 8;
+
+        // Anchos de Columna
+        sheet.getColumn(1).width = 16;
+        sheet.getColumn(2).width = 30;
+        sheet.getColumn(3).width = 16;
+        sheet.getColumn(4).width = 24;
+        sheet.getColumn(5).width = 16;
+        sheet.getColumn(6).width = 24;
+        sheet.getColumn(7).width = 34;
+
+        let rowIdx = 4;
+
+        // Helper para secciones
+        const addSectionHeader = (title) => {
+            sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
+            const cell = sheet.getCell(`A${rowIdx}`);
+            cell.value = title;
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            sheet.getRow(rowIdx).height = 24;
+            rowIdx++;
+        };
+
+        // 1. DATOS DEL DOCENTE
+        addSectionHeader('I. DATOS DEL DOCENTE Y CARGA HORARIA');
+        const rTeacher1 = sheet.getRow(rowIdx++);
+        rTeacher1.values = ['Docente:', t.fullName, 'DNI:', t.dni, 'Legajo:', t.legajo || 'S/L', ''];
+        rTeacher1.font = { name: 'Segoe UI', size: 9 };
+        rTeacher1.getCell(1).font = { name: 'Segoe UI', size: 9, bold: true };
+        rTeacher1.getCell(3).font = { name: 'Segoe UI', size: 9, bold: true };
+        rTeacher1.getCell(5).font = { name: 'Segoe UI', size: 9, bold: true };
+
+        const rTeacher2 = sheet.getRow(rowIdx++);
+        rTeacher2.values = ['Revista:', t.revista || 'Titular', 'Carga Asignada:', `${t.activeHours} hs / ${t.maxWeeklyHours || 30} hs`, 'Disponibilidad:', t.availabilityStatus, ''];
+        rTeacher2.font = { name: 'Segoe UI', size: 9 };
+        rTeacher2.getCell(1).font = { name: 'Segoe UI', size: 9, bold: true };
+        rTeacher2.getCell(3).font = { name: 'Segoe UI', size: 9, bold: true };
+        rTeacher2.getCell(5).font = { name: 'Segoe UI', size: 9, bold: true };
+
+        const rTeacher3 = sheet.getRow(rowIdx++);
+        rTeacher3.values = ['Período Consultado:', `${period.startDate} al ${period.endDate}`, '', '', '', '', ''];
+        rTeacher3.font = { name: 'Segoe UI', size: 9 };
+        rTeacher3.getCell(1).font = { name: 'Segoe UI', size: 9, bold: true };
+
+        rowIdx++; // Espacio
+
+        // 2. SEGUIMIENTO ANUAL DE LÍMITES
+        addSectionHeader(`II. SEGUIMIENTO ANUAL DE LÍMITES Y TOPES ESTATUTARIOS (CICLO ${m.cycleYear || new Date().getFullYear()})`);
+        const rKpiH = sheet.getRow(rowIdx++);
+        rKpiH.values = ['Inasistencias (I)', 'Permisos (Art. 115)', 'Licencias Médicas (Art. 114 a)', 'Largo Tratamiento', '', '', ''];
+        rKpiH.font = { name: 'Segoe UI', size: 9, bold: true };
+        rKpiH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+
+        const rKpiV = sheet.getRow(rowIdx++);
+        rKpiV.values = [
+            `${m.inasistencias?.count || 0} / 5 (Tope máx)`,
+            `${m.permisos?.count || 0} / 6 (Tope máx)`,
+            `${m.licenciasMedicas?.count || 0} / 25 días (Tope máx)`,
+            `${m.largoTratamiento || 0} días`,
+            '', '', ''
+        ];
+        rKpiV.font = { name: 'Segoe UI', size: 9, bold: true };
+
+        rowIdx++; // Espacio
+
+        // 3. CÁTEDRAS ASIGNADAS
+        addSectionHeader('III. CÁTEDRAS, CARRERAS Y HORARIOS ASIGNADOS');
+        const rDesigH = sheet.getRow(rowIdx++);
+        rDesigH.values = ['Materia / Espacio Curricular', 'Código', 'Carrera', 'Día y Horario', 'Carga Horaria', 'Revista', 'Resolución'];
+        rDesigH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+        rDesigH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+
+        if (desigs.length === 0) {
+            const rEmpty = sheet.getRow(rowIdx++);
+            rEmpty.values = ['No posee cátedras regulares asignadas actualmente.', '', '', '', '', '', ''];
+            rEmpty.font = { name: 'Segoe UI', size: 9, italic: true };
+        } else {
+            desigs.forEach(d => {
+                const rD = sheet.getRow(rowIdx++);
+                rD.values = [
+                    d.subject_name,
+                    d.subject_code || '—',
+                    d.career_name || '—',
+                    `${d.day_of_week} ${d.start_time} - ${d.end_time}`,
+                    `${d.hours_count} hs`,
+                    d.revista || 'Titular',
+                    d.resolution_number || 'S/R'
+                ];
+                rD.font = { name: 'Segoe UI', size: 9 };
+            });
+        }
+
+        rowIdx++; // Espacio
+
+        // 4. SUPLENCIAS
+        addSectionHeader('IV. SUPLENCIAS EN CURSO (TITULAR / SUPLENTE)');
+        const rSubH = sheet.getRow(rowIdx++);
+        rSubH.values = ['Rol', 'Materia / Cátedra', 'Docente Asociado', 'DNI Asociado', 'Período', 'Motivo / Causa', 'Resolución'];
+        rSubH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+        rSubH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+
+        if (allSubs.length === 0) {
+            const rEmpty = sheet.getRow(rowIdx++);
+            rEmpty.values = ['No registra suplencias vigentes ni antecedentes.', '', '', '', '', '', ''];
+            rEmpty.font = { name: 'Segoe UI', size: 9, italic: true };
+        } else {
+            allSubs.forEach(s => {
+                const rS = sheet.getRow(rowIdx++);
+                rS.values = [
+                    s.rol,
+                    s.subjectName,
+                    s.suplenteName ? `Suplente: ${s.suplenteName}` : `Titular: ${s.titularName}`,
+                    s.suplenteDni || s.titularDni || '—',
+                    `${s.startDate} al ${s.endDate}`,
+                    s.reason || '—',
+                    s.resolution || 'S/R'
+                ];
+                rS.font = { name: 'Segoe UI', size: 9 };
+            });
+        }
+
+        rowIdx++; // Espacio
+
+        // 5. LÍNEA DE TIEMPO / ASISTENCIAS Y NOVEDADES EN EL PERÍODO
+        addSectionHeader(`V. CRONOGRAMA DE ASISTENCIAS Y NOVEDADES EN EL PERÍODO (${period.startDate} al ${period.endDate})`);
+        const rEvH = sheet.getRow(rowIdx++);
+        rEvH.values = ['Fecha', 'Estado / Marca', 'Horas', 'Cátedra / Espacio Curricular', 'Observaciones / Motivo', '', ''];
+        rEvH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+        rEvH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+
+        if (events.length === 0) {
+            const rEmpty = sheet.getRow(rowIdx++);
+            rEmpty.values = ['No se registraron asistencias ni novedades en este período.', '', '', '', '', '', ''];
+            rEmpty.font = { name: 'Segoe UI', size: 9, italic: true };
+        } else {
+            events.forEach(ev => {
+                const rE = sheet.getRow(rowIdx++);
+                rE.values = [
+                    ev.date,
+                    `${ev.eventType} (${ev.status})`,
+                    `${ev.hours || 4} hs`,
+                    ev.subjectName,
+                    ev.observations || '—',
+                    '', ''
+                ];
+                rE.font = { name: 'Segoe UI', size: 9 };
+                rE.getCell(1).alignment = { horizontal: 'center' };
+                rE.getCell(3).alignment = { horizontal: 'center' };
+            });
+        }
+
+        rowIdx++;
+        // Footer oficial
+        sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
+        const footCell = sheet.getCell(`A${rowIdx}`);
+        footCell.value = `SIGET • IESETYFP • REPORTE OFICIAL DE FICHA DOCENTE • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA Y SECRETARÍA`;
+        footCell.font = { name: 'Segoe UI', size: 8, italic: true, color: { argb: 'FF64748B' } };
+        footCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(rowIdx).height = 20;
+
+        let finalFilePath = filePath;
+        let finalFileName = fileName;
+        try {
+            await workbook.xlsx.writeFile(filePath);
+        } catch (writeErr) {
+            if (writeErr.code === 'EBUSY') {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                finalFilePath = path.join(outDir, finalFileName);
+                await workbook.xlsx.writeFile(finalFilePath);
+            } else {
+                throw writeErr;
+            }
+        }
+        const buffer = await workbook.xlsx.writeBuffer();
+        const base64 = buffer.toString('base64');
+
+        return {
+            success: true,
+            fileName: finalFileName,
+            filePath: finalFilePath,
+            base64,
+            message: `Ficha Docente Excel exportada exitosamente: ${finalFileName}`
+        };
+    }
+
+    /**
+     * Exporta la Ficha Docente completa en formato PDF formal.
+     */
+    static async exportTeacherRecordPdf({ teacherId, startDate = null, endDate = null, outputDir = null, exportedBy = 'SECRETARÍA' }) {
+        const path = require('path');
+        const fs = require('fs');
+
+        const timeline = this.getTeacherTimeline({ teacherId, startDate, endDate });
+        if (!timeline || !timeline.success) {
+            throw new Error(timeline?.message || 'Error al obtener datos del docente.');
+        }
+
+        const t = timeline.teacher;
+        const period = timeline.period;
+        const desigs = timeline.designations || [];
+        const allSubs = [
+            ...(timeline.substitutions?.asTitular || []),
+            ...(timeline.substitutions?.asSuplente || [])
+        ];
+        const events = timeline.events || [];
+        const m = timeline.annualMetrics || {};
+
+        const outDir = outputDir || path.resolve(__dirname, '../../reportes');
+        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+        const safeLegajo = (t.legajo || t.dni || 'DOC').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.pdf`;
+        const filePath = path.join(outDir, fileName);
+
+        const desigsRows = desigs.map(d => `
+            <tr>
+                <td style="padding: 5px; font-weight: bold;">${escapeCalXml(d.subject_name)}</td>
+                <td style="padding: 5px; text-align: center; font-family: monospace;">${escapeCalXml(d.subject_code || '—')}</td>
+                <td style="padding: 5px;">${escapeCalXml(d.career_name || '—')}</td>
+                <td style="padding: 5px; text-align: center;">${escapeCalXml(d.day_of_week)} ${escapeCalXml(d.start_time)}-${escapeCalXml(d.end_time)}</td>
+                <td style="padding: 5px; text-align: center; font-weight: bold;">${d.hours_count} hs</td>
+                <td style="padding: 5px; text-align: center;">${escapeCalXml(d.revista || 'Titular')}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" style="padding: 8px; text-align: center; color: #64748b; font-style: italic;">No registra cátedras regulares asignadas actualmente.</td></tr>';
+
+        const subsRows = allSubs.map(s => `
+            <tr>
+                <td style="padding: 5px; font-weight: bold; color: ${s.rol.includes('Titular') ? '#7c3aed' : '#2563eb'};">${escapeCalXml(s.rol)}</td>
+                <td style="padding: 5px;">${escapeCalXml(s.subjectName)}</td>
+                <td style="padding: 5px;">${escapeCalXml(s.suplenteName ? `Suplente: ${s.suplenteName}` : `Titular: ${s.titularName}`)}</td>
+                <td style="padding: 5px; text-align: center;">${escapeCalXml(s.startDate)} al ${escapeCalXml(s.endDate)}</td>
+                <td style="padding: 5px;">${escapeCalXml(s.reason || '—')}</td>
+                <td style="padding: 5px; text-align: center; font-family: monospace;">${escapeCalXml(s.resolution || 'S/R')}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" style="padding: 8px; text-align: center; color: #64748b; font-style: italic;">No registra suplencias vigentes ni antecedentes.</td></tr>';
+
+        const eventsRows = events.map((ev, i) => `
+            <tr style="background-color: ${i % 2 === 0 ? '#fff' : '#f8fafc'};">
+                <td style="padding: 5px; text-align: center; font-family: monospace; font-weight: bold;">${escapeCalXml(ev.date)}</td>
+                <td style="padding: 5px; text-align: center; font-weight: bold; color: ${ev.status === 'PR' ? '#059669' : ev.status === 'I' ? '#dc2626' : '#b45309'};">${escapeCalXml(ev.eventType)} (${escapeCalXml(ev.status)})</td>
+                <td style="padding: 5px; text-align: center;">${ev.hours || 4} hs</td>
+                <td style="padding: 5px;">${escapeCalXml(ev.subjectName)}</td>
+                <td style="padding: 5px; color: #475569;">${escapeCalXml(ev.observations || '—')}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="padding: 8px; text-align: center; color: #64748b; font-style: italic;">No se registraron novedades ni asistencias en este período.</td></tr>';
+
+        const nowStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+
+        const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ficha Docente Institucional - ${escapeCalXml(t.fullName)}</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; background: #fff; font-size: 10px; }
+        .header { border-bottom: 2px solid #b45309; padding-bottom: 10px; margin-bottom: 12px; }
+        .inst-title { font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
+        .doc-title { font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
+        .meta-grid { display: flex; justify-content: space-between; font-size: 10px; color: #334155; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .kpi-boxes { display: flex; gap: 8px; margin: 10px 0; }
+        .kpi-box { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
+        .kpi-val { font-size: 14px; font-weight: bold; }
+        .kpi-lbl { font-size: 8.5px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+        .section-title { font-size: 10.5px; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9.5px; }
+        th { background: #1e293b; color: #fff; font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 5px; text-align: left; }
+        th.center { text-align: center; }
+        td { border-bottom: 1px solid #e2e8f0; }
+        .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="inst-title">Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETYFP)</div>
+        <div class="doc-title">FICHA OFICIAL DE DOCENTE • CRONOGRAMA Y CONTROL ESTATUTARIO</div>
+        <div class="meta-grid">
+            <div><strong>Docente:</strong> ${escapeCalXml(t.fullName)} (Leg. ${escapeCalXml(t.legajo || 'S/L')} • DNI ${escapeCalXml(t.dni)})</div>
+            <div><strong>Revista:</strong> ${escapeCalXml(t.revista || 'Titular')} • <strong>Carga:</strong> ${t.activeHours} / ${t.maxWeeklyHours || 30} hs</div>
+            <div><strong>Período:</strong> ${period.startDate} al ${period.endDate} • <strong>Emisión:</strong> ${nowStr}</div>
+        </div>
+    </div>
+
+    <div class="kpi-boxes">
+        <div class="kpi-box">
+            <div class="kpi-val" style="color: ${m.inasistencias?.count >= 5 ? '#dc2626' : '#d97706'};">${m.inasistencias?.count || 0} / 5</div>
+            <div class="kpi-lbl">Inasistencias (I)</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-val" style="color: ${m.permisos?.count >= 6 ? '#dc2626' : '#2563eb'};">${m.permisos?.count || 0} / 6</div>
+            <div class="kpi-lbl">Permisos (115)</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-val" style="color: ${m.licenciasMedicas?.count >= 25 ? '#dc2626' : '#7c3aed'};">${m.licenciasMedicas?.count || 0} / 25</div>
+            <div class="kpi-lbl">Lic. Médicas (114 a)</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-val" style="color: #4f46e5;">${m.largoTratamiento || 0} ds</div>
+            <div class="kpi-lbl">Largo Tratamiento</div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-val" style="color: #059669;">${t.availabilityStatus}</div>
+            <div class="kpi-lbl">Estado Disponibilidad</div>
+        </div>
+    </div>
+
+    <div class="section-title">1. Cátedras y Horarios Asignados</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Materia / Espacio Curricular</th>
+                <th class="center" style="width: 70px;">Código</th>
+                <th>Carrera</th>
+                <th class="center" style="width: 140px;">Día y Horario</th>
+                <th class="center" style="width: 60px;">Carga</th>
+                <th class="center" style="width: 70px;">Revista</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${desigsRows}
+        </tbody>
+    </table>
+
+    <div class="section-title">2. Suplencias en Curso (Titular / Suplente)</div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 90px;">Rol</th>
+                <th>Materia / Cátedra</th>
+                <th>Docente Relacionado</th>
+                <th class="center" style="width: 130px;">Período</th>
+                <th>Motivo</th>
+                <th class="center" style="width: 80px;">Resolución</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${subsRows}
+        </tbody>
+    </table>
+
+    <div class="section-title">3. Línea de Tiempo de Novedades y Asistencias en el Período (${period.startDate} al ${period.endDate})</div>
+    <table>
+        <thead>
+            <tr>
+                <th class="center" style="width: 75px;">Fecha</th>
+                <th class="center" style="width: 120px;">Estado / Marca</th>
+                <th class="center" style="width: 50px;">Horas</th>
+                <th>Cátedra / Espacio</th>
+                <th>Observaciones / Diagnóstico</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${eventsRows}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <div>SIGET • Sistema Integral de Gestión Educativa Terciaria • IESETYFP</div>
+        <div>Generado por: ${escapeCalXml(exportedBy)} • Página Oficial de Archivo y Registro Académico</div>
+    </div>
+</body>
+</html>
+        `;
+
+        let pdfBuffer;
+        try {
+            if (process.versions && process.versions.electron) {
+                const { BrowserWindow } = require('electron');
+                const win = new BrowserWindow({
+                    show: false,
+                    width: 1200,
+                    height: 800,
+                    webPreferences: { offscreen: true }
+                });
+                await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+                pdfBuffer = await win.webContents.printToPDF({
+                    printBackground: true,
+                    pageSize: 'A4',
+                    margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }
+                });
+                win.close();
+            } else {
+                pdfBuffer = createCalendarFallbackPdf(
+                    `FICHA DOCENTE - ${t.fullName}`,
+                    events.map(ev => `${ev.date} | ${ev.eventType} (${ev.status}) | ${ev.hours}hs | ${ev.subjectName} | ${ev.observations}`)
+                );
+            }
+            let finalFilePath = filePath;
+            let finalFileName = fileName;
+            try {
+                fs.writeFileSync(filePath, pdfBuffer);
+            } catch (wErr) {
+                if (wErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    fs.writeFileSync(finalFilePath, pdfBuffer);
+                } else {
+                    throw wErr;
+                }
+            }
+
+            return {
+                success: true,
+                filePath: finalFilePath,
+                fileName: finalFileName,
+                base64: pdfBuffer.toString('base64'),
+                message: `Ficha Docente exportada exitosamente a PDF: ${finalFileName}`
+            };
+        } catch (err) {
+            console.error('[TeacherCalendarService] Error generando PDF Ficha Docente:', err);
+            const fallbackBuf = createCalendarFallbackPdf(
+                `FICHA DOCENTE - ${t.fullName}`,
+                events.map(ev => `${ev.date} | ${ev.eventType} (${ev.status}) | ${ev.hours}hs | ${ev.subjectName} | ${ev.observations}`)
+            );
+            let finalFilePath = filePath;
+            let finalFileName = fileName;
+            try {
+                fs.writeFileSync(filePath, fallbackBuf);
+            } catch (wErr) {
+                if (wErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    fs.writeFileSync(finalFilePath, fallbackBuf);
+                } else {
+                    throw wErr;
+                }
+            }
+            return {
+                success: true,
+                filePath: finalFilePath,
+                fileName: finalFileName,
+                base64: fallbackBuf.toString('base64'),
+                message: `Ficha Docente exportada a PDF: ${finalFileName}`
             };
         }
     }

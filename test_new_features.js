@@ -117,8 +117,32 @@ async function runTests() {
     NormativeService.deleteInstitutionalDay(testDate);
     console.log('  ✅ [PASS] Limpieza de jornada de prueba efectuada');
 
+    console.log('\n5. Test: Ficha Docente Individual (Exportación PDF y Excel)');
+    const db = getDatabase();
+    const tRow = db.prepare("SELECT id, last_name, first_name, legajo FROM teachers LIMIT 1").get();
+    if (tRow) {
+        const teacherExcelRes = await TeacherCalendarService.exportTeacherRecordExcel({
+            teacherId: tRow.id,
+            startDate: '2026-11-01',
+            endDate: '2026-11-30'
+        });
+        assert.strictEqual(teacherExcelRes.success, true, 'Debe exportar la Ficha Docente a Excel');
+        assert(fs.existsSync(teacherExcelRes.filePath), 'El archivo Excel de Ficha Docente debe existir en disco');
+        console.log(`  ✅ [PASS] Exportar Ficha Docente a Excel exitoso: ${teacherExcelRes.fileName}`);
+
+        const teacherPdfRes = await TeacherCalendarService.exportTeacherRecordPdf({
+            teacherId: tRow.id,
+            startDate: '2026-11-01',
+            endDate: '2026-11-30',
+            exportedBy: 'Secretaría / Bedelía QA'
+        });
+        assert.strictEqual(teacherPdfRes.success, true, 'Debe exportar la Ficha Docente a PDF');
+        assert(fs.existsSync(teacherPdfRes.filePath), 'El archivo PDF de Ficha Docente debe existir en disco');
+        console.log(`  ✅ [PASS] Exportar Ficha Docente a PDF exitoso: ${teacherPdfRes.fileName}`);
+    }
+
     console.log('\n========================================================');
-    console.log('   TODAS LAS PRUEBAS DE LAS 4 MEJORAS HAN PASADO CON ÉXITO');
+    console.log('   TODAS LAS PRUEBAS DE LAS 5 MEJORAS HAN PASADO CON ÉXITO');
     console.log('========================================================\n');
 }
 

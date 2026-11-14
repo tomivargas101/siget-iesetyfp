@@ -658,11 +658,19 @@ function setupEventListeners() {
         }
     });
 
-    // Ficha Individual por Docente (vista clásica preservada)
-    const btnLoadCal = document.getElementById('btn-load-calendar');
+    // Ficha Individual por Docente (Carga interactiva y Exportación PDF / Excel)
     const calTeacherSelect = document.getElementById('calendar-teacher-select');
-    if (btnLoadCal) btnLoadCal.addEventListener('click', loadTeacherCalendar);
+    const calStartDate = document.getElementById('calendar-start-date');
+    const calEndDate = document.getElementById('calendar-end-date');
     if (calTeacherSelect) calTeacherSelect.addEventListener('change', loadTeacherCalendar);
+    if (calStartDate) calStartDate.addEventListener('change', loadTeacherCalendar);
+    if (calEndDate) calEndDate.addEventListener('change', loadTeacherCalendar);
+
+    const btnExportTeacherPdf = document.getElementById('btn-export-teacher-pdf');
+    if (btnExportTeacherPdf) btnExportTeacherPdf.addEventListener('click', handleExportTeacherPdf);
+
+    const btnExportTeacherExcel = document.getElementById('btn-export-teacher-excel');
+    if (btnExportTeacherExcel) btnExportTeacherExcel.addEventListener('click', handleExportTeacherExcel);
 
     // -------------------------------------------------------------
     // Carga Masiva CSV
@@ -5076,7 +5084,7 @@ async function loadTeacherCalendar() {
         if (headerPanel) headerPanel.classList.add('hidden');
         if (detailsPanel) detailsPanel.classList.add('hidden');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400 italic">Seleccione un docente institucional y presione Consultar.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400 italic">Seleccione un docente institucional para visualizar su cronograma y ficha oficial.</td></tr>`;
         }
         return;
     }
@@ -5236,8 +5244,89 @@ async function loadTeacherCalendar() {
         showToast('Error al consultar el calendario docente: ' + err.message, 'error');
     }
 }
+
+async function handleExportTeacherPdf() {
+    const sel = document.getElementById('calendar-teacher-select');
+    if (!sel || !sel.value) {
+        showToast('Seleccione un docente institucional para exportar su Ficha en PDF.', 'warning');
+        return;
+    }
+    const teacherId = parseInt(sel.value, 10);
+    const startDate = document.getElementById('calendar-start-date')?.value || null;
+    const endDate = document.getElementById('calendar-end-date')?.value || null;
+
+    try {
+        showToast('Generando Ficha Docente oficial en PDF...', 'info');
+        const res = await window.sigetApi.calendar.exportTeacherPdf({
+            teacherId,
+            startDate,
+            endDate
+        });
+
+        if (res && res.success) {
+            showToast(`Ficha Docente PDF generada: ${res.fileName}`, 'success');
+
+            if (res.base64) {
+                triggerBrowserDownloadFromBase64(res.base64, res.fileName, 'application/pdf');
+            }
+
+            if (window.sigetApi && window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
+                await window.sigetApi.reports.openFile(res.filePath);
+            }
+        } else {
+            showToast((res && res.message) || 'Error al generar la Ficha Docente en PDF.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al exportar Ficha Docente a PDF:', err);
+        showToast('Error al exportar Ficha Docente a PDF: ' + err.message, 'error');
+    }
+}
+
+async function handleExportTeacherExcel() {
+    const sel = document.getElementById('calendar-teacher-select');
+    if (!sel || !sel.value) {
+        showToast('Seleccione un docente institucional para exportar su Ficha en Excel.', 'warning');
+        return;
+    }
+    const teacherId = parseInt(sel.value, 10);
+    const startDate = document.getElementById('calendar-start-date')?.value || null;
+    const endDate = document.getElementById('calendar-end-date')?.value || null;
+
+    try {
+        showToast('Generando Ficha Docente oficial en Excel...', 'info');
+        const res = await window.sigetApi.calendar.exportTeacherExcel({
+            teacherId,
+            startDate,
+            endDate
+        });
+
+        if (res && res.success) {
+            showToast(`Ficha Docente Excel generada: ${res.fileName}`, 'success');
+
+            if (res.base64) {
+                triggerBrowserDownloadFromBase64(
+                    res.base64,
+                    res.fileName,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                );
+            }
+
+            if (window.sigetApi && window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
+                await window.sigetApi.reports.openFile(res.filePath);
+            }
+        } else {
+            showToast((res && res.message) || 'Error al generar la Ficha Docente en Excel.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al exportar Ficha Docente a Excel:', err);
+        showToast('Error al exportar Ficha Docente a Excel: ' + err.message, 'error');
+    }
+}
+
 window.initTeacherCalendar = initTeacherCalendar;
 window.loadTeacherCalendar = loadTeacherCalendar;
+window.handleExportTeacherPdf = handleExportTeacherPdf;
+window.handleExportTeacherExcel = handleExportTeacherExcel;
 window.loadInteractiveCalendar = loadInteractiveCalendar;
 window.switchCalendarView = switchCalendarView;
 

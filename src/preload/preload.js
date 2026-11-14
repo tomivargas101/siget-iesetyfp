@@ -91,7 +91,9 @@ contextBridge.exposeInMainWorld('sigetApi', {
         saveInstitutionalDay: (payload) => ipcRenderer.invoke('calendar:saveInstitutionalDay', payload),
         deleteInstitutionalDay: (date) => ipcRenderer.invoke('calendar:deleteInstitutionalDay', date),
         exportMonthExcel: (params) => ipcRenderer.invoke('calendar:exportMonthExcel', params),
-        exportMonthPdf: (params) => ipcRenderer.invoke('calendar:exportMonthPdf', params)
+        exportMonthPdf: (params) => ipcRenderer.invoke('calendar:exportMonthPdf', params),
+        exportTeacherPdf: (params) => ipcRenderer.invoke('calendar:exportTeacherPdf', params),
+        exportTeacherExcel: (params) => ipcRenderer.invoke('calendar:exportTeacherExcel', params)
     },
 
     // Auditoría y Registro Oficial de Acciones
