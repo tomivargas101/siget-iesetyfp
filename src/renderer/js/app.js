@@ -2306,11 +2306,17 @@ function updateAttendanceKpis() {
     if (cfAlerts) cfAlerts.textContent = alerts;
 }
 
-function handleAttendanceStatusChange(row, newCode) {
+function handleAttendanceStatusChange(row, newCode, shouldPersist = true) {
     if (!row) return;
     const teacherId = parseInt(row.getAttribute('data-teacher-id'));
     const rec = (AppState.attendanceRecordsCache || []).find(r => r.teacherId === teacherId);
     if (!rec) return;
+
+    // Si se pasa a Presente (PR) o Inasistencia (I), anular justificaciones y marcas de formulario físico previas
+    if (newCode === 'PR' || newCode === 'I') {
+        rec.observations = '';
+        rec.hasPhysicalForm = false;
+    }
 
     // 1. Actualizar estado y clases en Combobox y fila
     const select = row.querySelector('.att-status-select');
@@ -2346,6 +2352,7 @@ function handleAttendanceStatusChange(row, newCode) {
     const liveLt = Math.max(0, (baseStats.largoTratamiento || 0) + ltDelta);
 
     rec.currentStatus = newCode;
+    rec.status = newCode;
     rec.liveStats = {
         year: baseStats.year || new Date().getFullYear(),
         inasistencias: liveFaltas,
@@ -2445,6 +2452,47 @@ function handleAttendanceStatusChange(row, newCode) {
     updateAttendanceKpis();
     updateLiveDashboardAlerts();
     initLucideIcons();
+
+    // 7. Persistencia inmediata en base de datos para que el cambio no se resetee al navegar o recargar
+    if (shouldPersist && window.sigetApi && window.sigetApi.attendance) {
+        const hoursInput = row.querySelector('.att-hours-input');
+        const hs = hoursInput ? (parseInt(hoursInput.value) || 4) : (rec.hours || 4);
+        const obsToSave = (newCode === 'PR' || newCode === 'I') ? '' : (rec.observations || '');
+        const saveFn = window.sigetApi.attendance.saveDailyRecord || window.sigetApi.attendance.save;
+
+        if (saveFn) {
+            saveFn({
+                teacherId,
+                dateStr: AppState.attendanceDate,
+                status: newCode,
+                hours: hs,
+                observations: obsToSave
+            }).then(res => {
+                if (res && res.success) {
+                    rec.isSavedInDb = true;
+                    rec.savedStatus = newCode;
+                    rec.currentStatus = newCode;
+                    rec.status = newCode;
+                    rec.hours = hs;
+                    rec.observations = obsToSave;
+                    if (newCode === 'PR' || newCode === 'I') {
+                        rec.hasPhysicalForm = false;
+                    }
+                    rec.isSavedUnexcused = (newCode === 'I');
+                    rec.isSavedJustified = (newCode === 'P' || newCode === 'LIC' || newCode === 'LT');
+                    rec.isSavedPermit = (newCode === 'P');
+                    rec.isSavedLicense = (newCode === 'LIC');
+                    rec.isSavedLongTreatment = (newCode === 'LT');
+                } else {
+                    console.error('[Attendance] Error al guardar asistencia:', res);
+                    showToast((res && res.message) || 'Error al persistir estado de asistencia.', 'error');
+                }
+            }).catch(err => {
+                console.error('[Attendance] Error en comunicación al guardar asistencia:', err);
+                showToast('Error de comunicación con la base de datos.', 'error');
+            });
+        }
+    }
 }
 
 function renderAttendanceRows(records) {
@@ -2452,7 +2500,7 @@ function renderAttendanceRows(records) {
     if (!tbody) return;
 
     if (!records || records.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-xs text-slate-400 dark:text-zinc-500 italic">No se encontraron docentes registrados con ese criterio o fecha.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-xs text-slate-400 dark:text-zinc-500 italic">No se encontraron docentes registrados con ese criterio o fecha.</td></tr>`;
         updateAttendanceKpis();
         return;
     }
@@ -2537,10 +2585,6 @@ function renderAttendanceRows(records) {
                     <input type="number" min="1" max="12" value="${r.hours || 4}"
                         class="att-hours-input w-14 text-center py-1 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs font-bold focus:ring-1 focus:ring-gold focus:outline-none">
                 </td>
-                <td class="py-2 px-3">
-                    <input type="text" placeholder="Observaciones, motivo o justificación..." value="${escapeHtml(r.observations || '')}"
-                        class="att-obs-input w-full px-2.5 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:ring-1 focus:ring-gold focus:outline-none placeholder:text-slate-400 dark:placeholder:text-zinc-500">
-                </td>
                 <td class="py-2.5 px-3 text-center att-row-action">
                     ${justBtn}
                 </td>
@@ -2548,14 +2592,39 @@ function renderAttendanceRows(records) {
         `;
     }).join('');
 
-    // Event listeners para select de estado
+    // Event listeners para select de estado con persistencia inmediata
     tbody.querySelectorAll('.att-status-select').forEach(sel => {
-        sel.addEventListener('change', (e) => {
+        sel.addEventListener('change', async (e) => {
             const selectElem = e.currentTarget;
             const newCode = selectElem.value;
             const row = selectElem.closest('tr');
             if (row) {
-                handleAttendanceStatusChange(row, newCode);
+                await handleAttendanceStatusChange(row, newCode, true);
+            }
+        });
+    });
+
+    // Event listeners para cambios en horas de cátedra
+    tbody.querySelectorAll('.att-hours-input').forEach(input => {
+        input.addEventListener('change', async (e) => {
+            const row = e.currentTarget.closest('tr');
+            if (!row) return;
+            const teacherId = parseInt(row.getAttribute('data-teacher-id'));
+            const rec = (AppState.attendanceRecordsCache || []).find(r => r.teacherId === teacherId);
+            if (!rec) return;
+            const hs = parseInt(e.currentTarget.value) || 4;
+            rec.hours = hs;
+            const currentStatus = rec.currentStatus || rec.status || 'I';
+            const obsToSave = (currentStatus === 'PR' || currentStatus === 'I') ? '' : (rec.observations || '');
+            const saveFn = window.sigetApi?.attendance?.saveDailyRecord || window.sigetApi?.attendance?.save;
+            if (saveFn) {
+                await saveFn({
+                    teacherId,
+                    dateStr: AppState.attendanceDate,
+                    status: currentStatus,
+                    hours: hs,
+                    observations: obsToSave
+                });
             }
         });
     });
@@ -2739,19 +2808,55 @@ function filterAttendanceTable() {
     renderAttendanceCards(filtered);
 }
 
-function markAllVisibleAsPresent() {
+async function markAllVisibleAsPresent() {
     const rows = document.querySelectorAll('.att-table-row[data-teacher-id]');
     if (rows.length === 0) return;
 
-    rows.forEach(row => {
-        const select = row.querySelector('.att-status-select');
-        if (select && select.value !== 'PR') {
-            select.value = 'PR';
-            handleAttendanceStatusChange(row, 'PR');
-        }
-    });
+    const btnMarkAll = document.getElementById('btn-att-mark-all-pr');
+    if (btnMarkAll) btnMarkAll.disabled = true;
 
-    showToast('Todos los docentes visibles fueron marcados como Presente (PR). Recuerde guardar los cambios.', 'info');
+    try {
+        const recordsToSave = [];
+        for (const row of rows) {
+            const teacherId = parseInt(row.getAttribute('data-teacher-id'));
+            const select = row.querySelector('.att-status-select');
+            const hoursInput = row.querySelector('.att-hours-input');
+            const hs = hoursInput ? (parseInt(hoursInput.value) || 4) : 4;
+
+            if (select) {
+                select.value = 'PR';
+            }
+            const rec = (AppState.attendanceRecordsCache || []).find(r => r.teacherId === teacherId);
+            if (rec) {
+                rec.currentStatus = 'PR';
+                rec.status = 'PR';
+                rec.observations = '';
+                rec.hasPhysicalForm = false;
+            }
+            handleAttendanceStatusChange(row, 'PR', false);
+
+            recordsToSave.push({
+                teacherId,
+                status: 'PR',
+                hours: hs,
+                observations: ''
+            });
+        }
+
+        const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, recordsToSave);
+        if (res && res.success) {
+            showToast('Todos los docentes visibles fueron marcados como Presente (PR) y guardados.', 'success');
+            await loadDailyAttendance();
+            await loadDashboard();
+        } else {
+            showToast((res && res.message) || 'Error al guardar asistencias en lote.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al marcar todos como presente:', err);
+        showToast('Error de comunicación con la base de datos.', 'error');
+    } finally {
+        if (btnMarkAll) btnMarkAll.disabled = false;
+    }
 }
 
 async function saveAllAttendanceRecords() {
@@ -2771,14 +2876,13 @@ async function saveAllAttendanceRecords() {
             const statusSelect = row.querySelector('.att-status-select');
             const statusInput = row.querySelector('.att-status-value');
             const hoursInput = row.querySelector('.att-hours-input');
-            const obsInput = row.querySelector('.att-obs-input');
 
             const currentStatus = statusSelect ? statusSelect.value : (statusInput ? statusInput.value : 'I');
+            const hours = hoursInput ? (parseInt(hoursInput.value) || 4) : 4;
 
             currentEdits.set(teacherId, {
                 status: currentStatus,
-                hours: hoursInput ? parseInt(hoursInput.value) || 0 : 4,
-                observations: obsInput ? obsInput.value.trim() : ''
+                hours: hours
             });
         });
 
@@ -2786,18 +2890,20 @@ async function saveAllAttendanceRecords() {
         const recordsToSave = (AppState.attendanceRecordsCache || []).map(r => {
             if (currentEdits.has(r.teacherId)) {
                 const edit = currentEdits.get(r.teacherId);
+                const isPrOrI = (edit.status === 'PR' || edit.status === 'I');
                 return {
                     teacherId: r.teacherId,
                     status: edit.status,
                     hours: edit.hours,
-                    observations: edit.observations
+                    observations: isPrOrI ? '' : (r.observations || '')
                 };
             }
+            const isPrOrI = (r.currentStatus === 'PR' || r.currentStatus === 'I' || r.status === 'PR' || r.status === 'I');
             return {
                 teacherId: r.teacherId,
                 status: r.currentStatus || r.status || 'I',
                 hours: r.hours || 4,
-                observations: r.observations || ''
+                observations: isPrOrI ? '' : (r.observations || '')
             };
         });
 

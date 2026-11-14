@@ -267,12 +267,11 @@ class AttendanceView(ctk.CTkFrame):
         headers_frame.pack(fill="x", pady=(0, 6))
 
         cols = [
-            ("Docente (Apellido y Nombre)", 240, "w"),
-            ("Legajo", 110, "center"),
-            ("Situación", 110, "center"),
-            ("Estado Asistencia", 170, "center"),
+            ("Docente (Apellido y Nombre)", 320, "w"),
+            ("Legajo", 120, "center"),
+            ("Situación", 120, "center"),
+            ("Estado Asistencia", 180, "center"),
             ("Hs Cátedra", 90, "center"),
-            ("Observaciones / Justificación", 240, "w"),
             ("Acción", 90, "center")
         ]
 
@@ -378,7 +377,8 @@ class AttendanceView(ctk.CTkFrame):
             fg_color=Theme.BG_INPUT,
             border_color=Theme.BORDER_INPUT,
             text_color=Theme.TEXT_PRIMARY,
-            button_color=Theme.SECONDARY
+            button_color=Theme.SECONDARY,
+            command=lambda choice, tid=tid: self._on_status_change(tid, choice)
         )
         combo_status.pack(side="left", padx=6)
 
@@ -395,20 +395,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         entry_hours.insert(0, str(r["hours"]))
         entry_hours.pack(side="left", padx=6)
-
-        # Observaciones
-        entry_obs = ctk.CTkEntry(
-            row,
-            placeholder_text="Observaciones / N° Res...",
-            width=240,
-            height=30,
-            font=ctk.CTkFont(size=11),
-            fg_color=Theme.BG_INPUT,
-            border_color=Theme.BORDER_INPUT,
-            text_color=Theme.TEXT_PRIMARY
-        )
-        entry_obs.insert(0, r["observations"])
-        entry_obs.pack(side="left", padx=6)
 
         # Botón Guardar Individual
         btn_save_row = ctk.CTkButton(
@@ -428,9 +414,27 @@ class AttendanceView(ctk.CTkFrame):
         self.row_widgets[tid] = {
             "var_status": var_status,
             "entry_hours": entry_hours,
-            "entry_obs": entry_obs,
             "record": r
         }
+
+    def _on_status_change(self, teacher_id, choice):
+        w = self.row_widgets.get(teacher_id)
+        if not w:
+            return
+        st_code = choice.split()[0] if choice else "PR"
+        try:
+            hs = int(w["entry_hours"].get().strip())
+        except (ValueError, AttributeError):
+            hs = 4
+
+        AttendanceService.save_record(
+            teacher_id=teacher_id,
+            target_date=self.current_date,
+            status=st_code,
+            hours=hs,
+            observations=""
+        )
+        self._update_kpis()
 
     def _filter_table(self):
         self._render_table()
@@ -446,14 +450,13 @@ class AttendanceView(ctk.CTkFrame):
             hs = int(w["entry_hours"].get().strip())
         except ValueError:
             hs = 4
-        obs = w["entry_obs"].get().strip()
 
         ok, msg = AttendanceService.save_record(
             teacher_id=teacher_id,
             target_date=self.current_date,
             status=st_code,
             hours=hs,
-            observations=obs
+            observations=""
         )
         if ok:
             self._update_kpis()
@@ -470,14 +473,13 @@ class AttendanceView(ctk.CTkFrame):
                 hs = int(w["entry_hours"].get().strip())
             except ValueError:
                 hs = 4
-            obs = w["entry_obs"].get().strip()
 
             ok, _ = AttendanceService.save_record(
                 teacher_id=tid,
                 target_date=self.current_date,
                 status=st_code,
                 hours=hs,
-                observations=obs
+                observations=""
             )
             if ok:
                 saved_count += 1

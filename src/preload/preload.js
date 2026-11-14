@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('sigetApi', {
     attendance: {
         getDaily: (dateStr) => ipcRenderer.invoke('attendance:getDaily', dateStr),
         save: (payload) => ipcRenderer.invoke('attendance:save', payload),
+        saveDailyRecord: (payload) => ipcRenderer.invoke('attendance:save', payload),
         saveBatch: (dateStr, records) => ipcRenderer.invoke('attendance:saveBatch', { dateStr, records }),
         receivePhysicalForm: (payload) => ipcRenderer.invoke('attendance:receivePhysicalForm', payload),
         getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr)

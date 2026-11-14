@@ -49,6 +49,13 @@ class AttendanceService:
             if not registered_by:
                 registered_by = CurrentSession.user.username if CurrentSession.user else "Bedel"
 
+            clean_status = status.strip()
+            clean_obs = observations.strip() if observations else None
+            if clean_status in ("PR", "Presente"):
+                clean_obs = None
+            elif clean_status in ("I", "Inasistencia") and clean_obs and any(k in clean_obs for k in ("Formulario", "Licencia", "Certificado", "Reposo")):
+                clean_obs = None
+
             att = session.query(Attendance).filter(
                 Attendance.teacher_id == teacher_id,
                 Attendance.date == target_date
@@ -58,16 +65,16 @@ class AttendanceService:
                 att = Attendance(
                     teacher_id=teacher_id,
                     date=target_date,
-                    status=status,
+                    status=clean_status,
                     hours=hours,
-                    observations=observations,
+                    observations=clean_obs,
                     registered_by=registered_by
                 )
                 session.add(att)
             else:
-                att.status = status
+                att.status = clean_status
                 att.hours = hours
-                att.observations = observations
+                att.observations = clean_obs
                 att.registered_by = registered_by
 
             session.commit()

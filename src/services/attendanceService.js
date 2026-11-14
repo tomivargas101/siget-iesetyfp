@@ -294,6 +294,15 @@ class AttendanceService {
             const now = AuditService.getArgentinaTimestamp();
             const normalizedStatus = this.normalizeStatusCode(status);
 
+            // Sanitización y anulación de licencias: si el estado pasa a Presente (PR) o Inasistencia injustificada (I),
+            // se anulan y limpian automáticamente las justificaciones o notas de formulario físico previas.
+            let cleanObs = observations ? observations.trim() : null;
+            if (normalizedStatus === 'PR') {
+                cleanObs = null;
+            } else if (normalizedStatus === 'I' && cleanObs && (cleanObs.includes('[Formulario Físico') || cleanObs.toLowerCase().includes('licencia') || cleanObs.toLowerCase().includes('certificado') || cleanObs.toLowerCase().includes('reposo'))) {
+                cleanObs = null;
+            }
+
             // Verificar si ya existen registros para esa fecha y docente
             const existing = db.prepare('SELECT id FROM attendances WHERE teacher_id = ? AND date = ?').all(teacherId, dateStr);
 
@@ -311,7 +320,7 @@ class AttendanceService {
                 `).run(
                     normalizedStatus,
                     hours !== null ? Number(hours) : null,
-                    observations ? observations.trim() : null,
+                    cleanObs,
                     username,
                     primaryId
                 );
@@ -326,7 +335,7 @@ class AttendanceService {
                     dateStr,
                     normalizedStatus,
                     hours !== null ? Number(hours) : null,
-                    observations ? observations.trim() : null,
+                    cleanObs,
                     username,
                     now,
                     designationId
