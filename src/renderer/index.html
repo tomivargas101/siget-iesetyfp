@@ -880,22 +880,30 @@
                             </div>
                         </div>
 
-                        <!-- 4. CONTENEDOR PRINCIPAL: TARJETAS MODERNAS DE DOCENTES -->
-                        <div id="attendance-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                            <!-- Inyectado dinámicamente -->
+                        <!-- 4. TABLA EXCEL DE CONTROL DE ASISTENCIA DIARIA -->
+                        <div class="excel-table-container bg-white dark:bg-[#282828] shadow-xs max-h-[600px]">
+                            <table class="w-full border-collapse text-left" id="table-attendance">
+                                <thead class="excel-header sticky top-0">
+                                    <tr>
+                                        <th class="w-24 text-center">LEGAJO</th>
+                                        <th class="w-64">DOCENTE (APELLIDO Y NOMBRES)</th>
+                                        <th class="w-28 text-center">DNI</th>
+                                        <th class="w-32 text-center">SITUACIÓN REVISTA</th>
+                                        <th class="w-48 text-center">ESTADO DIARIO</th>
+                                        <th class="w-20 text-center">HS CÁT.</th>
+                                        <th>OBSERVACIONES / JUSTIFICACIÓN</th>
+                                        <th class="w-32 text-center">FORMULARIO</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-attendance" class="divide-y divide-slate-100 dark:divide-zinc-800">
+                                    <!-- Renderizado dinámico -->
+                                </tbody>
+                            </table>
                         </div>
 
-                        <!-- Estado Vacío / Sin Resultados -->
-                        <div id="attendance-empty-state" class="hidden py-12 text-center bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                            <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 flex items-center justify-center mb-3">
-                                <i data-lucide="search-x" class="w-6 h-6"></i>
-                            </div>
-                            <h4 class="text-sm font-bold text-slate-800 dark:text-zinc-100">No se encontraron docentes</h4>
-                            <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">Prueba cambiando la fecha o el criterio de búsqueda o filtro.</p>
-                        </div>
-
-                        <!-- Elemento de compatibilidad oculta -->
-                        <table class="hidden" id="table-attendance"><tbody id="tbody-attendance"></tbody></table>
+                        <!-- Elementos de compatibilidad -->
+                        <div id="attendance-cards-grid" class="hidden"></div>
+                        <div id="attendance-empty-state" class="hidden"></div>
                     </div>
 
                     <!-- SUB-TAB 3: CALENDARIO -->

@@ -2240,43 +2240,34 @@ function getTeacherInitials(fullName) {
     return clean.substring(0, 2).toUpperCase();
 }
 
-function getStatusCardClass(code) {
+function getStatusBadgeClasses(code) {
     switch (code) {
-        case 'PR': return 'card-status-pr';
-        case 'I': return 'card-status-i';
-        case 'P': return 'card-status-p';
-        case 'LIC': return 'card-status-lic';
-        case 'LT': return 'card-status-lt';
-        default: return 'card-status-i';
-    }
-}
-
-function getChipActiveClass(code) {
-    switch (code) {
-        case 'PR': return 'active-pr';
-        case 'I': return 'active-i';
-        case 'P': return 'active-p';
-        case 'LIC': return 'active-lic';
-        case 'LT': return 'active-lt';
-        default: return '';
+        case 'PR': return 'status-select-pr';
+        case 'I': return 'status-select-i';
+        case 'P': return 'status-select-p';
+        case 'LIC': return 'status-select-lic';
+        case 'LT': return 'status-select-lt';
+        default: return 'status-select-default';
     }
 }
 
 function updateAttendanceKpis() {
-    const cards = document.querySelectorAll('.att-teacher-card[data-teacher-id]');
+    const rows = document.querySelectorAll('.att-table-row[data-teacher-id], .att-teacher-card[data-teacher-id]');
     let total = (AppState.attendanceRecordsCache || []).length;
     let pr = 0;
     let i = 0;
     let just = 0;
     let alerts = 0;
 
-    // Conteo en vivo considerando las ediciones actuales en las tarjetas
+    // Conteo en vivo considerando las ediciones actuales en las filas de la tabla
     const statusMap = new Map();
-    cards.forEach(card => {
-        const id = parseInt(card.getAttribute('data-teacher-id'));
-        const statusInput = card.querySelector('.att-status-value');
-        if (statusInput) {
-            statusMap.set(id, normalizeStatusCode(statusInput.value));
+    rows.forEach(row => {
+        const id = parseInt(row.getAttribute('data-teacher-id'));
+        const statusSelect = row.querySelector('.att-status-select');
+        const statusInput = row.querySelector('.att-status-value');
+        const val = statusSelect ? statusSelect.value : (statusInput ? statusInput.value : null);
+        if (val) {
+            statusMap.set(id, normalizeStatusCode(val));
         }
     });
 
@@ -2315,71 +2306,21 @@ function updateAttendanceKpis() {
     if (cfAlerts) cfAlerts.textContent = alerts;
 }
 
-function updateCardActionFooter(card, newCode, teacherId, teacherName, hasPhysicalForm) {
-    const footer = card.querySelector('.att-action-footer');
-    if (!footer) return;
-
-    if (newCode === 'I') {
-        footer.innerHTML = `
-            <button type="button" class="btn-receive-physical-form w-full py-1.5 px-3 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs"
-                data-teacher-id="${teacherId}" data-teacher-name="${escapeHtml(teacherName)}">
-                <i data-lucide="file-check" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
-                <span>Justificar / Formulario Físico</span>
-            </button>
-        `;
-        footer.querySelector('.btn-receive-physical-form')?.addEventListener('click', (ev) => {
-            const t = ev.currentTarget;
-            openPhysicalFormModal(parseInt(t.getAttribute('data-teacher-id')), t.getAttribute('data-teacher-name'), AppState.attendanceDate);
-        });
-    } else if (newCode === 'P' || newCode === 'LIC' || newCode === 'LT') {
-        footer.innerHTML = `
-            <div class="flex items-center justify-between w-full">
-                <span class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-                    <span>${hasPhysicalForm ? 'Formulario Recibido' : 'Justificado (' + newCode + ')'}</span>
-                </span>
-                <button type="button" class="btn-receive-physical-form text-[11px] text-gold-text dark:text-gold font-bold hover:underline"
-                    data-teacher-id="${teacherId}" data-teacher-name="${escapeHtml(teacherName)}">
-                    ${hasPhysicalForm ? 'Editar Formulario' : 'Justificación Oficial'}
-                </button>
-            </div>
-        `;
-        footer.querySelector('.btn-receive-physical-form')?.addEventListener('click', (ev) => {
-            const t = ev.currentTarget;
-            openPhysicalFormModal(parseInt(t.getAttribute('data-teacher-id')), t.getAttribute('data-teacher-name'), AppState.attendanceDate);
-        });
-    } else {
-        footer.innerHTML = `
-            <div class="text-[11px] text-slate-400 dark:text-zinc-500 italic py-0.5">
-                Sin novedades registradas
-            </div>
-        `;
-    }
-    initLucideIcons();
-}
-
-function handleAttendanceStatusChange(card, newCode) {
-    if (!card) return;
-    const teacherId = parseInt(card.getAttribute('data-teacher-id'));
+function handleAttendanceStatusChange(row, newCode) {
+    if (!row) return;
+    const teacherId = parseInt(row.getAttribute('data-teacher-id'));
     const rec = (AppState.attendanceRecordsCache || []).find(r => r.teacherId === teacherId);
     if (!rec) return;
 
-    // 1. Actualizar estado en input y tarjeta
-    const hiddenStatus = card.querySelector('.att-status-value');
+    // 1. Actualizar estado y clases en Combobox y fila
+    const select = row.querySelector('.att-status-select');
+    if (select) {
+        select.value = newCode;
+        select.className = `att-status-select w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border focus:outline-none focus:ring-2 focus:ring-gold transition cursor-pointer ${getStatusBadgeClasses(newCode)}`;
+    }
+    const hiddenStatus = row.querySelector('.att-status-value');
     if (hiddenStatus) hiddenStatus.value = newCode;
-    card.setAttribute('data-status', newCode);
-
-    // Actualizar borde de la tarjeta
-    card.classList.remove('card-status-pr', 'card-status-i', 'card-status-p', 'card-status-lic', 'card-status-lt');
-    card.classList.add(getStatusCardClass(newCode));
-
-    // Actualizar clases activas en los chips del grupo
-    const chipGroup = card.querySelectorAll('.att-chip');
-    chipGroup.forEach(c => {
-        c.classList.remove('active-pr', 'active-i', 'active-p', 'active-lic', 'active-lt');
-    });
-    const activeBtn = card.querySelector(`.att-chip[data-status="${newCode}"]`);
-    if (activeBtn) activeBtn.classList.add(getChipActiveClass(newCode));
+    row.setAttribute('data-status', newCode);
 
     // 2. Calcular cómputo dinámico anual en vivo
     const baseStats = rec.annualStats || { inasistencias: 0, justificadas: 0, permisos: 0, licencias: 0, largoTratamiento: 0 };
@@ -2444,32 +2385,42 @@ function handleAttendanceStatusChange(card, newCode) {
     rec.liveStats.alertBadge = liveAlertBadge;
     rec.liveStats.alertDetail = liveAlertDetail;
 
-    // 4. Actualizar visualmente la tira de seguimiento anual de la tarjeta
-    const elFaltas = card.querySelector('.att-stat-faltas');
-    if (elFaltas) {
-        elFaltas.textContent = `Faltas: ${liveFaltas}`;
-        elFaltas.className = `att-stat-faltas font-bold ${liveFaltas >= 5 ? 'text-rose-600 dark:text-rose-400 font-black' : liveFaltas >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}`;
+    // 4. Actualizar celda de acción/formulario físico en la fila
+    const actionCell = row.querySelector('.att-row-action');
+    if (actionCell) {
+        if (newCode === 'I') {
+            actionCell.innerHTML = `
+                <button type="button" class="btn-receive-physical-form px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 shadow-xs"
+                    data-teacher-id="${teacherId}" data-teacher-name="${escapeHtml(rec.fullName)}">
+                    <i data-lucide="file-check" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+                    <span>Justificar</span>
+                </button>
+            `;
+        } else if (newCode === 'P' || newCode === 'LIC' || newCode === 'LT') {
+            actionCell.innerHTML = `
+                <button type="button" class="btn-receive-physical-form px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 shadow-xs"
+                    data-teacher-id="${teacherId}" data-teacher-name="${escapeHtml(rec.fullName)}">
+                    <i data-lucide="${rec.hasPhysicalForm ? 'check-check' : 'file-text'}" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+                    <span>${rec.hasPhysicalForm ? 'Formulario' : 'Form. Físico'}</span>
+                </button>
+            `;
+        } else {
+            actionCell.innerHTML = `
+                <span class="text-[11px] text-slate-400 dark:text-zinc-600 italic">Normal</span>
+            `;
+        }
+        actionCell.querySelector('.btn-receive-physical-form')?.addEventListener('click', (ev) => {
+            const t = ev.currentTarget;
+            openPhysicalFormModal(parseInt(t.getAttribute('data-teacher-id')), t.getAttribute('data-teacher-name'), AppState.attendanceDate);
+        });
     }
 
-    const elPermisos = card.querySelector('.att-stat-permisos');
-    if (elPermisos) {
-        elPermisos.textContent = `Art. 115: ${livePermisos}/6`;
-        elPermisos.className = `att-stat-permisos font-bold ${livePermisos >= 6 ? 'text-rose-600 dark:text-rose-400 font-black' : livePermisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}`;
-    }
-
-    const elLic = card.querySelector('.att-stat-licencias');
-    if (elLic) {
-        elLic.textContent = `Lic: ${liveLicencias}d`;
-    }
-
-    const badgeWrap = card.querySelector('.att-card-badge-wrap');
+    // 5. Actualizar badge de alerta en la celda del docente
+    const badgeWrap = row.querySelector('.att-row-badge-wrap');
     if (badgeWrap) {
         if (liveAlertBadge) {
-            const badgeClass = liveAlertLevel === 'danger'
-                ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
-                : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800';
             badgeWrap.innerHTML = `
-                <span class="px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-tight ${badgeClass}" title="${escapeHtml(liveAlertDetail || '')}">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase tracking-tight ${liveAlertLevel === 'danger' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'}" title="${escapeHtml(liveAlertDetail || '')}">
                     ⚠️ ${escapeHtml(liveAlertBadge)}
                 </span>
             `;
@@ -2478,40 +2429,38 @@ function handleAttendanceStatusChange(card, newCode) {
         }
     }
 
-    // 5. Actualizar el footer de acciones (botón de formulario físico)
-    updateCardActionFooter(card, newCode, teacherId, rec.fullName, rec.hasPhysicalForm);
+    // Actualizar texto de acumulados
+    const statsText = row.querySelector('.att-row-stats-text');
+    if (statsText) {
+        statsText.innerHTML = `
+            <span>Faltas: <strong class="${liveFaltas >= 5 ? 'text-rose-600 dark:text-rose-400' : liveFaltas >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-zinc-400'}">${liveFaltas}</strong></span>
+            <span>•</span>
+            <span>Art. 115: <strong class="${livePermisos >= 6 ? 'text-rose-600 dark:text-rose-400' : livePermisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-zinc-400'}">${livePermisos}/6</strong></span>
+            <span>•</span>
+            <span>Lic: ${liveLicencias}d</span>
+        `;
+    }
 
-    // 6. Actualizar KPIs del encabezado y contadores de filtros
+    // 6. Actualizar KPIs y alertas globales
     updateAttendanceKpis();
-
-    // 7. Actualizar en vivo el componente de Alertas del Dashboard
     updateLiveDashboardAlerts();
+    initLucideIcons();
 }
 
 function renderAttendanceRows(records) {
-    renderAttendanceCards(records);
-}
-
-function renderAttendanceCards(records) {
-    const grid = document.getElementById('attendance-cards-grid');
-    const emptyState = document.getElementById('attendance-empty-state');
-    if (!grid) return;
+    const tbody = document.getElementById('tbody-attendance');
+    if (!tbody) return;
 
     if (!records || records.length === 0) {
-        grid.innerHTML = '';
-        if (emptyState) emptyState.classList.remove('hidden');
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-xs text-slate-400 dark:text-zinc-500 italic">No se encontraron docentes registrados con ese criterio o fecha.</td></tr>`;
         updateAttendanceKpis();
         return;
     }
 
-    if (emptyState) emptyState.classList.add('hidden');
-
-    grid.innerHTML = records.map((r) => {
+    tbody.innerHTML = records.map((r) => {
         const code = normalizeStatusCode(r.currentStatus || r.status);
-        const isAbsence = (code === 'I');
-        const isJustified = (code === 'P' || code === 'LIC' || code === 'LT');
-        const initials = getTeacherInitials(r.fullName);
-        const borderClass = getStatusCardClass(code);
+        const isJustifiedOrLic = (code === 'P' || code === 'LIC' || code === 'LT');
+        const badgeStatusClass = getStatusBadgeClasses(code);
 
         const annual = r.liveStats || r.annualStats || {
             year: new Date().getFullYear(),
@@ -2525,142 +2474,94 @@ function renderAttendanceCards(records) {
             alertBadge: null
         };
 
+        const alertBadgeHtml = annual.alertBadge ? `
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase tracking-tight ${annual.alertLevel === 'danger' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'}" title="${escapeHtml(annual.alertDetail || '')}">
+                ⚠️ ${escapeHtml(annual.alertBadge)}
+            </span>
+        ` : '';
+
+        const justBtn = (code === 'I') ? `
+            <button type="button" class="btn-receive-physical-form px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 shadow-xs"
+                data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
+                <i data-lucide="file-check" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
+                <span>Justificar</span>
+            </button>
+        ` : (isJustifiedOrLic) ? `
+            <button type="button" class="btn-receive-physical-form px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 shadow-xs"
+                data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
+                <i data-lucide="${r.hasPhysicalForm ? 'check-check' : 'file-text'}" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+                <span>${r.hasPhysicalForm ? 'Formulario' : 'Form. Físico'}</span>
+            </button>
+        ` : `
+            <span class="text-[11px] text-slate-400 dark:text-zinc-600 italic">Normal</span>
+        `;
+
         return `
-            <div class="att-teacher-card bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-4 shadow-xs transition hover:shadow-md flex flex-col justify-between space-y-3 ${borderClass}"
+            <tr class="att-table-row hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition border-b border-slate-100 dark:border-zinc-800 text-xs"
                 data-teacher-id="${r.teacherId}" data-status="${code}">
-                
-                <!-- Cabecera del Docente -->
-                <div class="flex items-start justify-between gap-3">
-                    <div class="flex items-center space-x-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl bg-slate-900 text-gold flex items-center justify-center font-black text-xs shadow-xs border border-slate-700 shrink-0">
-                            ${initials}
-                        </div>
-                        <div class="min-w-0">
-                            <h4 class="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-snug truncate" title="${escapeHtml(r.fullName)}">
-                                ${escapeHtml(r.fullName)}
-                            </h4>
-                            <div class="flex items-center space-x-2 mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
-                                <span>DNI ${escapeHtml(r.dni)}</span>
-                                <span>•</span>
-                                <span>Leg. ${escapeHtml(r.legajo || 'S/L')}</span>
-                            </div>
-                        </div>
+                <td class="py-2.5 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">
+                    ${escapeHtml(r.legajo || 'S/L')}
+                </td>
+                <td class="py-2.5 px-3">
+                    <div class="font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                        <span>${escapeHtml(r.fullName)}</span>
+                        <span class="att-row-badge-wrap">${alertBadgeHtml}</span>
                     </div>
-
-                    <div class="flex flex-col items-end space-y-1 shrink-0">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
-                            ${escapeHtml(r.revista || 'Titular')}
-                        </span>
-                        <div class="flex items-center space-x-1 text-[11px] text-slate-500 dark:text-zinc-400 font-bold" title="Horas cátedra de la jornada">
-                            <input type="number" min="1" max="12" value="${r.hours || 4}"
-                                class="att-hours-input w-12 text-center py-0.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded text-xs font-bold focus:ring-1 focus:ring-gold">
-                            <span class="text-[10px] text-slate-400">hs</span>
-                        </div>
+                    <div class="att-row-stats-text text-[11px] text-slate-400 dark:text-zinc-500 flex items-center space-x-1 mt-0.5">
+                        <span>Faltas: <strong class="${annual.inasistencias >= 5 ? 'text-rose-600 dark:text-rose-400' : annual.inasistencias >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-zinc-400'}">${annual.inasistencias || 0}</strong></span>
+                        <span>•</span>
+                        <span>Art. 115: <strong class="${annual.permisos >= 6 ? 'text-rose-600 dark:text-rose-400' : annual.permisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-zinc-400'}">${annual.permisos || 0}/6</strong></span>
+                        <span>•</span>
+                        <span>Lic: ${annual.licencias || 0}d</span>
                     </div>
-                </div>
-
-                <!-- Seguimiento Anual y Topes Reglamentarios (RN-04 / RN-05) -->
-                <div class="att-annual-strip p-2 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-800 flex items-center justify-between text-[10.5px]">
-                    <div class="flex items-center space-x-2.5 flex-wrap">
-                        <span class="text-slate-500 dark:text-zinc-400 font-medium">Ciclo ${annual.year}:</span>
-                        <span class="att-stat-faltas font-bold ${annual.inasistencias >= 5 ? 'text-rose-600 dark:text-rose-400 font-black' : annual.inasistencias >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}" title="Inasistencias injustificadas acumuladas en el ciclo">
-                            Faltas: ${annual.inasistencias}
-                        </span>
-                        <span class="att-stat-justificadas text-slate-600 dark:text-zinc-400 font-medium" title="Inasistencias justificadas formalmente en el ciclo">
-                            Just: ${annual.justificadas || 0}d
-                        </span>
-                        <span class="att-stat-permisos font-bold ${annual.permisos >= 6 ? 'text-rose-600 dark:text-rose-400 font-black' : annual.permisos >= 4 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-zinc-300'}" title="Permisos particulares consumidos (Máx 6/año)">
-                            Art. 115: ${annual.permisos}/6
-                        </span>
-                        <span class="att-stat-licencias font-bold text-slate-700 dark:text-zinc-300" title="Días de licencias médicas del año">
-                            Lic: ${annual.licencias}d
-                        </span>
-                    </div>
-                    <div class="att-card-badge-wrap">
-                        ${annual.alertBadge ? `
-                            <span class="px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-tight ${annual.alertLevel === 'danger' ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800' : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800'}" title="${escapeHtml(annual.alertDetail || '')}">
-                                ⚠️ ${escapeHtml(annual.alertBadge)}
-                            </span>
-                        ` : ''}
-                    </div>
-                </div>
-
-                <!-- Selector de Estado Rápido: Chips visuales interactivos -->
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">Estado Diario</label>
-                    <div class="grid grid-cols-5 gap-1 att-chip-group">
-                        <button type="button" class="att-chip ${code === 'PR' ? 'active-pr' : ''}" data-status="PR" title="Presente">
-                            <span class="font-bold">PR</span>
-                            <span class="text-[9px] block opacity-80">Presente</span>
-                        </button>
-                        <button type="button" class="att-chip ${code === 'I' ? 'active-i' : ''}" data-status="I" title="Inasistencia Injustificada">
-                            <span class="font-bold">I</span>
-                            <span class="text-[9px] block opacity-80">Falta</span>
-                        </button>
-                        <button type="button" class="att-chip ${code === 'P' ? 'active-p' : ''}" data-status="P" title="Permiso Particular (Art. 115)">
-                            <span class="font-bold">P</span>
-                            <span class="text-[9px] block opacity-80">Permiso</span>
-                        </button>
-                        <button type="button" class="att-chip ${code === 'LIC' ? 'active-lic' : ''}" data-status="LIC" title="Licencia Médica / Ordinaria">
-                            <span class="font-bold">LIC</span>
-                            <span class="text-[9px] block opacity-80">Licencia</span>
-                        </button>
-                        <button type="button" class="att-chip ${code === 'LT' ? 'active-lt' : ''}" data-status="LT" title="Largo Tratamiento de Salud">
-                            <span class="font-bold">LT</span>
-                            <span class="text-[9px] block opacity-80">Tratam.</span>
-                        </button>
-                    </div>
-                    <input type="hidden" class="att-status-value" value="${code}">
-                </div>
-
-                <!-- Observaciones y Justificación de Formulario -->
-                <div class="space-y-2 pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+                </td>
+                <td class="py-2.5 px-3 text-center font-mono text-slate-700 dark:text-zinc-300 font-medium">
+                    ${escapeHtml(r.dni || '')}
+                </td>
+                <td class="py-2.5 px-3 text-center">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                        ${escapeHtml(r.revista || 'Titular')}
+                    </span>
+                </td>
+                <td class="py-2 px-3 text-center">
+                    <select class="att-status-select w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border focus:outline-none focus:ring-2 focus:ring-gold transition cursor-pointer ${badgeStatusClass}"
+                        data-teacher-id="${r.teacherId}">
+                        <option value="PR" ${code === 'PR' ? 'selected' : ''}>PR - Presente</option>
+                        <option value="I" ${code === 'I' ? 'selected' : ''}>I - Inasistencia</option>
+                        <option value="P" ${code === 'P' ? 'selected' : ''}>P - Permiso (Art. 115)</option>
+                        <option value="LIC" ${code === 'LIC' ? 'selected' : ''}>LIC - Licencia</option>
+                        <option value="LT" ${code === 'LT' ? 'selected' : ''}>LT - Largo Tratamiento</option>
+                    </select>
+                </td>
+                <td class="py-2 px-3 text-center">
+                    <input type="number" min="1" max="12" value="${r.hours || 4}"
+                        class="att-hours-input w-14 text-center py-1 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs font-bold focus:ring-1 focus:ring-gold focus:outline-none">
+                </td>
+                <td class="py-2 px-3">
                     <input type="text" placeholder="Observaciones, motivo o justificación..." value="${escapeHtml(r.observations || '')}"
-                        class="att-obs-input w-full px-2.5 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:ring-1 focus:ring-gold focus:outline-none">
-
-                    <div class="att-action-footer flex items-center justify-between pt-0.5">
-                        ${isAbsence ? `
-                            <button type="button" class="btn-receive-physical-form w-full py-1.5 px-3 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs"
-                                data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
-                                <i data-lucide="file-check" class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400"></i>
-                                <span>Justificar / Formulario Físico</span>
-                            </button>
-                        ` : isJustified ? `
-                            <div class="flex items-center justify-between w-full">
-                                <span class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-                                    <span>${r.hasPhysicalForm ? 'Formulario Recibido' : 'Justificado (' + code + ')'}</span>
-                                </span>
-                                <button type="button" class="btn-receive-physical-form text-[11px] text-gold-text dark:text-gold font-bold hover:underline"
-                                    data-teacher-id="${r.teacherId}" data-teacher-name="${escapeHtml(r.fullName)}">
-                                    ${r.hasPhysicalForm ? 'Editar Formulario' : 'Justificación Oficial'}
-                                </button>
-                            </div>
-                        ` : `
-                            <div class="text-[11px] text-slate-400 dark:text-zinc-500 italic py-0.5">
-                                Sin novedades registradas
-                            </div>
-                        `}
-                    </div>
-                </div>
-            </div>
+                        class="att-obs-input w-full px-2.5 py-1.5 border border-slate-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:ring-1 focus:ring-gold focus:outline-none placeholder:text-slate-400 dark:placeholder:text-zinc-500">
+                </td>
+                <td class="py-2.5 px-3 text-center att-row-action">
+                    ${justBtn}
+                </td>
+            </tr>
         `;
     }).join('');
 
-    // Event listeners para chips interactivos de cada tarjeta
-    document.querySelectorAll('.att-chip').forEach(chip => {
-        chip.addEventListener('click', (e) => {
-            const btn = e.currentTarget;
-            const newCode = btn.getAttribute('data-status');
-            const card = btn.closest('.att-teacher-card');
-            if (card) {
-                handleAttendanceStatusChange(card, newCode);
+    // Event listeners para select de estado
+    tbody.querySelectorAll('.att-status-select').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+            const selectElem = e.currentTarget;
+            const newCode = selectElem.value;
+            const row = selectElem.closest('tr');
+            if (row) {
+                handleAttendanceStatusChange(row, newCode);
             }
         });
     });
 
     // Event listeners para botones de formulario físico
-    document.querySelectorAll('.btn-receive-physical-form').forEach(btn => {
+    tbody.querySelectorAll('.btn-receive-physical-form').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const target = e.currentTarget;
             const teacherId = parseInt(target.getAttribute('data-teacher-id'));
@@ -2671,6 +2572,10 @@ function renderAttendanceCards(records) {
 
     initLucideIcons();
     updateAttendanceKpis();
+}
+
+function renderAttendanceCards(records) {
+    renderAttendanceRows(records);
 }
 
 async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
@@ -2835,17 +2740,18 @@ function filterAttendanceTable() {
 }
 
 function markAllVisibleAsPresent() {
-    const cards = document.querySelectorAll('.att-teacher-card');
-    if (cards.length === 0) return;
+    const rows = document.querySelectorAll('.att-table-row[data-teacher-id]');
+    if (rows.length === 0) return;
 
-    cards.forEach(card => {
-        const prBtn = card.querySelector('.att-chip[data-status="PR"]');
-        if (prBtn) {
-            prBtn.click();
+    rows.forEach(row => {
+        const select = row.querySelector('.att-status-select');
+        if (select && select.value !== 'PR') {
+            select.value = 'PR';
+            handleAttendanceStatusChange(row, 'PR');
         }
     });
 
-    showToast('Todos los docentes visibles fueron marcados como Presente. Recuerde guardar los cambios.', 'info');
+    showToast('Todos los docentes visibles fueron marcados como Presente (PR). Recuerde guardar los cambios.', 'info');
 }
 
 async function saveAllAttendanceRecords() {
@@ -2856,18 +2762,21 @@ async function saveAllAttendanceRecords() {
     }
 
     try {
-        // Obtenemos los valores de las tarjetas renderizadas en el DOM
-        const cards = document.querySelectorAll('.att-teacher-card[data-teacher-id]');
+        // Obtenemos los valores de las filas renderizadas en la tabla
+        const rows = document.querySelectorAll('.att-table-row[data-teacher-id]');
         const currentEdits = new Map();
 
-        cards.forEach(card => {
-            const teacherId = parseInt(card.getAttribute('data-teacher-id'));
-            const statusInput = card.querySelector('.att-status-value');
-            const hoursInput = card.querySelector('.att-hours-input');
-            const obsInput = card.querySelector('.att-obs-input');
+        rows.forEach(row => {
+            const teacherId = parseInt(row.getAttribute('data-teacher-id'));
+            const statusSelect = row.querySelector('.att-status-select');
+            const statusInput = row.querySelector('.att-status-value');
+            const hoursInput = row.querySelector('.att-hours-input');
+            const obsInput = row.querySelector('.att-obs-input');
+
+            const currentStatus = statusSelect ? statusSelect.value : (statusInput ? statusInput.value : 'I');
 
             currentEdits.set(teacherId, {
-                status: statusInput ? statusInput.value : 'I',
+                status: currentStatus,
                 hours: hoursInput ? parseInt(hoursInput.value) || 0 : 4,
                 observations: obsInput ? obsInput.value.trim() : ''
             });

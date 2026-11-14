@@ -172,10 +172,10 @@ class AttendanceView(ctk.CTkFrame):
         self.var_filter = ctk.StringVar(value="Todos")
         combo_filter = ctk.CTkComboBox(
             actions_bar,
-            values=["Todos", "Presente", "Ausente c/aviso", "Ausente s/aviso", "Licencia", "Sin Registrar"],
+            values=["Todos", "PR (Presente)", "I (Inasistencia)", "P (Permiso)", "LIC (Licencia)", "LT (Largo Tratamiento)"],
             variable=self.var_filter,
             command=lambda v: self._filter_table(),
-            width=160,
+            width=175,
             height=34,
             fg_color=Theme.BG_INPUT,
             border_color=Theme.BORDER_INPUT,
@@ -297,8 +297,11 @@ class AttendanceView(ctk.CTkFrame):
             if query and (query not in r["full_name"].lower() and query not in r["legajo"].lower() and query not in r["dni"]):
                 continue
             # Filtro estado
-            if filter_st != "Todos" and r["status"] != filter_st:
-                continue
+            if filter_st != "Todos":
+                filter_code = filter_st.split()[0]
+                status_code = r["status"].split()[0] if r["status"] else ""
+                if filter_code != status_code and filter_st != r["status"]:
+                    continue
 
             displayed += 1
             self._render_row(r)
@@ -348,12 +351,26 @@ class AttendanceView(ctk.CTkFrame):
             anchor="center"
         ).pack(side="left", padx=6)
 
-        # Estado Asistencia (Combobox)
-        var_status = ctk.StringVar(value=r["status"])
+        # Estado Asistencia (Combobox con catálogo cerrado institucional)
+        raw_st = r["status"]
+        if raw_st in ("PR", "Presente"):
+            display_st = "PR (Presente)"
+        elif raw_st in ("I", "Inasistencia", "Ausente s/aviso"):
+            display_st = "I (Inasistencia)"
+        elif raw_st in ("P", "Permiso", "Ausente c/aviso"):
+            display_st = "P (Permiso)"
+        elif raw_st in ("LIC", "Licencia"):
+            display_st = "LIC (Licencia)"
+        elif raw_st in ("LT", "Largo Tratamiento", "Largo tratamiento"):
+            display_st = "LT (Largo Tratamiento)"
+        else:
+            display_st = "PR (Presente)"
+
+        var_status = ctk.StringVar(value=display_st)
 
         combo_status = ctk.CTkComboBox(
             row,
-            values=["Presente", "Ausente c/aviso", "Ausente s/aviso", "Licencia", "Sin Registrar"],
+            values=["PR (Presente)", "I (Inasistencia)", "P (Permiso)", "LIC (Licencia)", "LT (Largo Tratamiento)"],
             variable=var_status,
             width=170,
             height=30,
@@ -424,6 +441,7 @@ class AttendanceView(ctk.CTkFrame):
             return
 
         st = w["var_status"].get()
+        st_code = st.split()[0] if st else "PR"
         try:
             hs = int(w["entry_hours"].get().strip())
         except ValueError:
@@ -433,7 +451,7 @@ class AttendanceView(ctk.CTkFrame):
         ok, msg = AttendanceService.save_record(
             teacher_id=teacher_id,
             target_date=self.current_date,
-            status=st,
+            status=st_code,
             hours=hs,
             observations=obs
         )
@@ -447,6 +465,7 @@ class AttendanceView(ctk.CTkFrame):
         saved_count = 0
         for tid, w in self.row_widgets.items():
             st = w["var_status"].get()
+            st_code = st.split()[0] if st else "PR"
             try:
                 hs = int(w["entry_hours"].get().strip())
             except ValueError:
@@ -456,7 +475,7 @@ class AttendanceView(ctk.CTkFrame):
             ok, _ = AttendanceService.save_record(
                 teacher_id=tid,
                 target_date=self.current_date,
-                status=st,
+                status=st_code,
                 hours=hs,
                 observations=obs
             )
