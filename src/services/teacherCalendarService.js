@@ -387,8 +387,8 @@ class TeacherCalendarService {
             const monthSubs = db.prepare(`
                 SELECT sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
                        s.name as subject_name,
-                       tit.first_name as tit_first, tit.last_name as tit_last,
-                       sup.first_name as sup_first, sup.last_name as sup_last
+                       tit.first_name as tit_first, tit.last_name as tit_last, tit.dni as tit_dni, tit.legajo as tit_legajo,
+                       sup.first_name as sup_first, sup.last_name as sup_last, sup.dni as sup_dni, sup.legajo as sup_legajo
                 FROM substitutions sub
                 JOIN designations d ON sub.designation_id = d.id
                 JOIN subjects s ON d.subject_id = s.id
@@ -491,6 +491,69 @@ class TeacherCalendarService {
                     }
                 }
 
+                // Suplencias activas en esta fecha específica
+                const activeSubsOnDay = monthSubs.filter(sub => {
+                    return sub.start_date <= dStr && (!sub.end_date || sub.end_date >= dStr);
+                }).map(sub => ({
+                    id: sub.id,
+                    subjectName: sub.subject_name,
+                    reason: sub.license_reason,
+                    resolution: sub.resolution_number,
+                    startDate: sub.start_date,
+                    endDate: sub.end_date || 'Abierta',
+                    titularLastName: sub.tit_last,
+                    titularFirstName: sub.tit_first,
+                    titularName: `${sub.tit_last}, ${sub.tit_first}`,
+                    titularDni: String(sub.tit_dni || ''),
+                    titularLegajo: sub.tit_legajo || 'S/L',
+                    suplenteLastName: sub.sup_last,
+                    suplenteFirstName: sub.sup_first,
+                    suplenteName: `${sub.sup_last}, ${sub.sup_first}`,
+                    suplenteDni: String(sub.sup_dni || ''),
+                    suplenteLegajo: sub.sup_legajo || 'S/L'
+                }));
+
+                // Docentes presentes en la jornada
+                const presentTeachers = [];
+                const leaveTeacherIds = new Set(leaves.map(l => l.teacherId));
+
+                const explicitPr = attsOnDay.filter(a => {
+                    const c = AttendanceService.classifyRecord(a.status, a.observations);
+                    return c.isPresence;
+                });
+
+                if (explicitPr.length > 0) {
+                    explicitPr.forEach(a => {
+                        presentTeachers.push({
+                            teacherId: a.teacher_id,
+                            fullName: `${a.last_name}, ${a.first_name}`,
+                            lastName: a.last_name,
+                            firstName: a.first_name,
+                            dni: String(a.dni || ''),
+                            legajo: a.legajo || 'S/L',
+                            revista: a.revista || 'Titular',
+                            hours: a.hours || 4,
+                            status: 'PR'
+                        });
+                    });
+                } else if (!dayInfo.isNonWorking && dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    teachers.forEach(t => {
+                        if (!leaveTeacherIds.has(t.id)) {
+                            presentTeachers.push({
+                                teacherId: t.id,
+                                fullName: `${t.last_name}, ${t.first_name}`,
+                                lastName: t.last_name,
+                                firstName: t.first_name,
+                                dni: String(t.dni || ''),
+                                legajo: t.legajo || 'S/L',
+                                revista: t.revista || 'Titular',
+                                hours: t.hours || 4,
+                                status: 'PR'
+                            });
+                        }
+                    });
+                }
+
                 const fullDayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                 days.push({
                     day: d,
@@ -528,7 +591,11 @@ class TeacherCalendarService {
                         hours: a.hours || 4,
                         observations: a.observations || ''
                     })),
-                    leaves
+                    leaves,
+                    substitutions: activeSubsOnDay,
+                    substitutionsCount: activeSubsOnDay.length,
+                    presentTeachers,
+                    presentTeachersCount: presentTeachers.length
                 });
             }
 

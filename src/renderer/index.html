@@ -1005,17 +1005,12 @@
                                 </div>
                             </div>
 
-                            <!-- Selector de Modos de Visualización -->
+                            <!-- Selector de Modos de Visualización: Calendario Institucional Inteligente (Fusión 2 en 1) y Ficha Docente -->
                             <div class="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
                                 <button type="button" id="cal-view-grid-btn"
                                     class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition bg-slate-900 text-gold dark:bg-gold dark:text-slate-900 shadow-xs flex items-center space-x-1.5">
-                                    <i data-lucide="grid" class="w-3.5 h-3.5"></i>
-                                    <span>Grilla Mensual</span>
-                                </button>
-                                <button type="button" id="cal-view-sheet-btn"
-                                    class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5">
-                                    <i data-lucide="table" class="w-3.5 h-3.5"></i>
-                                    <span>Planilla Oficial (1..31)</span>
+                                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                                    <span>Calendario Institucional</span>
                                 </button>
                                 <button type="button" id="cal-view-teacher-btn"
                                     class="cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5">
@@ -1089,7 +1084,7 @@
                             </div>
                         </div>
 
-                        <!-- 3. CONTENEDOR VISTA 1: GRILLA MENSUAL INTERACTIVA (ALMANAQUE 7 COLUMNAS) -->
+                        <!-- 3. CONTENEDOR VISTA 1: CALENDARIO INSTITUCIONAL (GRILLA MENSUAL 7 COLUMNAS) -->
                         <div id="cal-view-grid-container" class="space-y-4 w-full">
                             <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs w-full">
                                 <!-- Cabecera de Días de la Semana (Lunes a Domingo) -->
@@ -1110,46 +1105,9 @@
                                     <!-- Renderizado interactivo dinámico -->
                                 </div>
                             </div>
-
-                            <!-- Panel Inspector del Día Seleccionado -->
-                            <div id="cal-day-inspector" class="hidden bg-white dark:bg-[#282828] p-4 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                                <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                                    <div class="flex items-center space-x-2">
-                                        <i data-lucide="info" class="w-4 h-4 text-gold"></i>
-                                        <h4 id="cal-inspector-title" class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
-                                            Detalle del Día
-                                        </h4>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <button type="button" id="btn-inspector-goto-attendance"
-                                            class="btn-gold px-3 py-1.5 text-[11px] font-bold rounded-lg flex items-center space-x-1 shadow-xs">
-                                            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i>
-                                            <span>Ir a Planilla de este día</span>
-                                        </button>
-                                        <button type="button" id="btn-close-inspector" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-1 font-bold">✕</button>
-                                    </div>
-                                </div>
-                                <div id="cal-inspector-content" class="mt-3 text-xs space-y-2">
-                                    <!-- Lista de novedades o estado del día -->
-                                </div>
-                            </div>
                         </div>
 
-                        <!-- 4. CONTENEDOR VISTA 2: PLANILLA OFICIAL (MATRIZ 1..31) -->
-                        <div id="cal-view-sheet-container" class="hidden space-y-4">
-                            <div class="excel-table-container max-h-[560px] overflow-auto bg-white dark:bg-[#282828] shadow-xs">
-                                <table class="w-full border-collapse text-left text-xs" id="table-cal-month-matrix">
-                                    <thead class="excel-header sticky top-0" id="thead-cal-month-matrix">
-                                        <!-- Generado dinámicamente con columnas 1..31 -->
-                                    </thead>
-                                    <tbody id="tbody-cal-month-matrix" class="divide-y divide-slate-100 dark:divide-zinc-800 font-mono">
-                                        <!-- Renderizado dinámico de docentes -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- 5. CONTENEDOR VISTA 3: FICHA DOCENTE / DETALLE INDIVIDUAL -->
+                        <!-- 4. CONTENEDOR VISTA 2: FICHA DOCENTE / DETALLE INDIVIDUAL -->
                         <div id="cal-view-teacher-container" class="hidden space-y-6">
                             <!-- Barra de Selección y Filtro Cronológico -->
                             <div class="bg-white dark:bg-[#282828] p-5 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 shadow-xs">
@@ -1704,6 +1662,125 @@
     <div id="modal-container" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
         <div id="modal-content" class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <!-- Inyectado dinámicamente -->
+        </div>
+    </div>
+
+    <!-- MODAL INSTITUCIONAL FLOTANTE DE DETALLE DIARIO (CALENDARIO) -->
+    <div id="cal-day-modal" class="fixed inset-0 z-50 hidden bg-slate-900/70 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#202022] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-700/80 w-full max-w-4xl p-0 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-800/60">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gold/15 text-gold flex items-center justify-center font-black">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 id="cal-modal-title" class="text-base font-bold text-slate-900 dark:text-zinc-100">
+                                Detalle Institucional de la Jornada
+                            </h3>
+                            <span id="cal-modal-status-badge" class="hidden px-2.5 py-0.5 rounded-full text-[11px] font-bold"></span>
+                        </div>
+                        <p id="cal-modal-subtitle" class="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                            Nómina de personal, licencias, inasistencias y cobertura de suplencias.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" id="btn-close-cal-day-modal" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 transition font-bold text-base">✕</button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+                <!-- Banner Especial (Feriado o Jornada) -->
+                <div id="cal-modal-special-banner" class="hidden"></div>
+
+                <!-- 4 Mini-KPIs del Día -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50">
+                        <div class="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Presentes</div>
+                        <div id="cal-modal-kpi-pr" class="text-xl font-black text-emerald-600 dark:text-emerald-300">0</div>
+                        <div class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">Docentes en aula</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+                        <div class="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400">Licencias y Permisos</div>
+                        <div id="cal-modal-kpi-lic" class="text-xl font-black text-amber-600 dark:text-amber-300">0</div>
+                        <div class="text-[10px] text-amber-600/80 dark:text-amber-400/80">Justificadas</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50">
+                        <div class="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-400">Inasistencias</div>
+                        <div id="cal-modal-kpi-abs" class="text-xl font-black text-rose-600 dark:text-rose-300">0</div>
+                        <div class="text-[10px] text-rose-600/80 dark:text-rose-400/80">Sin justificar</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50">
+                        <div class="text-[10px] uppercase font-bold text-blue-700 dark:text-blue-400">Suplencias Activas</div>
+                        <div id="cal-modal-kpi-sub" class="text-xl font-black text-blue-600 dark:text-blue-300">0</div>
+                        <div class="text-[10px] text-blue-600/80 dark:text-blue-400/80">Cátedras cubiertas</div>
+                    </div>
+                </div>
+
+                <!-- Sección: Suplencias Activas (si existen) -->
+                <div id="cal-modal-section-subs" class="space-y-2">
+                    <div class="flex items-center space-x-2 text-slate-800 dark:text-zinc-200 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <h4 class="text-xs uppercase tracking-wider">Suplencias Activas en la Jornada</h4>
+                        <span id="cal-modal-badge-subs-count" class="px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 text-[10px] font-bold">0</span>
+                    </div>
+                    <div id="cal-modal-subs-content" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+
+                <!-- Sección: Licencias y Permisos -->
+                <div id="cal-modal-section-lic" class="space-y-2">
+                    <div class="flex items-center space-x-2 text-slate-800 dark:text-zinc-200 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <h4 class="text-xs uppercase tracking-wider">Licencias y Permisos Especiales</h4>
+                        <span id="cal-modal-badge-lic-count" class="px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[10px] font-bold">0</span>
+                    </div>
+                    <div id="cal-modal-lic-content" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+
+                <!-- Sección: Inasistencias -->
+                <div id="cal-modal-section-abs" class="space-y-2">
+                    <div class="flex items-center space-x-2 text-slate-800 dark:text-zinc-200 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <h4 class="text-xs uppercase tracking-wider">Inasistencias Registradas</h4>
+                        <span id="cal-modal-badge-abs-count" class="px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 text-[10px] font-bold">0</span>
+                    </div>
+                    <div id="cal-modal-abs-content" class="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+
+                <!-- Sección: Docentes Presentes (Planilla de Presencias) -->
+                <div id="cal-modal-section-pr" class="space-y-2">
+                    <div class="flex items-center justify-between text-slate-800 dark:text-zinc-200 font-bold">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <h4 class="text-xs uppercase tracking-wider">Nómina de Docentes Presentes</h4>
+                            <span id="cal-modal-badge-pr-count" class="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">0</span>
+                        </div>
+                    </div>
+                    <div id="cal-modal-pr-content" class="max-h-56 overflow-y-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                        <!-- Tabla o Estado Vacío -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-3.5 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 flex items-center justify-between">
+                <button type="button" id="btn-cal-modal-goto-attendance"
+                    class="btn-gold px-4 py-2 text-xs font-bold rounded-lg flex items-center space-x-2 shadow-xs transition hover:brightness-105">
+                    <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+                    <span>Gestionar Asistencias de este Día</span>
+                </button>
+                <button type="button" id="btn-cal-modal-close"
+                    class="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition">
+                    Cerrar
+                </button>
+            </div>
         </div>
     </div>
 

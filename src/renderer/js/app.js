@@ -567,11 +567,9 @@ function setupEventListeners() {
     }
 
     const calViewGridBtn = document.getElementById('cal-view-grid-btn');
-    const calViewSheetBtn = document.getElementById('cal-view-sheet-btn');
     const calViewTeacherBtn = document.getElementById('cal-view-teacher-btn');
 
     if (calViewGridBtn) calViewGridBtn.addEventListener('click', () => switchCalendarView('grid'));
-    if (calViewSheetBtn) calViewSheetBtn.addEventListener('click', () => switchCalendarView('sheet'));
     if (calViewTeacherBtn) calViewTeacherBtn.addEventListener('click', () => switchCalendarView('teacher'));
 
     const btnCalAddInst = document.getElementById('btn-cal-add-institutional');
@@ -628,25 +626,37 @@ function setupEventListeners() {
         });
     }
 
-    const btnCloseInspector = document.getElementById('btn-close-inspector');
-    if (btnCloseInspector) {
-        btnCloseInspector.addEventListener('click', () => {
-            const insp = document.getElementById('cal-day-inspector');
-            if (insp) insp.classList.add('hidden');
+    // Modal Institucional Flotante de Detalle Diario (Calendario Fusión 2 en 1)
+    const btnCloseCalDayModal = document.getElementById('btn-close-cal-day-modal');
+    const btnCalModalClose = document.getElementById('btn-cal-modal-close');
+    const btnCalModalGotoAtt = document.getElementById('btn-cal-modal-goto-attendance');
+    const calDayModalEl = document.getElementById('cal-day-modal');
+
+    if (btnCloseCalDayModal) btnCloseCalDayModal.addEventListener('click', closeDayDetailModal);
+    if (btnCalModalClose) btnCalModalClose.addEventListener('click', closeDayDetailModal);
+    if (calDayModalEl) {
+        calDayModalEl.addEventListener('click', (e) => {
+            if (e.target === calDayModalEl) closeDayDetailModal();
         });
     }
 
-    const btnGotoAtt = document.getElementById('btn-inspector-goto-attendance');
-    if (btnGotoAtt) {
-        btnGotoAtt.addEventListener('click', () => {
+    if (btnCalModalGotoAtt) {
+        btnCalModalGotoAtt.addEventListener('click', () => {
             if (CalendarState.selectedDayData) {
                 AppState.attendanceDate = CalendarState.selectedDayData.date;
                 const attDateInput = document.getElementById('att-date-input');
                 if (attDateInput) attDateInput.value = AppState.attendanceDate;
+                closeDayDetailModal();
                 switchTeacherSubtab('asistencias');
             }
         });
     }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeDayDetailModal();
+        }
+    });
 
     // Ficha Individual por Docente (vista clásica preservada)
     const btnLoadCal = document.getElementById('btn-load-calendar');
@@ -3871,6 +3881,8 @@ function buildDefaultMonthMatrix(year, month) {
                 teacherId: 1,
                 teacherName: 'FERNÁNDEZ, Laura',
                 fullName: 'FERNÁNDEZ, Laura',
+                lastName: 'FERNÁNDEZ',
+                firstName: 'Laura',
                 legajo: '1001',
                 status: 'LIC',
                 statusLabel: 'Licencia Médica / Salud (Art. 114 a)',
@@ -3883,6 +3895,8 @@ function buildDefaultMonthMatrix(year, month) {
                 teacherId: 2,
                 teacherName: 'MORALES, Roberto',
                 fullName: 'MORALES, Roberto',
+                lastName: 'MORALES',
+                firstName: 'Roberto',
                 legajo: '1002',
                 status: 'P',
                 statusLabel: 'Permiso Particular (Art. 115)',
@@ -3895,6 +3909,8 @@ function buildDefaultMonthMatrix(year, month) {
                 teacherId: 3,
                 teacherName: 'VARGAS, Tomás',
                 fullName: 'VARGAS, Tomás',
+                lastName: 'VARGAS',
+                firstName: 'Tomás',
                 legajo: '1003',
                 status: 'I',
                 statusLabel: 'Inasistencia Justificada',
@@ -3903,6 +3919,40 @@ function buildDefaultMonthMatrix(year, month) {
             }
         ]
     };
+
+    // Planta docente institucional de muestra
+    const SAMPLE_FACULTY = [
+        { id: 1, lastName: 'FERNÁNDEZ', firstName: 'Laura', legajo: '1001', dni: '28456123', revista: 'Titular', hours: 12 },
+        { id: 2, lastName: 'MORALES', firstName: 'Roberto', legajo: '1002', dni: '29876543', revista: 'Interino', hours: 8 },
+        { id: 3, lastName: 'VARGAS', firstName: 'Tomás', legajo: '1003', dni: '34567890', revista: 'Suplente', hours: 10 },
+        { id: 4, lastName: 'GÓMEZ', firstName: 'Patricia', legajo: '1004', dni: '26123456', revista: 'Titular', hours: 6 },
+        { id: 5, lastName: 'DÍAZ', firstName: 'Martín', legajo: '1005', dni: '31987654', revista: 'Titular', hours: 8 },
+        { id: 6, lastName: 'CASTRO', firstName: 'Silvina', legajo: '1006', dni: '33456789', revista: 'Interino', hours: 4 },
+        { id: 7, lastName: 'ROJAS', firstName: 'Carlos', legajo: '1007', dni: '30234567', revista: 'Titular', hours: 12 },
+        { id: 8, lastName: 'HERRERA', firstName: 'Valeria', legajo: '1008', dni: '35678901', revista: 'Interino', hours: 6 }
+    ];
+
+    // Suplencias institucionales de muestra
+    const SAMPLE_SUBS = [
+        {
+            id: 1,
+            subjectName: 'Prácticas Profesionalizantes I',
+            reason: 'Art. 114 a - Licencia Médica Laura Fernández',
+            resolution: 'Res. Int. 042/2026',
+            startDate: `${y}-${mStr}-01`,
+            endDate: `${y}-${mStr}-30`,
+            titularLastName: 'FERNÁNDEZ',
+            titularFirstName: 'Laura',
+            titularName: 'FERNÁNDEZ, Laura',
+            titularDni: '28456123',
+            titularLegajo: '1001',
+            suplenteLastName: 'VARGAS',
+            suplenteFirstName: 'Tomás',
+            suplenteName: 'VARGAS, Tomás',
+            suplenteDni: '34567890',
+            suplenteLegajo: '1003'
+        }
+    ];
 
     const days = [];
     const dayShortNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -3951,6 +4001,30 @@ function buildDefaultMonthMatrix(year, month) {
             prCount -= dayNovelties;
         }
 
+        // Suplencias activas en este día específico
+        const activeSubsOnDay = SAMPLE_SUBS.filter(s => s.startDate <= dStr && (!s.endDate || s.endDate >= dStr));
+
+        // Docentes presentes calculados
+        const presentTeachers = [];
+        if (!isNonWorking) {
+            const leaveTeacherIds = new Set(sampleLeaves.map(l => l.teacherId));
+            SAMPLE_FACULTY.forEach(fac => {
+                if (!leaveTeacherIds.has(fac.id)) {
+                    presentTeachers.push({
+                        teacherId: fac.id,
+                        fullName: `${fac.lastName}, ${fac.firstName}`,
+                        lastName: fac.lastName,
+                        firstName: fac.firstName,
+                        dni: fac.dni,
+                        legajo: fac.legajo,
+                        revista: fac.revista,
+                        hours: fac.hours,
+                        status: 'PR'
+                    });
+                }
+            });
+        }
+
         days.push({
             day: d,
             date: dStr,
@@ -3980,7 +4054,11 @@ function buildDefaultMonthMatrix(year, month) {
                 LT: ltCount
             },
             records: sampleLeaves,
-            leaves: sampleLeaves
+            leaves: sampleLeaves,
+            substitutions: activeSubsOnDay,
+            substitutionsCount: activeSubsOnDay.length,
+            presentTeachers,
+            presentTeachersCount: presentTeachers.length
         });
     }
 
@@ -3993,7 +4071,7 @@ function buildDefaultMonthMatrix(year, month) {
         daysInMonth,
         days,
         teachersMatrix: [],
-        substitutions: [],
+        substitutions: SAMPLE_SUBS,
         stats: {
             totalTeachers: 8,
             workdays: workdaysCount,
@@ -4094,10 +4172,10 @@ async function loadInteractiveCalendar() {
         CalendarState.matrixData = defaultMatrix;
         updateCalendarKpis(defaultMatrix.stats);
 
-        if (CalendarState.currentView === 'grid') {
+        if (CalendarState.currentView === 'teacher') {
+            await loadTeacherCalendar();
+        } else {
             renderCalendarGridView(defaultMatrix);
-        } else if (CalendarState.currentView === 'sheet') {
-            renderCalendarSheetView(defaultMatrix);
         }
 
         // 2. CONSULTA ASÍNCRONA A LA BASE DE DATOS REAL (SQLite)
@@ -4112,12 +4190,10 @@ async function loadInteractiveCalendar() {
                     CalendarState.matrixData = res;
                     updateCalendarKpis(res.stats);
 
-                    if (CalendarState.currentView === 'grid') {
-                        renderCalendarGridView(res);
-                    } else if (CalendarState.currentView === 'sheet') {
-                        renderCalendarSheetView(res);
-                    } else if (CalendarState.currentView === 'teacher') {
+                    if (CalendarState.currentView === 'teacher') {
                         await loadTeacherCalendar();
+                    } else {
+                        renderCalendarGridView(res);
                     }
                 }
             } catch (dbErr) {
@@ -4132,34 +4208,29 @@ async function loadInteractiveCalendar() {
 }
 
 /**
- * Alterna entre Grilla Mensual, Planilla Oficial (1..31) y Ficha Docente
+ * Alterna entre el Calendario Institucional Inteligente (Fusión 2 en 1) y la Ficha Docente
  */
 function switchCalendarView(viewName) {
+    if (viewName === 'sheet') viewName = 'grid';
     CalendarState.currentView = viewName;
 
     const btnGrid = document.getElementById('cal-view-grid-btn');
-    const btnSheet = document.getElementById('cal-view-sheet-btn');
     const btnTeacher = document.getElementById('cal-view-teacher-btn');
 
     const viewGrid = document.getElementById('cal-view-grid-container');
-    const viewSheet = document.getElementById('cal-view-sheet-container');
     const viewTeacher = document.getElementById('cal-view-teacher-container');
 
     const activeClasses = 'cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition bg-slate-900 text-gold dark:bg-gold dark:text-slate-900 shadow-xs flex items-center space-x-1.5';
     const inactiveClasses = 'cal-view-toggle px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center space-x-1.5';
 
     if (btnGrid) btnGrid.className = (viewName === 'grid') ? activeClasses : inactiveClasses;
-    if (btnSheet) btnSheet.className = (viewName === 'sheet') ? activeClasses : inactiveClasses;
     if (btnTeacher) btnTeacher.className = (viewName === 'teacher') ? activeClasses : inactiveClasses;
 
     if (viewGrid) viewGrid.classList.toggle('hidden', viewName !== 'grid');
-    if (viewSheet) viewSheet.classList.toggle('hidden', viewName !== 'sheet');
     if (viewTeacher) viewTeacher.classList.toggle('hidden', viewName !== 'teacher');
 
     if (viewName === 'grid') {
         renderCalendarGridView(CalendarState.matrixData);
-    } else if (viewName === 'sheet') {
-        renderCalendarSheetView(CalendarState.matrixData);
     } else if (viewName === 'teacher') {
         loadTeacherCalendar();
     }
@@ -4168,7 +4239,7 @@ function switchCalendarView(viewName) {
 }
 
 /**
- * Renderiza la Grilla Mensual Interactiva con Feriados, Jornadas y Novedades Diarias
+ * Renderiza la Grilla Mensual Inteligente (Calendario Institucional con Pills por Evento)
  */
 function renderCalendarGridView(matrixData) {
     const gridContainer = document.getElementById('cal-month-grid-cells');
@@ -4178,7 +4249,7 @@ function renderCalendarGridView(matrixData) {
     const m = Number(CalendarState.month) || (new Date().getMonth() + 1);
     matrixData = matrixData || CalendarState.matrixData || buildDefaultMonthMatrix(y, m);
 
-    // Para evitar desfases por zona horaria o horario de verano (DST), instanciamos al mediodía local (12:00:00)
+    // Evitar desfases por huso horario instanciando al mediodía local (12:00:00)
     const firstDayDate = new Date(y, m - 1, 1, 12, 0, 0);
     const rawDayOfWeek = firstDayDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
     // La grilla tiene 7 columnas: Lunes (0), Martes (1), Miércoles (2), Jueves (3), Viernes (4), Sábado (5), Domingo (6)
@@ -4189,7 +4260,7 @@ function renderCalendarGridView(matrixData) {
 
     // Celdas vacías previas al día 1 del mes para ubicarlo exactamente en su día de la semana
     for (let i = 0; i < firstDayIndex; i++) {
-        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[105px] opacity-40"></div>`;
+        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[126px] opacity-40"></div>`;
     }
 
     // Celdas para cada día del mes
@@ -4197,7 +4268,8 @@ function renderCalendarGridView(matrixData) {
         const isToday = day.date === todayStr;
         const isWeekend = day.dayOfWeekName === 'Sábado' || day.dayOfWeekName === 'Domingo' || day.dayOfWeek === 0 || day.dayOfWeek === 6;
         const stats = day.stats || { PR: day.prCount || 0, I: day.iCount || 0, P: day.pCount || 0, LIC: day.licCount || 0, LT: day.ltCount || 0 };
-        const hasNovelties = (stats.I > 0 || stats.LIC > 0 || stats.P > 0 || stats.LT > 0);
+        const subsList = day.substitutions || [];
+        const hasNovelties = (stats.I > 0 || stats.LIC > 0 || stats.P > 0 || stats.LT > 0 || subsList.length > 0);
 
         let cellBorder = 'border-slate-200 dark:border-zinc-700/80';
         let cellBg = 'bg-white dark:bg-zinc-800 hover:border-gold/60';
@@ -4216,45 +4288,123 @@ function renderCalendarGridView(matrixData) {
             cellBg = 'bg-slate-50/70 dark:bg-zinc-900/90';
         }
 
-        // Badges o Marcas Especiales del Día
-        let specialBadge = '';
+        // Recolectar etiquetas visuales / pills enriquecidas por color
+        const dayPills = [];
+
+        // 1. 🟣 Feriados y Jornadas Institucionales
         if (day.isHoliday) {
-            specialBadge = `
-                <div class="mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 truncate" title="${escapeHtml(day.holidayName || 'Feriado')}">
-                    🎉 ${escapeHtml(day.holidayName || 'Feriado')}
-                </div>
-            `;
+            dayPills.push({
+                type: 'holiday',
+                icon: '🟣',
+                class: 'cal-pill-holiday',
+                text: `Feriado: ${day.holidayName || 'Feriado'}`,
+                title: `Feriado Oficial: ${day.holidayName || ''}`
+            });
         } else if (day.isInstitutionalDay) {
-            specialBadge = `
-                <div class="mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800 flex items-center justify-between" title="${escapeHtml(day.institutionalName || 'Jornada')}">
-                    <span class="truncate">🏛️ ${escapeHtml(day.institutionalName || 'Jornada')}</span>
-                    <button type="button" class="btn-del-inst-day text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 ml-1 font-bold" data-date="${day.date}" title="Eliminar Jornada">✕</button>
+            dayPills.push({
+                type: 'inst',
+                icon: '🏛️',
+                class: 'cal-pill-inst',
+                text: `Jornada: ${day.institutionalName || 'Jornada'}`,
+                title: `Jornada Institucional: ${day.institutionalName || ''}`,
+                canDelete: true,
+                date: day.date
+            });
+        }
+
+        // 2. 🟠 Licencias y Permisos
+        const licRecords = (day.leaves || []).filter(l => l.status === 'LIC' || l.status === 'P' || l.status === 'LT');
+        licRecords.forEach(lic => {
+            const rawName = lic.lastName || lic.teacherLastName || (lic.teacherName ? lic.teacherName.split(',')[0] : (lic.fullName ? lic.fullName.split(',')[0] : 'Docente'));
+            const shortType = (lic.status === 'P') ? 'Perm' : (lic.status === 'LT') ? 'LT' : 'Lic';
+            dayPills.push({
+                type: 'lic',
+                icon: '🟠',
+                class: 'cal-pill-lic',
+                text: `${shortType}: ${rawName.trim()}`,
+                title: `${lic.fullName || rawName} (${lic.statusLabel || lic.status || 'Licencia'}) - ${lic.observations || ''}`
+            });
+        });
+
+        // 3. 🔴 Inasistencias
+        let absRecords = (day.leaves || []).filter(l => l.status === 'I');
+        if (absRecords.length === 0 && Array.isArray(day.records)) {
+            absRecords = day.records.filter(r => r.status === 'I');
+        }
+        absRecords.forEach(abs => {
+            const rawName = abs.lastName || abs.teacherLastName || (abs.teacherName ? abs.teacherName.split(',')[0] : (abs.fullName ? abs.fullName.split(',')[0] : 'Docente'));
+            dayPills.push({
+                type: 'abs',
+                icon: '🔴',
+                class: 'cal-pill-abs',
+                text: `Inasist: ${rawName.trim()}`,
+                title: `Inasistencia: ${abs.fullName || rawName} (${abs.hours || 4} hs)`
+            });
+        });
+
+        // 4. 🔵 Suplencias Activas
+        subsList.forEach(sub => {
+            const suplenteLast = sub.suplenteLastName || (sub.suplenteName ? sub.suplenteName.split(',')[0] : 'Suplente');
+            const titularLast = sub.titularLastName || (sub.titularName ? sub.titularName.split(',')[0] : '');
+            const label = titularLast ? `Supl: ${suplenteLast} (x ${titularLast})` : `Supl: ${suplenteLast}`;
+            dayPills.push({
+                type: 'sub',
+                icon: '🔵',
+                class: 'cal-pill-sub',
+                text: label,
+                title: `Suplente: ${sub.suplenteName || suplenteLast} | Titular: ${sub.titularName || titularLast} | Cátedra: ${sub.subjectName} (${sub.resolution || 'S/Res'})`
+            });
+        });
+
+        // Limitar pills visibles a 3 para mantener la estética uniforme
+        const maxVisiblePills = 3;
+        const visiblePills = dayPills.slice(0, maxVisiblePills);
+        const remainingCount = dayPills.length - maxVisiblePills;
+
+        let pillsHtml = '';
+        if (dayPills.length > 0) {
+            pillsHtml = `
+                <div class="mt-1.5 space-y-1 w-full overflow-hidden">
+                    ${visiblePills.map(p => `
+                        <div class="cal-pill ${p.class}" title="${escapeHtml(p.title || p.text)}">
+                            <span>${p.icon}</span>
+                            <span class="truncate flex-1">${escapeHtml(p.text)}</span>
+                            ${p.canDelete ? `<button type="button" class="btn-del-inst-day text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 font-bold ml-0.5 text-[11px]" data-date="${p.date}" title="Eliminar Jornada">✕</button>` : ''}
+                        </div>
+                    `).join('')}
+                    ${remainingCount > 0 ? `
+                        <div class="cal-pill-more">
+                            +${remainingCount} más...
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
 
-        // Estadísticas de Asistencia del Día
+        // Estadísticas / Resumen de Asistencia del Día (pie de celda)
         let statsRow = '';
         if (!isWeekend) {
+            const prCount = (day.presentTeachers && day.presentTeachers.length > 0) ? day.presentTeachers.length : (stats.PR || 0);
             statsRow = `
                 <div class="mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between text-[10px] font-bold">
-                    <span class="text-emerald-600 dark:text-emerald-400" title="Presentes">${stats.PR || 0} PR</span>
+                    <span class="text-emerald-600 dark:text-emerald-400" title="Docentes Presentes">${prCount} PR</span>
                     ${stats.I > 0 ? `<span class="text-rose-600 dark:text-rose-400 font-extrabold" title="Inasistencias">${stats.I} I</span>` : ''}
                     ${(stats.LIC + stats.P + stats.LT) > 0 ? `<span class="text-amber-600 dark:text-amber-400 font-extrabold" title="Licencias y Permisos">${stats.LIC + stats.P + stats.LT} LIC</span>` : ''}
+                    ${subsList.length > 0 ? `<span class="text-blue-600 dark:text-blue-400 font-extrabold" title="Suplencias Activas">${subsList.length} SUP</span>` : ''}
                 </div>
             `;
         }
 
         html += `
-            <div class="cal-day-cell p-2.5 rounded-xl border ${cellBorder} ${cellBg} transition cursor-pointer flex flex-col justify-between min-h-[105px] ${isToday ? 'is-today' : ''} ${day.isHoliday ? 'is-holiday' : ''} ${day.isInstitutionalDay ? 'is-institutional' : ''} ${isWeekend ? 'is-weekend' : ''}"
+            <div class="cal-day-cell p-2.5 rounded-xl border ${cellBorder} ${cellBg} transition cursor-pointer flex flex-col justify-between min-h-[126px] ${isToday ? 'is-today' : ''} ${day.isHoliday ? 'is-holiday' : ''} ${day.isInstitutionalDay ? 'is-institutional' : ''} ${isWeekend ? 'is-weekend' : ''}"
                 data-date="${day.date}">
                 <div>
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-black ${isToday ? 'text-gold' : isWeekend ? 'text-rose-400' : 'text-slate-800 dark:text-zinc-100'}">${day.day}</span>
                         ${isToday ? '<span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-gold text-slate-900 uppercase">Hoy</span>' : ''}
-                        ${hasNovelties ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" title="Novedades registradas"></span>' : ''}
+                        ${hasNovelties ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" title="Eventos o novedades registradas"></span>' : ''}
                     </div>
-                    ${specialBadge}
+                    ${pillsHtml}
                 </div>
                 ${statsRow}
             </div>
@@ -4265,19 +4415,19 @@ function renderCalendarGridView(matrixData) {
     const totalRendered = firstDayIndex + (matrixData.days || []).length;
     const trailingSpacers = (7 - (totalRendered % 7)) % 7;
     for (let i = 0; i < trailingSpacers; i++) {
-        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[105px] opacity-40"></div>`;
+        html += `<div class="cal-day-spacer bg-slate-50/40 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800/50 min-h-[126px] opacity-40"></div>`;
     }
 
     gridContainer.innerHTML = html;
 
-    // Conectar clics en celdas de día para abrir el inspector
+    // Conectar clics en celdas de día para abrir el Modal Institucional Flotante de Detalle Diario
     gridContainer.querySelectorAll('.cal-day-cell').forEach(cell => {
         cell.addEventListener('click', (e) => {
-            // Si el clic fue en el botón de eliminar jornada institucional, ignorar apertura
+            // Si el clic fue en el botón de eliminar jornada institucional, ignorar apertura del modal
             if (e.target.closest('.btn-del-inst-day')) return;
             const dStr = cell.getAttribute('data-date');
             const dayObj = (matrixData.days || []).find(d => d.date === dStr);
-            if (dayObj) selectCalendarDay(dayObj);
+            if (dayObj) openDayDetailModal(dayObj);
         });
     });
 
@@ -4312,79 +4462,283 @@ function renderCalendarGridView(matrixData) {
 }
 
 /**
- * Inspector de día seleccionado: muestra el detalle de docentes ausentes o de licencia
+ * Abre el Modal Institucional Flotante de Detalle Diario (Fusión 2 en 1)
  */
-function selectCalendarDay(day) {
+function openDayDetailModal(day) {
     CalendarState.selectedDayData = day;
-    const inspector = document.getElementById('cal-day-inspector');
-    const titleEl = document.getElementById('cal-inspector-title');
-    const contentEl = document.getElementById('cal-inspector-content');
+    const modal = document.getElementById('cal-day-modal');
+    if (!modal) return;
 
-    if (!inspector || !titleEl || !contentEl) return;
+    const titleEl = document.getElementById('cal-modal-title');
+    const subTitleEl = document.getElementById('cal-modal-subtitle');
+    const badgeEl = document.getElementById('cal-modal-status-badge');
+    const bannerEl = document.getElementById('cal-modal-special-banner');
 
-    titleEl.textContent = `${day.dayOfWeekName} ${day.day} de ${MONTH_NAMES_ES[CalendarState.month - 1]} de ${CalendarState.year} (${day.date})`;
-
-    let banner = '';
-    if (day.isHoliday) {
-        banner = `
-            <div class="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold">
-                🎉 <strong>Feriado Oficial:</strong> ${escapeHtml(day.holidayName)}
-            </div>
-        `;
-    } else if (day.isInstitutionalDay) {
-        banner = `
-            <div class="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-lg border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs font-semibold">
-                🏛️ <strong>Jornada Institucional sin Clases:</strong> ${escapeHtml(day.institutionalName)}
-            </div>
-        `;
+    const mName = MONTH_NAMES_ES[(CalendarState.month || 1) - 1] || 'Mes';
+    if (titleEl) {
+        titleEl.textContent = `${day.dayOfWeekName || ''} ${day.day} de ${mName} de ${CalendarState.year || ''}`;
+    }
+    if (subTitleEl) {
+        subTitleEl.textContent = `Fecha institucional: ${day.date} — Desglose completo de asistencia, novedades y suplencias.`;
     }
 
-    let recordsHtml = '';
-    const dayRecords = day.records || [];
-    const novelties = dayRecords.filter(r => r.status !== 'PR');
+    const isWeekend = (day.dayOfWeek === 0 || day.dayOfWeek === 6 || day.isWeekend);
 
-    if (novelties.length === 0) {
-        recordsHtml = `
-            <div class="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 text-xs italic">
-                ${dayRecords.length > 0 ? `Todos los docentes presentes (${day.stats.PR} presentes). Sin inasistencias ni licencias.` : 'Sin movimientos de asistencia registrados para este día.'}
-            </div>
-        `;
-    } else {
-        recordsHtml = `
-            <div class="excel-table-container max-h-[220px]">
+    if (badgeEl) {
+        badgeEl.classList.remove('hidden');
+        if (day.isHoliday) {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300';
+            badgeEl.textContent = 'Feriado Oficial';
+        } else if (day.isInstitutionalDay) {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300';
+            badgeEl.textContent = 'Jornada Institucional';
+        } else if (isWeekend) {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300';
+            badgeEl.textContent = 'Fin de Semana';
+        } else {
+            badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300';
+            badgeEl.textContent = 'Día Hábil Escolar';
+        }
+    }
+
+    // Banner destacado si es feriado o jornada institucional
+    if (bannerEl) {
+        if (day.isHoliday) {
+            bannerEl.innerHTML = `
+                <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 flex items-center space-x-3">
+                    <span class="text-2xl">🎉</span>
+                    <div>
+                        <h4 class="font-bold text-xs uppercase tracking-wider">Feriado Oficial Nacional / Provincial</h4>
+                        <p class="text-xs font-semibold">${escapeHtml(day.holidayName || 'Feriado Oficial')}</p>
+                    </div>
+                </div>
+            `;
+            bannerEl.classList.remove('hidden');
+        } else if (day.isInstitutionalDay) {
+            bannerEl.innerHTML = `
+                <div class="p-3.5 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-300 dark:border-purple-800/80 text-purple-900 dark:text-purple-200 flex items-center space-x-3">
+                    <span class="text-2xl">🏛️</span>
+                    <div>
+                        <h4 class="font-bold text-xs uppercase tracking-wider">Jornada Institucional Sin Actividad Áulica</h4>
+                        <p class="text-xs font-semibold">${escapeHtml(day.institutionalName || 'Jornada Institucional')}</p>
+                    </div>
+                </div>
+            `;
+            bannerEl.classList.remove('hidden');
+        } else {
+            bannerEl.classList.add('hidden');
+            bannerEl.innerHTML = '';
+        }
+    }
+
+    // Listas y contadores de la jornada
+    const presentList = day.presentTeachers || [];
+    const licList = (day.leaves || []).filter(l => l.status === 'LIC' || l.status === 'P' || l.status === 'LT');
+    let absList = (day.leaves || []).filter(l => l.status === 'I');
+    if (absList.length === 0 && Array.isArray(day.records)) {
+        absList = day.records.filter(r => r.status === 'I');
+    }
+    const subsList = day.substitutions || [];
+
+    const prCount = presentList.length > 0 ? presentList.length : (day.stats?.PR ?? (isWeekend || day.isNonWorking ? 0 : 8));
+    const licCount = licList.length;
+    const absCount = absList.length;
+    const subCount = subsList.length;
+
+    // Actualizar los 4 Mini-KPIs
+    const kpiPr = document.getElementById('cal-modal-kpi-pr');
+    const kpiLic = document.getElementById('cal-modal-kpi-lic');
+    const kpiAbs = document.getElementById('cal-modal-kpi-abs');
+    const kpiSub = document.getElementById('cal-modal-kpi-sub');
+    if (kpiPr) kpiPr.textContent = prCount;
+    if (kpiLic) kpiLic.textContent = licCount;
+    if (kpiAbs) kpiAbs.textContent = absCount;
+    if (kpiSub) kpiSub.textContent = subCount;
+
+    // Badges en las cabeceras de cada sección
+    const badgeSubs = document.getElementById('cal-modal-badge-subs-count');
+    const badgeLic = document.getElementById('cal-modal-badge-lic-count');
+    const badgeAbs = document.getElementById('cal-modal-badge-abs-count');
+    const badgePr = document.getElementById('cal-modal-badge-pr-count');
+    if (badgeSubs) badgeSubs.textContent = subCount;
+    if (badgeLic) badgeLic.textContent = licCount;
+    if (badgeAbs) badgeAbs.textContent = absCount;
+    if (badgePr) badgePr.textContent = prCount;
+
+    // 1. SECCIÓN: Suplencias Activas
+    const subsContainer = document.getElementById('cal-modal-subs-content');
+    if (subsContainer) {
+        if (subsList.length === 0) {
+            subsContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    No se registran suplencias activas para esta jornada.
+                </div>
+            `;
+        } else {
+            subsContainer.innerHTML = `
                 <table class="w-full border-collapse text-left text-xs">
-                    <thead class="excel-header sticky top-0">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
                         <tr>
-                            <th class="w-24 text-center">LEGAJO</th>
-                            <th>DOCENTE</th>
-                            <th class="w-28 text-center">ESTADO</th>
-                            <th class="w-20 text-center">HORAS</th>
-                            <th>OBSERVACIONES / CERTIFICADO</th>
+                            <th class="py-2 px-3">ESPACIO / CÁTEDRA</th>
+                            <th class="py-2 px-3">TITULAR REEMPLAZADO</th>
+                            <th class="py-2 px-3">SUPLENTE DESIGNADO</th>
+                            <th class="py-2 px-3">MOTIVO / ARTÍCULO</th>
+                            <th class="py-2 px-3 text-center">RESOLUCIÓN</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
-                        ${novelties.map(n => `
-                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
-                                <td class="py-1.5 px-2 text-center font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(n.legajo || 'S/L')}</td>
-                                <td class="py-1.5 px-2 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(n.fullName)}</td>
-                                <td class="py-1.5 px-2 text-center">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${n.status === 'I' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300'}">
-                                        ${n.status}
-                                    </span>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${subsList.map(s => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(s.subjectName || 'Cátedra')}</td>
+                                <td class="py-2 px-3 text-slate-700 dark:text-zinc-300">
+                                    <span class="font-bold">${escapeHtml(s.titularName || s.titularLastName || 'Docente')}</span>
+                                    <span class="text-[10px] text-slate-400 ml-1">(Leg. ${escapeHtml(s.titularLegajo || 'S/L')})</span>
                                 </td>
-                                <td class="py-1.5 px-2 text-center font-bold text-slate-600 dark:text-zinc-300">${n.hours || 4} hs</td>
-                                <td class="py-1.5 px-2 text-slate-600 dark:text-zinc-400">${escapeHtml(n.observations || n.articleCode || '—')}</td>
+                                <td class="py-2 px-3 text-blue-700 dark:text-blue-300 font-bold">
+                                    <span>${escapeHtml(s.suplenteName || s.suplenteLastName || 'Suplente')}</span>
+                                    <span class="text-[10px] text-slate-400 ml-1">(Leg. ${escapeHtml(s.suplenteLegajo || 'S/L')})</span>
+                                </td>
+                                <td class="py-2 px-3 text-slate-600 dark:text-zinc-400">${escapeHtml(s.reason || 'Licencia')}</td>
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-700 dark:text-zinc-300">${escapeHtml(s.resolution || '—')}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-            </div>
-        `;
+            `;
+        }
     }
 
-    contentEl.innerHTML = banner + recordsHtml;
-    inspector.classList.remove('hidden');
+    // 2. SECCIÓN: Licencias y Permisos
+    const licContainer = document.getElementById('cal-modal-lic-content');
+    if (licContainer) {
+        if (licList.length === 0) {
+            licContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    Sin licencias ni permisos registrados en la jornada.
+                </div>
+            `;
+        } else {
+            licContainer.innerHTML = `
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="w-20 text-center py-2 px-3">LEGAJO</th>
+                            <th class="py-2 px-3">DOCENTE</th>
+                            <th class="py-2 px-3">TIPO / ARTÍCULO</th>
+                            <th class="w-20 text-center py-2 px-3">HORAS</th>
+                            <th class="py-2 px-3">OBSERVACIONES / CERTIFICADO</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${licList.map(l => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(l.legajo || 'S/L')}</td>
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(l.fullName || l.teacherName || 'Docente')}</td>
+                                <td class="py-2 px-3 text-amber-700 dark:text-amber-400 font-bold">${escapeHtml(l.statusLabel || l.status || 'Licencia')}</td>
+                                <td class="py-2 px-3 text-center font-bold text-slate-700 dark:text-zinc-300">${l.hours || 4} hs</td>
+                                <td class="py-2 px-3 text-slate-600 dark:text-zinc-400">${escapeHtml(l.observations || '—')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    }
+
+    // 3. SECCIÓN: Inasistencias
+    const absContainer = document.getElementById('cal-modal-abs-content');
+    if (absContainer) {
+        if (absList.length === 0) {
+            absContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    Sin inasistencias registradas para esta jornada.
+                </div>
+            `;
+        } else {
+            absContainer.innerHTML = `
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="w-20 text-center py-2 px-3">LEGAJO</th>
+                            <th class="py-2 px-3">DOCENTE</th>
+                            <th class="w-20 text-center py-2 px-3">HORAS</th>
+                            <th class="w-28 text-center py-2 px-3">ESTADO</th>
+                            <th class="py-2 px-3">DETALLE</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${absList.map(a => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(a.legajo || 'S/L')}</td>
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(a.fullName || a.teacherName || 'Docente')}</td>
+                                <td class="py-2 px-3 text-center font-bold text-slate-700 dark:text-zinc-300">${a.hours || 4} hs</td>
+                                <td class="py-2 px-3 text-center">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300">
+                                        I - Inasistencia
+                                    </span>
+                                </td>
+                                <td class="py-2 px-3 text-slate-600 dark:text-zinc-400">${escapeHtml(a.observations || 'Sin justificar')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    }
+
+    // 4. SECCIÓN: Docentes Presentes (Nómina de Presencias)
+    const prContainer = document.getElementById('cal-modal-pr-content');
+    if (prContainer) {
+        if (presentList.length === 0) {
+            prContainer.innerHTML = `
+                <div class="p-3.5 bg-slate-50 dark:bg-zinc-800/40 text-center text-slate-400 dark:text-zinc-500 italic text-xs">
+                    ${isWeekend || day.isNonWorking ? 'Día no laborable / Sin actividad presencial institucional.' : 'No se registraron docentes presentes para este día.'}
+                </div>
+            `;
+        } else {
+            prContainer.innerHTML = `
+                <table class="w-full border-collapse text-left text-xs">
+                    <thead class="sticky top-0 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold border-b border-slate-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="w-20 text-center py-2 px-3">LEGAJO</th>
+                            <th class="py-2 px-3">DOCENTE (APELLIDO Y NOMBRES)</th>
+                            <th class="w-28 text-center py-2 px-3">DNI</th>
+                            <th class="w-28 text-center py-2 px-3">REVISTA</th>
+                            <th class="w-20 text-center py-2 px-3">HORAS</th>
+                            <th class="w-20 text-center py-2 px-3">ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-800/30">
+                        ${presentList.map(p => `
+                            <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/60">
+                                <td class="py-2 px-3 text-center font-mono font-bold text-slate-600 dark:text-zinc-400">${escapeHtml(p.legajo || 'S/L')}</td>
+                                <td class="py-2 px-3 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(p.fullName || `${p.lastName}, ${p.firstName}`)}</td>
+                                <td class="py-2 px-3 text-center font-mono text-slate-600 dark:text-zinc-400">${escapeHtml(p.dni || '—')}</td>
+                                <td class="py-2 px-3 text-center text-slate-700 dark:text-zinc-300">${escapeHtml(p.revista || 'Titular')}</td>
+                                <td class="py-2 px-3 text-center font-bold text-slate-700 dark:text-zinc-300">${p.hours || 4} hs</td>
+                                <td class="py-2 px-3 text-center">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                                        PR
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+    }
+
+    modal.classList.remove('hidden');
     initLucideIcons();
+}
+
+/**
+ * Cierra el Modal Institucional Flotante de Detalle Diario
+ */
+function closeDayDetailModal() {
+    const modal = document.getElementById('cal-day-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 /**
