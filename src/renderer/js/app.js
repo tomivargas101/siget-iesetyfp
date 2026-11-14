@@ -3178,11 +3178,94 @@ async function markAllVisibleAsPresent() {
     }
 }
 
+/**
+ * Gatilla la descarga directa de un archivo base64 en el navegador/renderer
+ */
+function triggerBrowserDownloadFromBase64(base64Data, fileName, mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+    try {
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        console.warn('No se pudo ejecutar descarga web directa:', err);
+    }
+}
+
+/**
+ * Generador fallback de archivo CSV delimitado por comas con BOM UTF-8 para Excel
+ */
+function generateAndDownloadDailyCsvFallback(dateStr, records) {
+    try {
+        const dateParts = (dateStr || '').split('-');
+        const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dateStr;
+        const nowStr = new Date().toLocaleString('es-AR');
+
+        let csvContent = '\uFEFF'; // BOM para que Excel reconozca tildes y caracteres especiales en español
+        csvContent += '"IESETYFP - INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL"\n';
+        csvContent += `"PARTE DIARIO INSTITUCIONAL • FECHA: ${formattedDate} • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA"\n\n`;
+        csvContent += '"Legajo";"Docente (Apellido y Nombres)";"DNI";"Situación de Revista";"Carga Horaria";"Estado Diario";"Observaciones / Motivo"\n';
+
+        const statusLabels = {
+            PR: 'Presente',
+            I: 'Inasistencia',
+            LIC: 'Licencia Médica / Especial',
+            P: 'Permiso Particular (Art. 115)',
+            LT: 'Largo Tratamiento'
+        };
+
+        const cacheMap = new Map();
+        (AppState.attendanceRecordsCache || []).forEach(c => cacheMap.set(c.teacherId, c));
+
+        records.forEach(r => {
+            const cached = cacheMap.get(r.teacherId) || {};
+            const legajo = cached.legajo || 'S/L';
+            const fullName = cached.fullName || `Docente ${r.teacherId}`;
+            const dni = cached.dni || '';
+            const revista = cached.revista || 'Titular';
+            const hours = `${r.hours || cached.hours || 4} hs`;
+            const stLabel = statusLabels[r.status] || r.status;
+            const obs = (r.observations || cached.observations || '').replace(/"/g, '""');
+
+            csvContent += `"${legajo}";"${fullName}";"${dni}";"${revista}";"${hours}";"${stLabel}";"${obs}"\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const fileName = `Parte_Diario_Docentes_${dateStr}.csv`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`Archivo diario descargado: ${fileName}`, 'success');
+    } catch (err) {
+        console.error('Error generando fallback CSV:', err);
+    }
+}
+
+/**
+ * Guarda las asistencias del día y genera/descarga automáticamente la planilla Excel
+ */
 async function saveAllAttendanceRecords() {
     const btnSave = document.getElementById('btn-att-save-all');
     if (btnSave) {
         btnSave.disabled = true;
-        btnSave.innerHTML = `<span>Guardando...</span>`;
+        btnSave.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Guardando y Exportando...</span>`;
+        initLucideIcons();
     }
 
     try {
@@ -3226,21 +3309,66 @@ async function saveAllAttendanceRecords() {
             };
         });
 
-        const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, recordsToSave);
-        if (res && res.success) {
-            showToast(`Se guardó el parte diario para la fecha ${AppState.attendanceDate}.`, 'success');
+        // 1. PERSISTENCIA EN SQLite
+        let saveSuccess = false;
+        if (window.sigetApi && window.sigetApi.attendance && typeof window.sigetApi.attendance.saveBatch === 'function') {
+            const res = await window.sigetApi.attendance.saveBatch(AppState.attendanceDate, recordsToSave);
+            if (res && res.success) {
+                saveSuccess = true;
+                showToast(`Se guardó el parte diario para la fecha ${AppState.attendanceDate}.`, 'success');
+            } else {
+                showToast((res && res.message) || 'Error al guardar registros en base de datos.', 'error');
+            }
+        } else {
+            // Modo local/navegador
+            saveSuccess = true;
+            showToast(`Parte diario consolidado localmente para ${AppState.attendanceDate}.`, 'success');
+        }
+
+        if (saveSuccess) {
+            // 2. EXPORTACIÓN AUTOMÁTICA EN EXCEL (.xlsx)
+            showToast('Generando y descargando archivo Excel del día...', 'info');
+
+            let exported = false;
+            if (window.sigetApi && window.sigetApi.attendance && typeof window.sigetApi.attendance.exportDailyExcel === 'function') {
+                try {
+                    const excelRes = await window.sigetApi.attendance.exportDailyExcel(AppState.attendanceDate);
+                    if (excelRes && excelRes.success) {
+                        exported = true;
+                        showToast(`Planilla Excel del día guardada: ${excelRes.fileName}`, 'success');
+
+                        // Gatillar descarga directa en navegador
+                        if (excelRes.base64) {
+                            triggerBrowserDownloadFromBase64(excelRes.base64, excelRes.fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                        }
+
+                        // Abrir archivo automáticamente en el visor predeterminado (Electron)
+                        if (window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
+                            await window.sigetApi.reports.openFile(excelRes.filePath);
+                        }
+                    } else {
+                        console.warn('[Attendance] No se pudo exportar Excel nativo:', excelRes?.message);
+                    }
+                } catch (exportErr) {
+                    console.error('[Attendance] Error exportando Excel nativo:', exportErr);
+                }
+            }
+
+            // Fallback en CSV si no estuvo disponible el backend de ExcelJS
+            if (!exported) {
+                generateAndDownloadDailyCsvFallback(AppState.attendanceDate, recordsToSave);
+            }
+
             await loadDailyAttendance();
             await loadDashboard();
-        } else {
-            showToast((res && res.message) || 'Error al guardar registros.', 'error');
         }
     } catch (err) {
-        console.error('Error al guardar asistencias en lote:', err);
-        showToast('Error de comunicación con la base de datos.', 'error');
+        console.error('Error al guardar y exportar asistencias:', err);
+        showToast('Error de comunicación con el sistema.', 'error');
     } finally {
         if (btnSave) {
             btnSave.disabled = false;
-            btnSave.innerHTML = `<i data-lucide="save" class="w-3.5 h-3.5"></i><span>Guardar Planilla</span>`;
+            btnSave.innerHTML = `<i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i><span>Guardar y Descargar Excel</span>`;
             initLucideIcons();
         }
     }

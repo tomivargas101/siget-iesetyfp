@@ -184,6 +184,17 @@ function registerIpcHandlers() {
         return AttendanceService.getSummary(dateStr);
     });
 
+    ipcMain.handle('attendance:exportDailyExcel', async (event, params) => {
+        try {
+            const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const res = await AttendanceService.exportDailyExcel({ dateStr });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC attendance:exportDailyExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
+    });
+
     // -------------------------------------------------------------
     // CATÁLOGO MAESTRO NORMATIVO (IL-01 / IL-02)
     // -------------------------------------------------------------

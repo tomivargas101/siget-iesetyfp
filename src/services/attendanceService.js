@@ -692,6 +692,280 @@ class AttendanceService {
             };
         }
     }
+
+    /**
+     * Genera y exporta la planilla oficial en formato Excel (.xlsx) correspondiente a la fecha seleccionada.
+     * Incluye encabezado institucional del IESETYFP, fecha de emisión, lista nominal, situación de revista,
+     * carga horaria, estado diario (Presente, Inasistencia, Licencia, Permiso, Suplencia) y observaciones.
+     */
+    static async exportDailyExcel({ dateStr, outputDir = null }) {
+        const db = getDatabase();
+        const path = require('path');
+        const fs = require('fs');
+        const ExcelJS = require('exceljs');
+
+        const targetDate = dateStr || new Date().toISOString().split('T')[0];
+
+        // 1. Obtener registros nominales del día
+        const dailyRecords = this.getDailyRecords(targetDate);
+
+        // 2. Obtener suplencias activas en esta fecha específica
+        let substitutions = [];
+        try {
+            substitutions = db.prepare(`
+                SELECT sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
+                       s.name as subject_name,
+                       tit.id as titular_id, tit.first_name as tit_first, tit.last_name as tit_last, tit.legajo as tit_legajo,
+                       sup.id as suplente_id, sup.first_name as sup_first, sup.last_name as sup_last, sup.legajo as sup_legajo
+                FROM substitutions sub
+                JOIN designations d ON sub.designation_id = d.id
+                JOIN subjects s ON d.subject_id = s.id
+                JOIN teachers tit ON sub.titular_teacher_id = tit.id
+                JOIN teachers sup ON sub.suplente_teacher_id = sup.id
+                WHERE (sub.start_date <= ? AND (sub.end_date >= ? OR sub.end_date IS NULL)) AND sub.is_active = 1
+            `).all(targetDate, targetDate);
+        } catch (e) {
+            console.warn('[AttendanceService] No se pudieron consultar suplencias para el Excel diario:', e.message);
+        }
+
+        const subByTitular = new Map();
+        const subBySuplente = new Map();
+        for (const sub of substitutions) {
+            subByTitular.set(sub.titular_id, sub);
+            subBySuplente.set(sub.suplente_id, sub);
+        }
+
+        // Formatear fecha para presentación (DD/MM/YYYY)
+        const dateParts = targetDate.split('-');
+        const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : targetDate;
+        const nowStr = new Date().toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'SIGET - IESETYFP';
+        workbook.created = new Date();
+
+        const sheetName = `Parte Diario ${targetDate}`.substring(0, 31);
+        const sheet = workbook.addWorksheet(sheetName);
+        sheet.views = [{ showGridLines: true }];
+
+        // Fila 1: Encabezado Institucional Principal
+        sheet.mergeCells('A1:G1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
+        titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // slate-800
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(1).height = 28;
+
+        // Fila 2: Subtítulo con fecha y emisión
+        sheet.mergeCells('A2:G2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `PARTE DIARIO OFICIAL DE ASISTENCIA Y NOVEDADES • FECHA: ${formattedDate} • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA`;
+        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } }; // gold
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(2).height = 22;
+
+        // Fila 3: Espaciador
+        sheet.getRow(3).height = 8;
+
+        // Fila 4: Encabezados de Columna
+        const headers = [
+            'Legajo',
+            'Docente (Apellido y Nombres)',
+            'DNI',
+            'Situación de Revista',
+            'Carga Horaria',
+            'Estado Diario',
+            'Observaciones / Motivo'
+        ];
+        sheet.getRow(4).values = headers;
+        sheet.getRow(4).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
+        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; // slate-700
+        sheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(4).height = 24;
+
+        // Anchos de Columna
+        sheet.getColumn(1).width = 14; // Legajo
+        sheet.getColumn(2).width = 34; // Docente
+        sheet.getColumn(3).width = 14; // DNI
+        sheet.getColumn(4).width = 22; // Situación de Revista
+        sheet.getColumn(5).width = 15; // Carga Horaria
+        sheet.getColumn(6).width = 30; // Estado Diario
+        sheet.getColumn(7).width = 42; // Observaciones / Motivo
+
+        let prCount = 0;
+        let iCount = 0;
+        let licCount = 0;
+        let pCount = 0;
+        let ltCount = 0;
+        let supCount = 0;
+        let totalHours = 0;
+
+        let currentRowIndex = 5;
+        for (const r of dailyRecords) {
+            const rawStatus = r.status || 'I';
+            const hoursVal = r.hours || 4;
+            totalHours += hoursVal;
+
+            let statusLabel = 'Inasistencia';
+            let statusCode = rawStatus;
+            let finalObservations = r.observations || '';
+
+            const subTitular = subByTitular.get(r.teacherId);
+            const subSuplente = subBySuplente.get(r.teacherId);
+
+            if (subSuplente) {
+                supCount++;
+                statusLabel = 'Suplencia (En Funciones)';
+                statusCode = 'SUP';
+                if (!finalObservations) {
+                    finalObservations = `Suplente en ${subSuplente.subject_name} (Reemplaza a: ${subSuplente.tit_last}, ${subSuplente.tit_first})`;
+                }
+            } else if (subTitular) {
+                statusLabel = 'Licencia Médica / Especial (Suplente Activo)';
+                licCount++;
+                if (!finalObservations) {
+                    finalObservations = `Reemplazado por: ${subTitular.sup_last}, ${subTitular.sup_first} (Res. ${subTitular.resolution_number || 'S/N'})`;
+                }
+            } else if (rawStatus === 'PR') {
+                prCount++;
+                statusLabel = 'Presente';
+            } else if (rawStatus === 'I') {
+                iCount++;
+                statusLabel = 'Inasistencia';
+            } else if (rawStatus === 'LIC') {
+                licCount++;
+                statusLabel = 'Licencia Médica / Especial';
+            } else if (rawStatus === 'P') {
+                pCount++;
+                statusLabel = 'Permiso Particular (Art. 115)';
+            } else if (rawStatus === 'LT') {
+                ltCount++;
+                statusLabel = 'Largo Tratamiento';
+            }
+
+            const row = sheet.getRow(currentRowIndex);
+            row.values = [
+                r.legajo || 'S/L',
+                r.fullName,
+                r.dni,
+                r.revista || 'Titular',
+                `${hoursVal} hs`,
+                statusLabel,
+                finalObservations
+            ];
+            row.height = 20;
+
+            row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+            row.getCell(2).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+            row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+            row.getCell(7).alignment = { horizontal: 'left', vertical: 'middle' };
+
+            // Formato condicional del Estado Diario
+            const stCell = row.getCell(6);
+            stCell.font = { name: 'Segoe UI', size: 9, bold: true };
+            if (statusCode === 'PR') {
+                stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+                stCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF2E7D32' } };
+            } else if (statusCode === 'I') {
+                stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } };
+                stCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFC62828' } };
+            } else if (statusCode === 'LIC') {
+                stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3E0' } };
+                stCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFEF6C00' } };
+            } else if (statusCode === 'P') {
+                stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
+                stCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF1565C0' } };
+            } else if (statusCode === 'LT') {
+                stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E5F5' } };
+                stCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF6A1B9A' } };
+            } else if (statusCode === 'SUP') {
+                stCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
+                stCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0369A1' } };
+            }
+
+            for (let c = 1; c <= 7; c++) {
+                row.getCell(c).border = {
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+            }
+
+            currentRowIndex++;
+        }
+
+        // Fila de Totales y Resumen
+        const totRow = sheet.getRow(currentRowIndex);
+        totRow.values = [
+            'TOTALES',
+            `${dailyRecords.length} docentes`,
+            '',
+            '',
+            `${totalHours} hs`,
+            `${prCount} PR | ${iCount} I | ${licCount + pCount + ltCount} LIC/P | ${supCount} SUPL`,
+            ''
+        ];
+        totRow.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
+        totRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        totRow.height = 24;
+        totRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        totRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        totRow.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
+        totRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        for (let c = 1; c <= 7; c++) {
+            totRow.getCell(c).border = {
+                top: { style: 'medium', color: { argb: 'FF64748B' } },
+                bottom: { style: 'medium', color: { argb: 'FF64748B' } }
+            };
+        }
+
+        // Guardar archivo en disco
+        const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        const fileName = `Parte_Diario_Docentes_${targetDate}.xlsx`;
+        const filePath = path.join(targetDir, fileName);
+
+        await workbook.xlsx.writeFile(filePath);
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const base64 = buffer.toString('base64');
+
+        try {
+            const currentUser = AuthService.getCurrentUser();
+            AuditService.log(
+                currentUser ? currentUser.id : null,
+                currentUser ? currentUser.username : 'BEDELIA',
+                'EXPORTAR_PARTE_DIARIO_EXCEL',
+                `Exportado parte diario oficial ${fileName} (${dailyRecords.length} docentes)`
+            );
+        } catch (auditErr) {
+            console.warn('[AttendanceService] No se pudo registrar auditoría de exportación diaria:', auditErr.message);
+        }
+
+        return {
+            success: true,
+            fileName,
+            filePath,
+            base64,
+            dateStr: targetDate,
+            totalRecords: dailyRecords.length,
+            message: `Parte diario oficial guardado en Excel: ${fileName}`
+        };
+    }
 }
 
 module.exports = { AttendanceService };
