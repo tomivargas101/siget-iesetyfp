@@ -17,7 +17,6 @@ from views.teachers_view import TeachersView
 from views.calendar_view import CalendarView
 from views.csv_import_view import CsvImportView
 from views.designations_view import DesignationsView
-from views.reports_view import ReportsView
 from views.attendance_view import AttendanceView
 from views.login_view import DatabaseConfigDialog
 
@@ -194,7 +193,6 @@ class MainDashboardWindow(ctk.CTk):
                 ("teachers", "Docentes y Asistencias", True),
                 ("designations", "Cátedras y Suplencias", True),
                 ("csv_import", "Carga CSV", True),
-                ("reports", "Reportes y Planillas Excel", True),
                 ("config", "Configuración de BD", True),
             ]
         else:
@@ -362,7 +360,7 @@ class MainDashboardWindow(ctk.CTk):
             elif view_name == "designations":
                 self.current_view = DesignationsView(self.view_container)
             elif view_name == "reports":
-                self.current_view = ReportsView(self.view_container)
+                self.current_view = TeachersView(self.view_container, default_tab="calendar")
 
             if self.current_view:
                 self.current_view.pack(fill="both", expand=True)

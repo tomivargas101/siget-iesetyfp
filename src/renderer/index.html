@@ -575,11 +575,6 @@
                         <span>Carga CSV</span>
                     </button>
 
-                    <!-- Botón Planilla Mensual (Secretaría) -->
-                    <button data-view="reports" id="nav-btn-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
-                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
-                        <span>Planilla Mensual</span>
-                    </button>
 
                     <!-- Botón Gestión de Usuarios (Secretaría) -->
                     <button data-view="users" id="nav-btn-users" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800">
@@ -1504,106 +1499,7 @@
                     </div>
                 </section>
 
-                <!-- VISTA 5: REPORTES EXCEL -->
-                <section id="view-reports" class="view-panel hidden space-y-6">
-                    <div class="bg-white dark:bg-[#282828] p-6 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                        <div class="flex items-center space-x-3 mb-4">
-                            <div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
-                                <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 dark:text-zinc-100">Planilla Mensual</h3>
-                                <p class="text-xs text-slate-500 dark:text-zinc-400">Previsualización interactiva y exportación oficial en formato Excel.</p>
-                            </div>
-                        </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-5 max-w-xl">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Año Académico</label>
-                                <input type="number" id="report-year" value="2026" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg focus:outline-none focus:border-gold">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Mes de Cierre</label>
-                                <select id="report-month" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg focus:outline-none focus:border-gold">
-                                    <option value="1">Enero</option>
-                                    <option value="2">Febrero</option>
-                                    <option value="3">Marzo</option>
-                                    <option value="4">Abril</option>
-                                    <option value="5">Mayo</option>
-                                    <option value="6">Junio</option>
-                                    <option value="7">Julio</option>
-                                    <option value="8">Agosto</option>
-                                    <option value="9">Septiembre</option>
-                                    <option value="10" selected>Octubre</option>
-                                    <option value="11">Noviembre</option>
-                                    <option value="12">Diciembre</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Botones de Acción -->
-                        <div class="flex flex-wrap items-center gap-3">
-                            <button id="btn-preview-report" class="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold py-2.5 px-5 rounded-lg text-xs flex items-center space-x-2 border border-slate-200 dark:border-zinc-700 transition">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
-                                <span>Previsualizar Planilla</span>
-                            </button>
-                            <button id="btn-generate-report" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-lg text-xs flex items-center space-x-2 shadow transition">
-                                <i data-lucide="download" class="w-4 h-4"></i>
-                                <span>Confirmar y Descargar Excel</span>
-                            </button>
-                        </div>
-
-                        <div id="report-status" class="mt-4 hidden p-3 rounded-lg text-xs font-medium"></div>
-                    </div>
-
-                    <!-- PREVISUALIZACIÓN INTERACTIVA DE PLANILLAS EXCEL -->
-                    <div id="report-preview-card" class="bg-white dark:bg-[#282828] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs p-5 space-y-4">
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <h3 class="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
-                                    Previsualización de Registros a Exportar
-                                </h3>
-                                <p id="report-preview-meta" class="text-[11px] text-slate-500 dark:text-zinc-400">
-                                    Mostrando los registros procesados para el período seleccionado.
-                                </p>
-                            </div>
-                            <div class="flex items-center space-x-1.5 bg-slate-50 dark:bg-[#202020] p-1 rounded-lg border border-slate-200 dark:border-zinc-700">
-                                <button id="btn-preview-filter-all" class="px-3 py-1 text-[11px] font-bold rounded-md bg-gold text-slate-900 transition">Todos</button>
-                                <button id="btn-preview-filter-dl01" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">Salud</button>
-                                <button id="btn-preview-filter-dl02" class="px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition">Novedades</button>
-                            </div>
-                        </div>
-
-                        <!-- TABLA PREVIA INTERACTIVA: OFICINA, AÑO, DISPOSICIÓN, DNI, DOCENTE, CÁTEDRA, CÓDIGO, MOTIVO, DESDE, HASTA, DÍAS, HORAS -->
-                        <div class="excel-table-container bg-white dark:bg-[#282828] shadow-xs max-h-[460px] overflow-auto border border-slate-200 dark:border-zinc-800 rounded-lg">
-                            <table class="w-full border-collapse text-left" id="table-report-preview">
-                                <thead class="excel-header sticky top-0">
-                                    <tr>
-                                        <th class="w-16 text-center">OFICINA</th>
-                                        <th class="w-16 text-center">AÑO</th>
-                                        <th class="w-32 text-center">DISPOSICIÓN</th>
-                                        <th class="w-24 text-center">DNI</th>
-                                        <th class="w-48">DOCENTE</th>
-                                        <th class="w-44">CÁTEDRA / CARGO</th>
-                                        <th class="w-24 text-center">CÓDIGO</th>
-                                        <th class="w-44">MOTIVO</th>
-                                        <th class="w-24 text-center">DESDE</th>
-                                        <th class="w-24 text-center">HASTA</th>
-                                        <th class="w-16 text-center">DÍAS</th>
-                                        <th class="w-16 text-center">HORAS</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-report-preview-body" class="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
-                                    <tr>
-                                        <td colspan="12" class="p-8 text-center text-slate-400 dark:text-zinc-500">
-                                            Presione "Previsualizar Planilla" para procesar y ver los registros.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- VISTA 6: GESTIÓN DE USUARIOS Y ROLES (SOLO RECTOR) -->
                 <section id="view-users" class="view-panel hidden space-y-4">

@@ -270,34 +270,6 @@ function setupEventListeners() {
         });
     }
 
-    // -------------------------------------------------------------
-    // Listeners del Módulo de Planillas Excel
-    // -------------------------------------------------------------
-    const btnPreviewReport = document.getElementById('btn-preview-report');
-    if (btnPreviewReport) {
-        btnPreviewReport.addEventListener('click', () => previewMonthlyReport(false));
-    }
-    const btnGenReport = document.getElementById('btn-generate-report');
-    if (btnGenReport) {
-        btnGenReport.addEventListener('click', generateMonthlyReport);
-    }
-    const reportYearInput = document.getElementById('report-year');
-    const reportMonthSelect = document.getElementById('report-month');
-    if (reportYearInput) {
-        reportYearInput.addEventListener('change', () => previewMonthlyReport(true));
-    }
-    if (reportMonthSelect) {
-        reportMonthSelect.addEventListener('change', () => previewMonthlyReport(true));
-    }
-
-    const btnFilterAll = document.getElementById('btn-preview-filter-all');
-    const btnFilterDL01 = document.getElementById('btn-preview-filter-dl01');
-    const btnFilterDL02 = document.getElementById('btn-preview-filter-dl02');
-    if (btnFilterAll && btnFilterDL01 && btnFilterDL02) {
-        btnFilterAll.addEventListener('click', () => setReportPreviewFilter('all'));
-        btnFilterDL01.addEventListener('click', () => setReportPreviewFilter('dl01'));
-        btnFilterDL02.addEventListener('click', () => setReportPreviewFilter('dl02'));
-    }
 
     // -------------------------------------------------------------
     // Botones de Navegación del Sidebar
@@ -1197,18 +1169,15 @@ function handleLoginSuccess(user) {
     }
 
     // Regla de Perfiles Institucionales (2 Roles Oficiales):
-    // 1. Secretaría: Gestión administrativa total (Docentes, Cátedras, Suplencias, Planillas Excel, Gestión de Usuarios, Carga Masiva CSV).
-    // 2. Bedelía: Operativa de asistencias, calendario y novedades. Excluye Gestión de Usuarios, Carga Masiva CSV y Planillas Excel.
-    const navReports = document.getElementById('nav-btn-reports');
+    // 1. Secretaría: Gestión administrativa total (Docentes, Cátedras, Suplencias, Gestión de Usuarios, Carga Masiva CSV).
+    // 2. Bedelía: Operativa de asistencias, calendario y novedades. Excluye Gestión de Usuarios y Carga Masiva CSV.
     const navUsers = document.getElementById('nav-btn-users');
     const navCsv = document.getElementById('nav-btn-csv');
 
     if (userRoleStr === 'secretaria') {
-        if (navReports) navReports.classList.remove('hidden');
         if (navUsers) navUsers.classList.remove('hidden');
         if (navCsv) navCsv.classList.remove('hidden');
     } else {
-        if (navReports) navReports.classList.add('hidden');
         if (navUsers) navUsers.classList.add('hidden');
         if (navCsv) navCsv.classList.add('hidden');
     }
@@ -1288,7 +1257,7 @@ function navigateTo(viewName) {
     });
 
     // Si se invoca la ruta de calendario, redirigir fluidamente al interior de Docentes
-    if (viewName === 'calendar') {
+    if (viewName === 'calendar' || viewName === 'reports') {
         navigateTo('teachers');
         switchTeacherSubtab('calendario');
         return;
@@ -1310,7 +1279,6 @@ function navigateTo(viewName) {
         teachers: 'Módulo de Docentes y Asistencias',
         designations: 'Gestión de Cátedras, Designaciones y Suplencias',
         'csv-import': 'Módulo de Carga Masiva por Archivos CSV',
-        reports: 'Planilla Mensual',
         users: 'Gestión de Usuarios y Accesos Institucionales'
     };
     const titleElem = document.getElementById('topbar-title');
@@ -1339,9 +1307,6 @@ function navigateTo(viewName) {
             break;
         case 'csv-import':
             initCsvImport();
-            break;
-        case 'reports':
-            previewMonthlyReport(true);
             break;
         case 'users':
             loadUsers();
@@ -4583,6 +4548,9 @@ function updateCalendarKpis(stats) {
 }
 
 async function initTeacherCalendar() {
+    // 0. Sincronizar sub-vista activa y contextualización de botones de exportación
+    switchCalendarView(CalendarState.currentView || 'grid');
+
     // 1. Cargar y renderizar de inmediato la Grilla y KPIs del Mes (síncrono/inmediato)
     loadInteractiveCalendar();
 
@@ -4705,6 +4673,19 @@ function switchCalendarView(viewName) {
 
     if (viewGrid) viewGrid.classList.toggle('hidden', viewName !== 'grid');
     if (viewTeacher) viewTeacher.classList.toggle('hidden', viewName !== 'teacher');
+
+    // Contextualización dinámica de los botones superiores de exportación:
+    // - Sub-vista "Calendario Institucional" (grid): Mostrar 'Guardar Mes en Excel', 'Guardar Mes en PDF' y '+ Jornada Institucional'.
+    // - Sub-vista "Ficha Docente" (teacher): Ocultar los botones globales de mes de la barra superior para evitar confusiones,
+    //   conservando únicamente los botones específicos de 'Exportar Ficha (PDF)' y 'Exportar Ficha (Excel)' junto al selector individual.
+    const isGrid = (viewName === 'grid');
+    const btnCalExportExcel = document.getElementById('btn-cal-export-excel');
+    const btnCalExportPdf = document.getElementById('btn-cal-export-pdf');
+    const btnCalAddInst = document.getElementById('btn-cal-add-institutional');
+
+    if (btnCalExportExcel) btnCalExportExcel.classList.toggle('hidden', !isGrid);
+    if (btnCalExportPdf) btnCalExportPdf.classList.toggle('hidden', !isGrid);
+    if (btnCalAddInst) btnCalAddInst.classList.toggle('hidden', !isGrid);
 
     if (viewName === 'grid') {
         renderCalendarGridView(CalendarState.matrixData);
@@ -6131,184 +6112,6 @@ window.clearCsvImportState = clearCsvImportState;
 window.handleCsvPreview = handleCsvPreview;
 window.handleCsvCommit = handleCsvCommit;
 
-// ============================================================================
-// 13. REPORTES EXCEL Y GENERACIÓN MENSUAL OFICIAL CON PREVISUALIZACIÓN
-// ============================================================================
-AppState.reportPreviewRecords = [];
-AppState.reportPreviewFilter = 'all';
-
-async function previewMonthlyReport(silent = false) {
-    const yearInput = document.getElementById('report-year');
-    const monthSelect = document.getElementById('report-month');
-    const metaP = document.getElementById('report-preview-meta');
-
-    if (!yearInput || !monthSelect) return;
-
-    const year = parseInt(yearInput.value) || 2026;
-    const month = parseInt(monthSelect.value) || 10;
-
-    const btnPrev = document.getElementById('btn-preview-report');
-    if (btnPrev && !silent) {
-        btnPrev.disabled = true;
-        btnPrev.innerHTML = `<span>Procesando datos...</span>`;
-    }
-
-    try {
-        const data = await window.sigetApi.reports.getPreview(year, month);
-        const list01 = ((data && (data.il01 || data.dl01)) || []).map(r => ({ ...r, cuadro: 'il01' }));
-        const list02 = ((data && (data.il02 || data.dl02)) || []).map(r => ({ ...r, cuadro: 'il02' }));
-        AppState.reportPreviewRecords = [...list01, ...list02];
-
-        if (metaP) {
-            metaP.textContent = `Total: ${AppState.reportPreviewRecords.length} registros listos | Salud: ${list01.length} | Novedades: ${list02.length} | Período: ${String(month).padStart(2, '0')}/${year}`;
-        }
-
-        renderReportPreviewTable();
-        if (!silent) {
-            showToast(`Previsualización cargada: ${AppState.reportPreviewRecords.length} registros listos para exportar.`, 'success');
-        }
-    } catch (err) {
-        console.error('Error al previsualizar reporte:', err);
-        if (!silent) {
-            showToast('Error al procesar la previsualización de registros.', 'error');
-        }
-    } finally {
-        if (btnPrev && !silent) {
-            btnPrev.disabled = false;
-            btnPrev.innerHTML = `<i data-lucide="eye" class="w-4 h-4"></i><span>Previsualizar Planilla</span>`;
-            initLucideIcons();
-        }
-    }
-}
-
-function setReportPreviewFilter(filter) {
-    AppState.reportPreviewFilter = filter;
-    const btnAll = document.getElementById('btn-preview-filter-all');
-    const btn01 = document.getElementById('btn-preview-filter-dl01');
-    const btn02 = document.getElementById('btn-preview-filter-dl02');
-
-    const activeClass = 'px-3 py-1 text-[11px] font-bold rounded-md bg-gold text-slate-900 transition';
-    const inactiveClass = 'px-3 py-1 text-[11px] font-bold rounded-md text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition';
-
-    if (btnAll) btnAll.className = filter === 'all' ? activeClass : inactiveClass;
-    if (btn01) btn01.className = (filter === 'dl01' || filter === 'il01') ? activeClass : inactiveClass;
-    if (btn02) btn02.className = (filter === 'dl02' || filter === 'il02') ? activeClass : inactiveClass;
-
-    renderReportPreviewTable();
-}
-
-function renderReportPreviewTable() {
-    const tbody = document.getElementById('table-report-preview-body');
-    if (!tbody) return;
-
-    let records = AppState.reportPreviewRecords || [];
-    if (AppState.reportPreviewFilter === 'dl01' || AppState.reportPreviewFilter === 'il01') {
-        records = records.filter(r => r.cuadro === 'il01' || r.cuadro === 'dl01');
-    } else if (AppState.reportPreviewFilter === 'dl02' || AppState.reportPreviewFilter === 'il02') {
-        records = records.filter(r => r.cuadro === 'il02' || r.cuadro === 'dl02');
-    }
-
-    if (records.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="12" class="p-8 text-center text-slate-400 dark:text-zinc-500">
-                    No se encontraron registros de novedades o licencias para el período y filtro seleccionados.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    tbody.innerHTML = records.map((r, idx) => {
-        const isIL01 = (r.cuadro === 'il01' || r.cuadro === 'dl01');
-        const badgeColor = isIL01 
-            ? 'text-amber-800 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800' 
-            : 'text-blue-800 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
-        const bgRow = idx % 2 === 0 ? 'bg-white dark:bg-[#242424]' : 'bg-slate-50/70 dark:bg-[#1E1E1E]';
-
-        return `
-            <tr class="${bgRow} hover:bg-amber-50/40 dark:hover:bg-zinc-800 transition border-b border-slate-100 dark:border-zinc-800/80">
-                <td class="p-2.5 text-center font-bold text-gold-text font-mono">${escapeHtml(r.oficina || '1452')}</td>
-                <td class="p-2.5 text-center font-mono text-slate-600 dark:text-zinc-400">${escapeHtml(r.año || '2026')}</td>
-                <td class="p-2.5 text-center">
-                    <span class="inline-block px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
-                        ${escapeHtml(r.disposicion || 'Disp. N° ---/2026')}
-                    </span>
-                </td>
-                <td class="p-2.5 text-center font-bold text-slate-800 dark:text-zinc-200 font-mono">${escapeHtml(r.dni)}</td>
-                <td class="p-2.5 font-bold text-slate-900 dark:text-zinc-100">${escapeHtml(r.apellidoNombre)}</td>
-                <td class="p-2.5 text-slate-700 dark:text-zinc-300 font-medium">${escapeHtml(r.cargo || 'Cátedra')}</td>
-                <td class="p-2.5 text-center">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeColor}">
-                        ${escapeHtml(r.codigo || '114')}
-                    </span>
-                </td>
-                <td class="p-2.5 text-slate-600 dark:text-zinc-400 truncate max-w-xs" title="${escapeHtml(r.motivo || '')}">
-                    ${escapeHtml(r.motivo || 'Novedad')}
-                </td>
-                <td class="p-2.5 text-center font-mono text-slate-700 dark:text-zinc-300">${escapeHtml(r.desde)}</td>
-                <td class="p-2.5 text-center font-mono text-slate-700 dark:text-zinc-300">${escapeHtml(r.hasta)}</td>
-                <td class="p-2.5 text-center font-bold text-slate-800 dark:text-zinc-200 font-mono">${r.dias || 1}</td>
-                <td class="p-2.5 text-center font-bold text-slate-800 dark:text-zinc-200 font-mono">${r.horas || 4}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-async function generateMonthlyReport() {
-    const yearInput = document.getElementById('report-year');
-    const monthSelect = document.getElementById('report-month');
-    const statusDiv = document.getElementById('report-status');
-    const btnGen = document.getElementById('btn-generate-report');
-
-    const year = parseInt(yearInput.value) || 2026;
-    const month = parseInt(monthSelect.value) || 10;
-
-    btnGen.disabled = true;
-    btnGen.innerHTML = `<span>Compilando Planilla Excel...</span>`;
-    statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 block';
-    statusDiv.textContent = `Compilando Planilla Mensual para ${month}/${year}...`;
-
-    try {
-        const res = await window.sigetApi.reports.generateMonthly(year, month);
-        if (res.success) {
-            statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 block';
-            statusDiv.innerHTML = `
-                <div class="font-bold flex items-center space-x-1.5">
-                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
-                    <span>Planilla Oficial Generada con Éxito</span>
-                </div>
-                <div class="mt-1 text-slate-600 font-mono text-[11px] truncate">Ruta: ${escapeHtml(res.filePath)}</div>
-                <div class="mt-2">
-                    <button id="btn-open-excel" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1 rounded text-xs">
-                        Abrir Planilla en Excel
-                    </button>
-                </div>
-            `;
-            initLucideIcons();
-
-            const btnOpen = document.getElementById('btn-open-excel');
-            if (btnOpen) {
-                btnOpen.addEventListener('click', async () => {
-                    await window.sigetApi.reports.openFile(res.filePath);
-                });
-            }
-
-            showToast('Planilla mensual generada y descargada correctamente.', 'success');
-        } else {
-            statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 block';
-            statusDiv.textContent = res.message || 'Error al generar la planilla.';
-        }
-    } catch (err) {
-        console.error('Error al generar planilla:', err);
-        statusDiv.className = 'mt-4 p-3 rounded-lg text-xs font-medium bg-rose-50 text-rose-800 border border-rose-200 block';
-        statusDiv.textContent = 'Error crítico al procesar la exportación.';
-    } finally {
-        btnGen.disabled = false;
-        btnGen.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Confirmar y Descargar Excel</span>`;
-        initLucideIcons();
-    }
-}
 
 // ============================================================================
 // 14. UTILIDADES DE MODAL, TOAST Y HELPERS

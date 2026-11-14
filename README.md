@@ -221,7 +221,7 @@ siget/
     ├── login_view.py           # Ventana de autenticación institucional y configuración de BD
     ├── main_window.py          # Ventana contenedora principal
     ├── register_view.py        # Alta institucional de nuevos usuarios
-    ├── reports_view.py         # Generador de reportes mensuales en Excel
+    ├── calendar_view.py        # Calendario institucional y ficha docente
     ├── students_view.py        # Gestión de legajos de alumnos
     ├── teachers_view.py        # Gestión de legajos docentes
     └── theme.py                # Paleta de colores institucional y configuración de temas
