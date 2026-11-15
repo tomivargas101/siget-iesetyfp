@@ -1,9 +1,4 @@
-/**
- * Registro Centralizado de Handlers IPC para Electron (Main Process)
- * Provee comunicación segura y no bloqueante para el proceso Renderer.
- */
-
-const { ipcMain, dialog, shell } = require('electron');
+const { ipcMain, dialog, shell, BrowserWindow } = require('electron');
 const { AuthService } = require('../services/authService');
 const { UserService } = require('../services/userService');
 const { TeacherService } = require('../services/teacherService');
@@ -16,9 +11,6 @@ const { ReportService } = require('../services/reportService');
 const { AuditService } = require('../services/auditService');
 
 function registerIpcHandlers() {
-    // -------------------------------------------------------------
-    // AUTENTICACIÓN, REGISTRO INICIAL Y RECUPERACIÓN OFFLINE
-    // -------------------------------------------------------------
     ipcMain.handle('auth:checkFirstRun', () => {
         return AuthService.checkFirstRun();
     });
@@ -55,9 +47,6 @@ function registerIpcHandlers() {
         return AuthService.recoverByMasterKey(username, masterKey, newPassword);
     });
 
-    // -------------------------------------------------------------
-    // GESTIÓN DE USUARIOS Y ROLES (SECRETARÍA ADMINISTRATIVA)
-    // -------------------------------------------------------------
     ipcMain.handle('users:getAll', () => {
         return UserService.getAllUsers();
     });
@@ -82,9 +71,6 @@ function registerIpcHandlers() {
         return UserService.toggleUserActive(id);
     });
 
-    // -------------------------------------------------------------
-    // DOCENTES Y LEGAJOS (RN-01, RN-02)
-    // -------------------------------------------------------------
     ipcMain.handle('teachers:getAll', (event, filters) => {
         return TeacherService.getAll(filters);
     });
@@ -105,9 +91,6 @@ function registerIpcHandlers() {
         return TeacherService.delete(id);
     });
 
-    // -------------------------------------------------------------
-    // CÁTEDRAS, DESIGNACIONES Y SUPLENCIAS (RN-02, RN-03)
-    // -------------------------------------------------------------
     ipcMain.handle('designations:getAll', (event, filters) => {
         return DesignationService.getAll(filters);
     });
@@ -156,9 +139,6 @@ function registerIpcHandlers() {
         return DesignationService.getSubjectsByCareer(careerId);
     });
 
-    // -------------------------------------------------------------
-    // CONTROL DIARIO DE ASISTENCIAS
-    // -------------------------------------------------------------
     ipcMain.handle('attendance:getDaily', (event, dateStr) => {
         return AttendanceService.getDailyRecords(dateStr);
     });
@@ -198,9 +178,11 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportPrintablePdf', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            const outputPath = typeof params === 'object' ? params?.outputPath : null;
             const currentUser = AuthService.getCurrentUser();
             const res = await AttendanceService.exportPrintableDailyPdf({
                 dateStr,
+                outputPath,
                 exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
             });
             return JSON.parse(JSON.stringify(res));
@@ -213,7 +195,8 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportPrintableExcel', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
-            const res = await AttendanceService.exportPrintableDailyExcel({ dateStr });
+            const outputPath = typeof params === 'object' ? params?.outputPath : null;
+            const res = await AttendanceService.exportPrintableDailyExcel({ dateStr, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
             console.error('[IPC attendance:exportPrintableExcel] Error:', err);
@@ -221,9 +204,6 @@ function registerIpcHandlers() {
         }
     });
 
-    // -------------------------------------------------------------
-    // CATÁLOGO MAESTRO NORMATIVO (IL-01 / IL-02)
-    // -------------------------------------------------------------
     ipcMain.handle('normative:getMasterCatalog', () => {
         const { NormativeService } = require('../services/normativeService');
         return NormativeService.getMasterCatalog();
@@ -239,9 +219,6 @@ function registerIpcHandlers() {
         return NormativeService.getCalendarDayInfo(dateStr);
     });
 
-    // -------------------------------------------------------------
-    // IMPORTACIÓN MASIVA CSV Y FORMATOS UNIVERSALES (PERSONAL Y ASISTENCIAS)
-    // -------------------------------------------------------------
     ipcMain.handle('csv:parseUniversalFile', async (event, { fileBufferBase64, fileName, explicitType }) => {
         const fileBuffer = fileBufferBase64 ? Buffer.from(fileBufferBase64, 'base64') : Buffer.alloc(0);
         return await CsvImportService.parseUniversalFile({ fileBuffer, fileName, explicitType });
@@ -263,9 +240,6 @@ function registerIpcHandlers() {
         return CsvImportService.importAttendance(csvText);
     });
 
-    // -------------------------------------------------------------
-    // CALENDARIO INSTITUCIONAL DEL PROFESORADO
-    // -------------------------------------------------------------
     ipcMain.handle('calendar:getTeacherTimeline', (event, params) => {
         const res = TeacherCalendarService.getTeacherTimeline(params);
         return JSON.parse(JSON.stringify(res));
@@ -333,9 +307,6 @@ function registerIpcHandlers() {
         }
     });
 
-    // -------------------------------------------------------------
-    // REGISTRO OFICIAL DE AUDITORÍA Y TRAZABILIDAD
-    // -------------------------------------------------------------
     ipcMain.handle('audit:getAll', (event, params) => {
         return AuditService.getAllLogs(params);
     });
@@ -344,16 +315,10 @@ function registerIpcHandlers() {
         return await AuditService.generateAuditPdf(params);
     });
 
-    // -------------------------------------------------------------
-    // DASHBOARD Y ESTADÍSTICAS
-    // -------------------------------------------------------------
     ipcMain.handle('dashboard:getStats', () => {
         return DashboardService.getStats();
     });
 
-    // -------------------------------------------------------------
-    // REPORTES Y PLANILLAS OFICIALES (EXCEL)
-    // -------------------------------------------------------------
     ipcMain.handle('reports:getPreview', async (event, { year, month }) => {
         const { AttendanceProcessor } = require('../services/attendanceProcessor');
         return AttendanceProcessor.processMonthlyRecords(Number(year), Number(month));
@@ -371,11 +336,13 @@ function registerIpcHandlers() {
         return { success: false, message: 'Ruta no válida' };
     });
 
-    // -------------------------------------------------------------
-    // DIÁLOGOS NATIVOS
-    // -------------------------------------------------------------
     ipcMain.handle('dialog:showMessage', async (event, options) => {
         return await dialog.showMessageBox(options);
+    });
+
+    ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await dialog.showSaveDialog(win, options);
     });
 }
 

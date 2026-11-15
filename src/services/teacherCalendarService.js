@@ -1,22 +1,8 @@
-/**
- * Servicio de Calendario Institucional del Profesorado para SIGET
- * Permite visualizar de fecha a fecha el historial cronológico y la disponibilidad
- * completa de cada docente:
- * - Períodos de licencias médicas (Art. 114 a, 114 b, etc.)
- * - Inasistencias injustificadas y permisos particulares (Art. 115)
- * - Cátedras y designaciones activas (con control de 30 horas semanales)
- * - Suplencias vigentes (tanto cuando actúa como titular sustituido como cuando es suplente)
- * - Métricas acumuladas del ciclo lectivo y alertas de proximidad a topes estatutarios.
- */
-
 const { getDatabase } = require('../database/db');
 const { AttendanceService } = require('./attendanceService');
 const { NormativeService } = require('./normativeService');
 
 class TeacherCalendarService {
-    /**
-     * Obtiene el cronograma y estado institucional detallado de un docente en un rango de fechas.
-     */
     static getTeacherTimeline({ teacherId, startDate = null, endDate = null }) {
         const db = getDatabase();
         const tid = Number(teacherId);
@@ -26,9 +12,8 @@ class TeacherCalendarService {
         }
 
         try {
-            // 1. Docente y carga horaria
             const teacher = db.prepare(`
-                SELECT 
+                SELECT
                     t.id, t.legajo, t.dni, t.cuil, t.first_name, t.last_name,
                     t.email, t.phone, t.revista, t.max_weekly_hours, t.is_active,
                     (SELECT COALESCE(SUM(hours_count), 0) FROM designations WHERE teacher_id = t.id AND is_active = 1) as active_hours
@@ -40,7 +25,6 @@ class TeacherCalendarService {
                 return { success: false, message: 'Docente no encontrado.' };
             }
 
-            // Fechas por defecto: mes corriente si no se especifican
             const now = new Date();
             const currentYear = now.getFullYear();
             const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
@@ -51,9 +35,8 @@ class TeacherCalendarService {
             const start = startDate || defaultStart;
             const end = endDate || defaultEnd;
 
-            // 2. Cátedras y Designaciones Activas
             const designations = db.prepare(`
-                SELECT 
+                SELECT
                     d.id, d.day_of_week, d.start_time, d.end_time, d.hours_count,
                     d.resolution_number, d.cargo, d.revista,
                     s.id as subject_id, s.name as subject_name, s.code as subject_code,
@@ -65,9 +48,8 @@ class TeacherCalendarService {
                 ORDER BY d.day_of_week, d.start_time
             `).all(tid);
 
-            // 3. Suplencias como Titular (donde este docente está de licencia y otro lo reemplaza)
             const titularSubstitutions = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number, sub.is_active,
                     s.name as subject_name,
                     sup.first_name as sup_first, sup.last_name as sup_last, sup.dni as sup_dni
@@ -90,9 +72,8 @@ class TeacherCalendarService {
                 isActive: Boolean(s.is_active)
             }));
 
-            // 4. Suplencias como Suplente (donde este docente cubre a otro)
             const suplenteSubstitutions = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number, sub.is_active,
                     s.name as subject_name,
                     tit.first_name as tit_first, tit.last_name as tit_last, tit.dni as tit_dni
@@ -115,9 +96,8 @@ class TeacherCalendarService {
                 isActive: Boolean(s.is_active)
             }));
 
-            // 5. Registros de Asistencia dentro del rango seleccionado
             const rawAttendances = db.prepare(`
-                SELECT 
+                SELECT
                     a.id, a.date, a.status, a.hours, a.observations,
                     d.id as designation_id, s.name as subject_name
                 FROM attendances a
@@ -163,7 +143,6 @@ class TeacherCalendarService {
                 };
             });
 
-            // 6. Cómputo Acumulado del Ciclo Lectivo Completo (para seguimiento de topes)
             const yearStr = start.substring(0, 4);
             const allYearAttendances = db.prepare(`
                 SELECT date, status, observations
@@ -172,7 +151,6 @@ class TeacherCalendarService {
                 ORDER BY date ASC
             `).all(tid, yearStr);
 
-            // Deduplicar días para no contar doble si hubiera más de una cátedra el mismo día
             const seenDays = new Set();
             let yearInasistencias = 0;
             let yearPermisos = 0;
@@ -192,7 +170,6 @@ class TeacherCalendarService {
                 else if (c.isPresence) yearPresentes++;
             }
 
-            // Determinar estado actual de disponibilidad
             let availabilityStatus = 'Disponible';
             let availabilityBadge = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
 
@@ -271,10 +248,6 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Obtiene una panorámica institucional de ausentismo y licencias de todos los docentes
-     * en un rango de fechas o mes específico.
-     */
     static getInstitutionalOverview({ startDate = null, endDate = null } = {}) {
         const db = getDatabase();
         try {
@@ -283,9 +256,8 @@ class TeacherCalendarService {
             const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
             const end = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-            // Suplencias activas institucionales
             const activeSubs = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
                     s.name as subject_name,
                     tit.first_name as tit_first, tit.last_name as tit_last,
@@ -308,9 +280,8 @@ class TeacherCalendarService {
                 resolution: s.resolution_number
             }));
 
-            // Docentes con licencias o inasistencias en el rango
             const leaves = db.prepare(`
-                SELECT 
+                SELECT
                     a.id, a.date, a.status, a.hours, a.observations,
                     t.id as teacher_id, t.first_name, t.last_name, t.dni, t.legajo
                 FROM attendances a
@@ -345,10 +316,6 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Retorna la matriz completa mensual de asistencias, licencias, feriados y jornadas institucionales
-     * para el calendario interactivo en tiempo real y la vista planilla 1..31.
-     */
     static getMonthMatrix({ year, month } = {}) {
         const db = getDatabase();
         try {
@@ -364,7 +331,6 @@ class TeacherCalendarService {
             ];
             const monthName = monthNames[m - 1] || `Mes ${m}`;
 
-            // Docentes activos
             const teachers = db.prepare(`
                 SELECT id, legajo, dni, first_name, last_name, revista,
                        (SELECT COALESCE(SUM(hours_count), 0) FROM designations WHERE teacher_id = teachers.id AND is_active = 1) as hours
@@ -373,7 +339,6 @@ class TeacherCalendarService {
                 ORDER BY last_name, first_name
             `).all();
 
-            // Asistencias del mes
             const monthAttendances = db.prepare(`
                 SELECT a.id, a.teacher_id, a.date, a.status, a.hours, a.observations,
                        t.first_name, t.last_name, t.dni, t.legajo
@@ -383,7 +348,6 @@ class TeacherCalendarService {
                 ORDER BY a.date ASC, t.last_name ASC
             `).all(`${prefix}%`);
 
-            // Suplencias activas en el mes
             const monthSubs = db.prepare(`
                 SELECT sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
                        s.name as subject_name,
@@ -397,7 +361,6 @@ class TeacherCalendarService {
                 WHERE (sub.start_date <= ? AND (sub.end_date >= ? OR sub.end_date IS NULL)) AND sub.is_active = 1
             `).all(`${prefix}-${String(daysInMonth).padStart(2, '0')}`, `${prefix}-01`);
 
-            // Mapeo por día
             const dayEventsMap = new Map();
             for (let d = 1; d <= daysInMonth; d++) {
                 dayEventsMap.set(d, []);
@@ -409,7 +372,6 @@ class TeacherCalendarService {
                 }
             }
 
-            // Días del mes con información de feriados y jornadas institucionales
             const days = [];
             const dayShortNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -427,8 +389,6 @@ class TeacherCalendarService {
                 let ltCount = 0;
                 const leaves = [];
 
-                // Si no hay asistencias cargadas en la BD para un día hábil regular,
-                // asignamos la planta activa como presentes por defecto (evita días en 0)
                 if (attsOnDay.length === 0 && !dayInfo.isNonWorking && dayOfWeek !== 0 && dayOfWeek !== 6) {
                     prCount = teachers.length || 8;
                 }
@@ -491,7 +451,6 @@ class TeacherCalendarService {
                     }
                 }
 
-                // Suplencias activas en esta fecha específica
                 const activeSubsOnDay = monthSubs.filter(sub => {
                     return sub.start_date <= dStr && (!sub.end_date || sub.end_date >= dStr);
                 }).map(sub => ({
@@ -513,7 +472,6 @@ class TeacherCalendarService {
                     suplenteLegajo: sub.sup_legajo || 'S/L'
                 }));
 
-                // Docentes presentes en la jornada
                 const presentTeachers = [];
                 const leaveTeacherIds = new Set(leaves.map(l => l.teacherId));
 
@@ -599,7 +557,6 @@ class TeacherCalendarService {
                 });
             }
 
-            // Construcción de la matriz docente (Planilla Oficial 1..31)
             const teachersMatrix = teachers.map(t => {
                 const dayMap = {};
                 let totPr = 0;
@@ -684,10 +641,7 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Exporta la grilla completa del mes en un archivo Excel oficial con todas las novedades.
-     */
-    static async exportMonthExcel({ year, month, outputDir = null }) {
+    static async exportMonthExcel({ year, month, outputDir = null, outputPath = null }) {
         const path = require('path');
         const fs = require('fs');
         const ExcelJS = require('exceljs');
@@ -696,10 +650,11 @@ class TeacherCalendarService {
         if (!matrix.success) throw new Error(matrix.message);
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        const fileName = `Planilla_Mensual_Docentes_${matrix.year}_${matrix.monthStr}.xlsx`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Planilla_Mensual_Docentes_${matrix.year}_${matrix.monthStr}.xlsx`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'SIGET - Sistema Integral de Gestión Educativa Terciaria';
@@ -708,7 +663,6 @@ class TeacherCalendarService {
         const sheet = workbook.addWorksheet(`Asistencia ${matrix.monthName} ${matrix.year}`);
         sheet.views = [{ showGridLines: true }];
 
-        // Título institucional
         sheet.mergeCells(1, 1, 1, matrix.daysInMonth + 9);
         const title = sheet.getCell(1, 1);
         title.value = `SIGET - INSTITUTO DE EDUCACIÓN SUPERIOR • PLANILLA MENSUAL DE ASISTENCIA Y NOVEDADES`;
@@ -725,7 +679,6 @@ class TeacherCalendarService {
         subtitle.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(2).height = 22;
 
-        // Encabezados
         const headers = ['Legajo', 'Docente (Apellido y Nombres)', 'DNI', 'Revista'];
         for (let d = 1; d <= matrix.daysInMonth; d++) {
             headers.push(String(d));
@@ -737,7 +690,6 @@ class TeacherCalendarService {
         sheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(4).height = 24;
 
-        // Anchos
         sheet.getColumn(1).width = 11;
         sheet.getColumn(2).width = 28;
         sheet.getColumn(3).width = 12;
@@ -751,7 +703,6 @@ class TeacherCalendarService {
         sheet.getColumn(matrix.daysInMonth + 8).width = 6;
         sheet.getColumn(matrix.daysInMonth + 9).width = 6;
 
-        // Filas de docentes
         matrix.teachersMatrix.forEach((t, idx) => {
             const rowNum = 5 + idx;
             const rowVals = [t.legajo, t.fullName, t.dni, t.revista];
@@ -766,7 +717,6 @@ class TeacherCalendarService {
             row.height = 18;
             row.font = { name: 'Segoe UI', size: 9 };
 
-            // Colorear celdas de asistencia
             for (let d = 1; d <= matrix.daysInMonth; d++) {
                 const colIdx = 4 + d;
                 const cell = row.getCell(colIdx);
@@ -820,10 +770,7 @@ class TeacherCalendarService {
         };
     }
 
-    /**
-     * Exporta el calendario y novedades del mes en un documento oficial PDF.
-     */
-    static async exportMonthPdf({ year, month, outputDir = null, exportedBy = 'SECRETARÍA' }) {
+    static async exportMonthPdf({ year, month, outputDir = null, outputPath = null, exportedBy = 'SECRETARÍA' }) {
         const path = require('path');
         const fs = require('fs');
 
@@ -831,10 +778,11 @@ class TeacherCalendarService {
         if (!matrix.success) throw new Error(matrix.message);
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        const fileName = `Calendario_Academico_${matrix.year}_${matrix.monthStr}.pdf`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Calendario_Academico_${matrix.year}_${matrix.monthStr}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const allLeaves = [];
         matrix.days.forEach(d => {
@@ -1004,12 +952,7 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Exporta la Ficha Docente completa en formato Excel (.xlsx).
-     * Incluye datos personales, revista, carga horaria, límites anuales estatutarios,
-     * cátedras y horarios asignados, suplencias en curso y la línea de tiempo de novedades.
-     */
-    static async exportTeacherRecordExcel({ teacherId, startDate = null, endDate = null, outputDir = null }) {
+    static async exportTeacherRecordExcel({ teacherId, startDate = null, endDate = null, outputDir = null, outputPath = null }) {
         const path = require('path');
         const fs = require('fs');
         const ExcelJS = require('exceljs');
@@ -1030,11 +973,12 @@ class TeacherCalendarService {
         const m = timeline.annualMetrics || {};
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
         const safeLegajo = (t.legajo || t.dni || 'DOC').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const fileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.xlsx`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.xlsx`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'SIGET - IESETYFP';
@@ -1044,7 +988,6 @@ class TeacherCalendarService {
         const sheet = workbook.addWorksheet(sheetName);
         sheet.views = [{ showGridLines: true }];
 
-        // Fila 1: Encabezado Institucional Principal
         sheet.mergeCells('A1:G1');
         const header1 = sheet.getCell('A1');
         header1.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
@@ -1053,7 +996,6 @@ class TeacherCalendarService {
         header1.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(1).height = 28;
 
-        // Fila 2: Subtítulo de Ficha Docente
         sheet.mergeCells('A2:G2');
         const header2 = sheet.getCell('A2');
         const nowStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
@@ -1063,10 +1005,8 @@ class TeacherCalendarService {
         header2.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(2).height = 22;
 
-        // Fila 3: Espaciador
         sheet.getRow(3).height = 8;
 
-        // Anchos de Columna
         sheet.getColumn(1).width = 16;
         sheet.getColumn(2).width = 30;
         sheet.getColumn(3).width = 16;
@@ -1077,7 +1017,6 @@ class TeacherCalendarService {
 
         let rowIdx = 4;
 
-        // Helper para secciones
         const addSectionHeader = (title) => {
             sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
             const cell = sheet.getCell(`A${rowIdx}`);
@@ -1089,7 +1028,6 @@ class TeacherCalendarService {
             rowIdx++;
         };
 
-        // 1. DATOS DEL DOCENTE
         addSectionHeader('I. DATOS DEL DOCENTE Y CARGA HORARIA');
         const rTeacher1 = sheet.getRow(rowIdx++);
         rTeacher1.values = ['Docente:', t.fullName, 'DNI:', t.dni, 'Legajo:', t.legajo || 'S/L', ''];
@@ -1110,9 +1048,8 @@ class TeacherCalendarService {
         rTeacher3.font = { name: 'Segoe UI', size: 9 };
         rTeacher3.getCell(1).font = { name: 'Segoe UI', size: 9, bold: true };
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 2. SEGUIMIENTO ANUAL DE LÍMITES
         addSectionHeader(`II. SEGUIMIENTO ANUAL DE LÍMITES Y TOPES ESTATUTARIOS (CICLO ${m.cycleYear || new Date().getFullYear()})`);
         const rKpiH = sheet.getRow(rowIdx++);
         rKpiH.values = ['Inasistencias (I)', 'Permisos (Art. 115)', 'Licencias Médicas (Art. 114 a)', 'Largo Tratamiento', '', '', ''];
@@ -1129,9 +1066,8 @@ class TeacherCalendarService {
         ];
         rKpiV.font = { name: 'Segoe UI', size: 9, bold: true };
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 3. CÁTEDRAS ASIGNADAS
         addSectionHeader('III. CÁTEDRAS, CARRERAS Y HORARIOS ASIGNADOS');
         const rDesigH = sheet.getRow(rowIdx++);
         rDesigH.values = ['Materia / Espacio Curricular', 'Código', 'Carrera', 'Día y Horario', 'Carga Horaria', 'Revista', 'Resolución'];
@@ -1158,9 +1094,8 @@ class TeacherCalendarService {
             });
         }
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 4. SUPLENCIAS
         addSectionHeader('IV. SUPLENCIAS EN CURSO (TITULAR / SUPLENTE)');
         const rSubH = sheet.getRow(rowIdx++);
         rSubH.values = ['Rol', 'Materia / Cátedra', 'Docente Asociado', 'DNI Asociado', 'Período', 'Motivo / Causa', 'Resolución'];
@@ -1187,9 +1122,8 @@ class TeacherCalendarService {
             });
         }
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 5. LÍNEA DE TIEMPO / ASISTENCIAS Y NOVEDADES EN EL PERÍODO
         addSectionHeader(`V. CRONOGRAMA DE ASISTENCIAS Y NOVEDADES EN EL PERÍODO (${period.startDate} al ${period.endDate})`);
         const rEvH = sheet.getRow(rowIdx++);
         rEvH.values = ['Fecha', 'Estado / Marca', 'Horas', 'Cátedra / Espacio Curricular', 'Observaciones / Motivo', '', ''];
@@ -1218,7 +1152,6 @@ class TeacherCalendarService {
         }
 
         rowIdx++;
-        // Footer oficial
         sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
         const footCell = sheet.getCell(`A${rowIdx}`);
         footCell.value = `SIGET • IESETYFP • REPORTE OFICIAL DE FICHA DOCENTE • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA Y SECRETARÍA`;
@@ -1252,10 +1185,7 @@ class TeacherCalendarService {
         };
     }
 
-    /**
-     * Exporta la Ficha Docente completa en formato PDF formal.
-     */
-    static async exportTeacherRecordPdf({ teacherId, startDate = null, endDate = null, outputDir = null, exportedBy = 'SECRETARÍA' }) {
+    static async exportTeacherRecordPdf({ teacherId, startDate = null, endDate = null, outputDir = null, outputPath = null, exportedBy = 'SECRETARÍA' }) {
         const path = require('path');
         const fs = require('fs');
 
@@ -1275,11 +1205,12 @@ class TeacherCalendarService {
         const m = timeline.annualMetrics || {};
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
         const safeLegajo = (t.legajo || t.dni || 'DOC').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const fileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.pdf`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const desigsRows = desigs.map(d => `
             <tr>
@@ -1520,8 +1451,8 @@ function escapeCalXml(unsafe) {
 function createCalendarFallbackPdf(title, lines) {
     const safeTitle = (title || 'CALENDARIO ACADEMICO').replace(/[\(\)\\]/g, '');
     const cleanLines = (lines || []).slice(0, 35).map(l => String(l).substring(0, 95).replace(/[\(\)\\]/g, ''));
-    
-    let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
+
+        let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
     cleanLines.forEach((line, idx) => {
         const y = 750 - (idx * 20);
         content += `BT /F1 8 Tf 40 ${y} Td (${line}) Tj ET\n`;

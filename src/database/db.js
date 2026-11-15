@@ -1,9 +1,3 @@
-/**
- * Gestor de Base de Datos SQLite para SIGET en Electron / Node.js
- * Utiliza el motor nativo de alto rendimiento `node:sqlite` (DatabaseSync).
- */
-
-// Supresión de advertencias experimentales de SQLite en Node.js
 if (process && typeof process.emitWarning === 'function') {
     const originalEmitWarning = process.emitWarning;
     process.emitWarning = function(warning, ...args) {
@@ -27,11 +21,9 @@ const { DatabaseSync } = require('node:sqlite');
 let dbInstance = null;
 
 function getDbPath() {
-    // Si se especifica una base de datos aislada para pruebas
     if (process.env.SIGET_DB_PATH) {
         return process.env.SIGET_DB_PATH;
     }
-    // Si estamos en desarrollo o empaquetado
     const rootPath = path.resolve(__dirname, '../../');
     const localDb = path.join(rootPath, 'siget.db');
     return localDb;
@@ -43,10 +35,9 @@ function getDatabase() {
         if (!fs.existsSync(dbPath)) {
             console.warn(`[DB] Archivo ${dbPath} no encontrado, se creará uno nuevo.`);
         }
-        
-        dbInstance = new DatabaseSync(dbPath);
-        
-        // Optimizaciones de rendimiento de SQLite
+
+                dbInstance = new DatabaseSync(dbPath);
+
         try {
             dbInstance.exec('PRAGMA journal_mode = WAL;');
             dbInstance.exec('PRAGMA foreign_keys = ON;');
@@ -57,8 +48,8 @@ function getDatabase() {
         } catch (err) {
             console.error('[DB] Error configurando PRAGMAs y migraciones:', err.message);
         }
-        
-        console.log(`[DB] Conectado exitosamente a SQLite: ${dbPath}`);
+
+                console.log(`[DB] Conectado exitosamente a SQLite: ${dbPath}`);
     }
     return dbInstance;
 }
@@ -106,14 +97,11 @@ function _ensureCleanOfficialSeed(db) {
     try {
         const bcrypt = require('bcryptjs');
 
-        // Limpiar cualquier carrera fantasma de QA ('TEC-QA%' o 'Aseguramiento de Calidad')
         db.prepare("DELETE FROM careers WHERE code LIKE 'TEC-QA%' OR name LIKE '%Aseguramiento de Calidad%'").run();
 
-        // Limpiar cuenta 'admin' y 'rector' obsoletos liberando claves foráneas
         db.prepare("UPDATE audit_logs SET user_id = NULL WHERE user_id IN (SELECT id FROM users WHERE username IN ('admin', 'rector') OR role = 'RECTOR')").run();
         db.prepare("DELETE FROM users WHERE username = 'admin' OR username = 'rector' OR role = 'RECTOR'").run();
 
-        // Limpiar tabla students obsoleta si existiera
         try {
             db.exec('DROP TABLE IF EXISTS students;');
         } catch (_) {}
@@ -122,7 +110,6 @@ function _ensureCleanOfficialSeed(db) {
         const defaultKey = 'SIGET-SEC-2026-ABCD-9999';
         const defaultKeyHash = bcrypt.hashSync(defaultKey, 10);
 
-        // 1. Secretaría (secretaria / secretaria123) - Prof. María Eva Duarte (Administración General)
         const sec = db.prepare("SELECT id, role, security_question, recovery_key FROM users WHERE username = 'secretaria'").get();
         if (!sec) {
             const secPassHash = bcrypt.hashSync('secretaria123', 12);
@@ -149,7 +136,6 @@ function _ensureCleanOfficialSeed(db) {
             `).run(defaultAnswerHash, defaultKey, defaultKeyHash, sec.id);
         }
 
-        // 2. Bedelía (bedel / bedel123) - María Eugenia Giménez (Control Operativo)
         const bedel = db.prepare("SELECT id, role FROM users WHERE username = 'bedel'").get();
         if (!bedel) {
             const bedelPassHash = bcrypt.hashSync('bedel123', 12);
@@ -166,24 +152,16 @@ function _ensureCleanOfficialSeed(db) {
             db.prepare("UPDATE users SET role = 'BEDEL' WHERE id = ?").run(bedel.id);
         }
 
-        // 3. Normalizar registros de docentes con columnas desplazadas o números en nombres
         _normalizeCorruptedTeachers(db);
 
-        // 4. Asegurar Jornadas Institucionales y Novedades Iniciales en Calendario (RF-10)
         _ensureOfficialCalendarSeed(db);
     } catch (e) {
-        // No detener ejecución si falla
         console.warn('[DB] Advertencia al verificar datos iniciales:', e.message);
     }
 }
 
-/**
- * Asegura la presencia de al menos una jornada institucional oficial y registros de muestra
- * para el ciclo activo (Noviembre 2026) a fin de que el calendario nunca quede vacío.
- */
 function _ensureOfficialCalendarSeed(db) {
     try {
-        // Asegurar jornada institucional de cierre de ciclo para Noviembre 2026
         const instCheck = db.prepare("SELECT count(*) as c FROM institutional_days WHERE date = '2026-11-27'").get();
         if (!instCheck || instCheck.c === 0) {
             db.prepare(`
@@ -192,24 +170,20 @@ function _ensureOfficialCalendarSeed(db) {
             `).run();
         }
 
-        // Asegurar registros de asistencia de prueba con novedades para Noviembre 2026 si no hay licencias
         const leavesNov = db.prepare("SELECT count(*) as c FROM attendances WHERE date LIKE '2026-11%' AND status IN ('LIC', 'P', 'I', 'LT')").get();
         if (!leavesNov || leavesNov.c === 0) {
             const activeTeachers = db.prepare("SELECT id FROM teachers WHERE is_active = 1 ORDER BY id ASC LIMIT 3").all();
             if (activeTeachers.length >= 3) {
-                // Nov 4: Licencia médica Art. 114 a
                 db.prepare(`
                     INSERT INTO attendances (teacher_id, date, status, hours, observations, is_active, created_at)
                     VALUES (?, '2026-11-04', 'LIC', 4, 'Art. 114 a - Afección Común / Reposo Médico', 1, CURRENT_TIMESTAMP)
                 `).run(activeTeachers[0].id);
 
-                // Nov 12: Permiso particular Art. 115
                 db.prepare(`
                     INSERT INTO attendances (teacher_id, date, status, hours, observations, is_active, created_at)
                     VALUES (?, '2026-11-12', 'P', 4, 'Art. 115 - Razones Particulares', 1, CURRENT_TIMESTAMP)
                 `).run(activeTeachers[1].id);
 
-                // Nov 18: Inasistencia sin justificar
                 db.prepare(`
                     INSERT INTO attendances (teacher_id, date, status, hours, observations, is_active, created_at)
                     VALUES (?, '2026-11-18', 'I', 4, 'Inasistencia sin justificación', 1, CURRENT_TIMESTAMP)
@@ -221,15 +195,11 @@ function _ensureOfficialCalendarSeed(db) {
     }
 }
 
-/**
- * Normaliza y reasigna los campos de docentes en caso de que una carga previa haya desplazado
- * los valores (por ejemplo, número de legajo en el campo de apellido/nombre o viceversa).
- */
 function _normalizeCorruptedTeachers(db) {
     try {
         const teachers = db.prepare('SELECT id, dni, legajo, first_name, last_name FROM teachers').all();
         const updateStmt = db.prepare(`
-            UPDATE teachers 
+            UPDATE teachers
             SET legajo = ?, first_name = ?, last_name = ?
             WHERE id = ?
         `);
@@ -244,7 +214,6 @@ function _normalizeCorruptedTeachers(db) {
             const isFirstNameNumeric = /^\d+$/.test(firstName.replace(/[\.\-\s]/g, ''));
             const isLegajoTextOnly = !/\d/.test(legajo) && legajo.length > 2;
 
-            // Caso A: last_name es puramente numérico (ej: "12046") y legajo es texto con nombre (ej: "María Eugenia")
             if (isLastNameNumeric && isLegajoTextOnly && !isFirstNameNumeric) {
                 const realLegajo = lastName;
                 const realLastName = firstName;
@@ -254,7 +223,6 @@ function _normalizeCorruptedTeachers(db) {
                 lastName = realLastName;
                 changed = true;
             }
-            // Caso B: last_name es numérico (ej: "12045") y first_name contiene el apellido (ej: "Vargas")
             else if (isLastNameNumeric && !isFirstNameNumeric) {
                 const realLastName = firstName;
                 const realLegajo = (legajo && !legajo.startsWith('DOC-')) ? legajo : lastName;
@@ -267,7 +235,6 @@ function _normalizeCorruptedTeachers(db) {
                 lastName = realLastName;
                 changed = true;
             }
-            // Caso C: legajo contiene "Apellido, Nombre"
             else if (legajo.includes(',') && !/\d/.test(legajo)) {
                 const parts = legajo.split(',');
                 const realLastName = parts[0].trim();

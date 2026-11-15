@@ -1,29 +1,9 @@
-/**
- * Servicio de Control Diario de Asistencias Docentes para SIGET
- * Gestiona registros operativos para Bedelía y novedades de planta.
- * Estados cerrados acordados (Requerimientos v2.0):
- * - PR: Presente
- * - I: Inasistencia (estado por defecto)
- * - P: Permiso (Art. 115 / Razones Particulares)
- * - LIC: Licencia Médica / Ordinaria
- * - LT: Largo Tratamiento de Salud
- */
-
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 const { NormativeService } = require('./normativeService');
 
 class AttendanceService {
-    /**
-     * Clasifica un registro de asistencia (estado y observaciones) distinguiendo estrictamente
-     * entre Inasistencia Injustificada ('I'), Inasistencia Justificada ('P' / 'IJ'),
-     * Permisos Particulares ('P' / Art. 115), Licencias Médicas/Ordinarias ('LIC')
-     * y Largo Tratamiento de Salud ('LT').
-     *
-     * EXCLUSIÓN CRÍTICA DE TOPES: Las faltas justificadas formalmente (con aviso previo,
-     * certificados médicos o formularios oficiales) NUNCA computan para el límite de 5 inasistencias.
-     */
     static classifyRecord(recordOrStatus, maybeObs = '') {
         let status = '';
         let obs = '';
@@ -39,7 +19,6 @@ class AttendanceService {
         const o = String(obs).trim().toLowerCase();
         const combined = `${s} ${o}`.toLowerCase();
 
-        // 1. Presente (PR)
         if (s === 'PR' || s === 'PRESENTE') {
             return {
                 code: 'PR',
@@ -52,7 +31,6 @@ class AttendanceService {
             };
         }
 
-        // 2. Largo Tratamiento de Salud (Art. 48 / 114 b)
         if (s === 'LT' || combined.includes('largo tratamiento') || combined.includes('art. 48') || combined.includes('art 48') || combined.includes('114b') || combined.includes('114 b')) {
             return {
                 code: 'LT',
@@ -65,7 +43,6 @@ class AttendanceService {
             };
         }
 
-        // 3. Licencias Médicas u Ordinarias (Art. 114 a, 70, reposo, estudio, etc.)
         if (s === 'LIC' || s === 'LICENCIA' ||
             combined.includes('licencia') || combined.includes('médic') || combined.includes('medic') ||
             combined.includes('salud') || combined.includes('reposo') || combined.includes('114a') ||
@@ -83,7 +60,6 @@ class AttendanceService {
             };
         }
 
-        // 4. Permisos Particulares (Art. 115) o Inasistencias Justificadas / Con Aviso / Certificado
         const isArt115 = s === 'P' || combined.includes('permiso') || combined.includes('115') || combined.includes('razones particulares');
         const isJustifiedOrNotice = combined.includes('justificad') ||
                                     combined.includes('con aviso') ||
@@ -109,7 +85,7 @@ class AttendanceService {
             return {
                 code: 'P',
                 isPresence: false,
-                isUnexcusedAbsence: false, // ¡EXCLUIDO del tope de inasistencias injustificadas!
+                isUnexcusedAbsence: false,
                 isJustifiedAbsence: true,
                 isPermit: false,
                 isLicense: false,
@@ -117,12 +93,10 @@ class AttendanceService {
             };
         }
 
-        // 5. Inasistencia Injustificada ('I')
-        // Cualquier 'I', 'AUSENTE', 'FALTA', 'INASISTENCIA' sin justificación
         return {
             code: 'I',
             isPresence: false,
-            isUnexcusedAbsence: true, // Computa estrictamente para el tope de 5 inasistencias
+            isUnexcusedAbsence: true,
             isJustifiedAbsence: false,
             isPermit: false,
             isLicense: false,
@@ -130,10 +104,6 @@ class AttendanceService {
         };
     }
 
-    /**
-     * Normaliza cualquier estado histórico o texto libre al conjunto cerrado v2.0:
-     * 'PR', 'I', 'P', 'LIC', 'LT'
-     */
     static normalizeStatusCode(status, observations = '') {
         return this.classifyRecord(status, observations).code;
     }
@@ -141,7 +111,6 @@ class AttendanceService {
     static getDailyRecords(dateStr) {
         const db = getDatabase();
         try {
-            // Obtener todos los docentes activos
             const teachers = db.prepare(`
                 SELECT id, legajo, dni, first_name, last_name, revista,
                        (SELECT COALESCE(SUM(hours_count), 0) FROM designations WHERE teacher_id = teachers.id AND is_active = 1) as hours
@@ -150,7 +119,6 @@ class AttendanceService {
                 ORDER BY last_name, first_name
             `).all();
 
-            // Obtener asistencias registradas para la fecha
             const attendances = db.prepare(`
                 SELECT id, teacher_id, status, hours, observations, registered_by, designation_id
                 FROM attendances
@@ -162,7 +130,6 @@ class AttendanceService {
                 attMap.set(a.teacher_id, a);
             }
 
-            // Obtener asistencias del año lectivo para el seguimiento de topes y contadores anuales (RN-04 / RN-05)
             const yearStr = dateStr ? dateStr.substring(0, 4) : new Date().getFullYear().toString();
             const yearAttendances = db.prepare(`
                 SELECT teacher_id, date, status, observations
@@ -209,9 +176,8 @@ class AttendanceService {
                 const classification = att
                     ? this.classifyRecord(att.status, att.observations)
                     : { code: 'I', isPresence: false, isUnexcusedAbsence: false, isJustifiedAbsence: false, isPermit: false, isLicense: false, isLongTreatment: false };
-                
-                const savedStatus = att ? classification.code : null;
-                // Si ya fue registrado en BD usamos su código; si no, estado por defecto 'I' (Inasistencia)
+
+                                const savedStatus = att ? classification.code : null;
                 const currentStatus = att ? classification.code : 'I';
 
                 const yStat = yearStatsMap.get(t.id) || {
@@ -294,8 +260,6 @@ class AttendanceService {
             const now = AuditService.getArgentinaTimestamp();
             const normalizedStatus = this.normalizeStatusCode(status);
 
-            // Sanitización y anulación de licencias: si el estado pasa a Presente (PR) o Inasistencia injustificada (I),
-            // se anulan y limpian automáticamente las justificaciones o notas de formulario físico previas.
             let cleanObs = observations ? observations.trim() : null;
             if (normalizedStatus === 'PR') {
                 cleanObs = null;
@@ -303,12 +267,10 @@ class AttendanceService {
                 cleanObs = null;
             }
 
-            // Verificar si ya existen registros para esa fecha y docente
             const existing = db.prepare('SELECT id FROM attendances WHERE teacher_id = ? AND date = ?').all(teacherId, dateStr);
 
             if (existing && existing.length > 0) {
                 const primaryId = existing[0].id;
-                // Si hubiera duplicados huérfanos del mismo día, eliminarlos
                 if (existing.length > 1) {
                     db.prepare('DELETE FROM attendances WHERE teacher_id = ? AND date = ? AND id != ?').run(teacherId, dateStr, primaryId);
                 }
@@ -349,11 +311,6 @@ class AttendanceService {
         }
     }
 
-    /**
-     * Recepción de Formulario Físico:
-     * Ante una inasistencia ('I'), el operador edita el registro al recibir el formulario en papel
-     * y lo reconvierte a 'LIC' (Licencia médica/ordinaria) o 'P' (Permiso).
-     */
     static receivePhysicalForm({ teacherId, date, dateStr, newStatus, articleCode = '', formNumber = '', observations = '' }) {
         const db = getDatabase();
         try {
@@ -364,7 +321,6 @@ class AttendanceService {
             const currentUser = AuthService.getCurrentUser();
             const username = currentUser ? currentUser.username : 'BEDELIA';
 
-            // Armar detalle de observación institucional
             const articleDetails = NormativeService.getArticleDetails(articleCode);
             const articleName = articleDetails ? `${articleDetails.article} (${articleDetails.code})` : (articleCode || 'Justificado');
             const formTag = formNumber ? `Formulario Físico N°: ${formNumber}` : 'Formulario Físico Recibido';
@@ -387,7 +343,6 @@ class AttendanceService {
                 `).run(teacherId, dStr, validStatus, fullObs, username, now);
             }
 
-            // Auditoría
             const teacher = db.prepare('SELECT first_name, last_name, dni FROM teachers WHERE id = ?').get(teacherId);
             const teacherName = teacher ? `${teacher.last_name}, ${teacher.first_name}` : `Docente ID ${teacherId}`;
 
@@ -467,7 +422,7 @@ class AttendanceService {
                 totalTeachers,
                 presentes,
                 inasistencias,
-                ausentes: inasistencias, // Compatibilidad con vistas previas
+                ausentes: inasistencias,
                 permisos,
                 licencias,
                 sinRegistrar
@@ -478,10 +433,6 @@ class AttendanceService {
         }
     }
 
-    /**
-     * Extrae y precarga automáticamente la información relevante de archivos de justificación
-     * (.pdf, .docx, .doc, .txt, .csv) para agilizar la carga administrativa en el modal institucional.
-     */
     static parseJustificationFile({ fileBuffer, fileName = '' }) {
         if (!fileBuffer || fileBuffer.length === 0) {
             return { success: false, message: 'El archivo está vacío o no contiene datos válidos.' };
@@ -548,13 +499,11 @@ class AttendanceService {
                 }
                 extractedText = pdfTexts.join(' ') || str.replace(/[^\x20-\x7E\t\r\n\xC0-\xFF]/g, ' ');
             } else {
-                // txt o csv
                 extractedText = fileBuffer.toString('utf8');
             }
 
             extractedText = extractedText.replace(/\s+/g, ' ').trim();
 
-            // Heurística de Extracción:
             let formNumber = '';
             let articleCode = '114-A-1';
             let status = 'LIC';
@@ -563,7 +512,6 @@ class AttendanceService {
             let diasReposo = '';
             let diagnostico = '';
 
-            // Si es CSV estructurado, extraer directamente por encabezados
             if (ext === 'csv') {
                 const lines = fileBuffer.toString('utf8').split(/\r?\n/).filter(l => l.trim().length > 0);
                 if (lines.length > 1) {
@@ -586,7 +534,6 @@ class AttendanceService {
                 }
             }
 
-            // 1. Número de certificado / formulario (si no provino de CSV)
             if (!formNumber) {
                 const formMatch = extractedText.match(/(?:formulario(?:\s*f[ií]sico)?|form\.?|certificado(?:\s*m[eé]dico)?|cert\.?|constancia|acta|num_formulario)\s*(?:n[°ºo\.]|nro\.?|num\.?|#)[:;\s]*([A-Za-z0-9\-\/]{2,25})/i) ||
                                   extractedText.match(/(?:n[°ºo\.]|nro\.?|#)[:;\s]*([A-Za-z0-9\-\/]{2,25})/i) ||
@@ -611,7 +558,6 @@ class AttendanceService {
                 }
             }
 
-            // 2. Artículo y Estado
             const lowerText = extractedText.toLowerCase();
             if (lowerText.includes('115') || lowerText.includes('razones particulares') || lowerText.includes('asuntos particulares')) {
                 articleCode = '115';
@@ -630,7 +576,6 @@ class AttendanceService {
                 status = 'LIC';
             }
 
-            // 3. Médico / Profesional
             const docMatch = extractedText.match(/(?:dr[a\.]?|m[eé]dico\s+firmante|profesional|firmante)\s*:?\s*([A-Za-zÁÉÍÓÚáéíóúñ\s\.]{3,35})(?=,|\.|\n|mat|mp|mn|$)/i) ||
                              extractedText.match(/m[eé]dico\s*:\s*([A-Za-zÁÉÍÓÚáéíóúñ\s\.]{3,35})(?=,|\.|\n|mat|mp|mn|$)/i);
             if (docMatch && docMatch[1]) {
@@ -640,26 +585,22 @@ class AttendanceService {
                 }
             }
 
-            // 4. Matrícula
             const matMatch = extractedText.match(/(?:mat(?:r[ií]cula)?|m\.?p\.?|m\.?n\.?)\s*(?:n[°ºo\.]|nro\.?)?\s*([0-9]{3,8})/i);
             if (matMatch && matMatch[1]) {
                 matricula = matMatch[1];
             }
 
-            // 5. Reposo / Días
             const reposoMatch = extractedText.match(/reposo\s*(?:m[eé]dico)?\s*(?:por)?\s*(\d+\s*(?:horas|d[ií]as|hs))/i) ||
                                 extractedText.match(/(\d+)\s*(?:d[ií]as|hs|horas)\s*de\s*reposo/i);
             if (reposoMatch && reposoMatch[1]) {
                 diasReposo = reposoMatch[1].trim();
             }
 
-            // 6. Diagnóstico
             const diagMatch = extractedText.match(/(?:diagn[oó]stico|causal(?:\s*\/\s*diagn[oó]stico)?|motivo)\s*:?\s*([A-Za-zÁÉÍÓÚáéíóúñ0-9\s,\-\.]{4,80})(?=\.|\n|reposo|m[eé]dico|dr|$)/i);
             if (diagMatch && diagMatch[1]) {
                 diagnostico = diagMatch[1].trim();
             }
 
-            // Construir observaciones sugeridas
             let obsParts = [];
             if (doctorName) {
                 obsParts.push(`Emitido por Dr/a. ${doctorName}${matricula ? ` (Mat. ${matricula})` : ''}`);
@@ -693,11 +634,6 @@ class AttendanceService {
         }
     }
 
-    /**
-     * Genera y exporta la planilla oficial en formato Excel (.xlsx) correspondiente a la fecha seleccionada.
-     * Incluye encabezado institucional del IESETYFP, fecha de emisión, lista nominal, situación de revista,
-     * carga horaria, estado diario (Presente, Inasistencia, Licencia, Permiso, Suplencia) y observaciones.
-     */
     static async exportDailyExcel({ dateStr, outputDir = null }) {
         const db = getDatabase();
         const path = require('path');
@@ -706,10 +642,8 @@ class AttendanceService {
 
         const targetDate = dateStr || new Date().toISOString().split('T')[0];
 
-        // 1. Obtener registros nominales del día
         const dailyRecords = this.getDailyRecords(targetDate);
 
-        // 2. Obtener suplencias activas en esta fecha específica
         let substitutions = [];
         try {
             substitutions = db.prepare(`
@@ -735,7 +669,6 @@ class AttendanceService {
             subBySuplente.set(sub.suplente_id, sub);
         }
 
-        // Formatear fecha para presentación (DD/MM/YYYY)
         const dateParts = targetDate.split('-');
         const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : targetDate;
         const nowStr = new Date().toLocaleString('es-AR', {
@@ -751,28 +684,24 @@ class AttendanceService {
         const sheet = workbook.addWorksheet(sheetName);
         sheet.views = [{ showGridLines: true }];
 
-        // Fila 1: Encabezado Institucional Principal
         sheet.mergeCells('A1:G1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
         titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // slate-800
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(1).height = 28;
 
-        // Fila 2: Subtítulo con fecha y emisión
         sheet.mergeCells('A2:G2');
         const subCell = sheet.getCell('A2');
         subCell.value = `PARTE DIARIO OFICIAL DE ASISTENCIA Y NOVEDADES • FECHA: ${formattedDate} • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA`;
-        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } }; // gold
+        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } };
         subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
         subCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(2).height = 22;
 
-        // Fila 3: Espaciador
         sheet.getRow(3).height = 8;
 
-        // Fila 4: Encabezados de Columna
         const headers = [
             'Legajo',
             'Docente (Apellido y Nombres)',
@@ -784,18 +713,17 @@ class AttendanceService {
         ];
         sheet.getRow(4).values = headers;
         sheet.getRow(4).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
-        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; // slate-700
+        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
         sheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(4).height = 24;
 
-        // Anchos de Columna
-        sheet.getColumn(1).width = 14; // Legajo
-        sheet.getColumn(2).width = 34; // Docente
-        sheet.getColumn(3).width = 14; // DNI
-        sheet.getColumn(4).width = 22; // Situación de Revista
-        sheet.getColumn(5).width = 15; // Carga Horaria
-        sheet.getColumn(6).width = 30; // Estado Diario
-        sheet.getColumn(7).width = 42; // Observaciones / Motivo
+        sheet.getColumn(1).width = 14;
+        sheet.getColumn(2).width = 34;
+        sheet.getColumn(3).width = 14;
+        sheet.getColumn(4).width = 22;
+        sheet.getColumn(5).width = 15;
+        sheet.getColumn(6).width = 30;
+        sheet.getColumn(7).width = 42;
 
         let prCount = 0;
         let iCount = 0;
@@ -869,7 +797,6 @@ class AttendanceService {
             row.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
             row.getCell(7).alignment = { horizontal: 'left', vertical: 'middle' };
 
-            // Formato condicional del Estado Diario
             const stCell = row.getCell(6);
             stCell.font = { name: 'Segoe UI', size: 9, bold: true };
             if (statusCode === 'PR') {
@@ -904,7 +831,6 @@ class AttendanceService {
             currentRowIndex++;
         }
 
-        // Fila de Totales y Resumen
         const totRow = sheet.getRow(currentRowIndex);
         totRow.values = [
             'TOTALES',
@@ -930,7 +856,6 @@ class AttendanceService {
             };
         }
 
-        // Guardar archivo en disco con manejo de EBUSY
         const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
         if (!fs.existsSync(targetDir)) {
             fs.mkdirSync(targetDir, { recursive: true });
@@ -980,15 +905,10 @@ class AttendanceService {
         };
     }
 
-    /**
-     * Obtiene y estructura los datos nominales para la Planilla Imprimible de Control Diario.
-     * Retorna docentes con sus datos institucionales, cátedras agrupadas con desglose de días y total de horas.
-     */
     static getPrintableDailyData({ dateStr }) {
         const db = getDatabase();
         const targetDate = dateStr || new Date().toISOString().split('T')[0];
 
-        // Calcular día de la semana y nombres en español
         const daysNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
         const monthsNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
         const [y, m, d] = targetDate.split('-').map(Number);
@@ -997,7 +917,6 @@ class AttendanceService {
         const formattedDate = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
         const longDateStr = `${dayOfWeekName}, ${d} de ${monthsNames[m - 1]} de ${y}`;
 
-        // Obtener todos los docentes activos ordenados alfabéticamente
         const teachers = db.prepare(`
             SELECT id, legajo, dni, last_name, first_name, revista, max_weekly_hours
             FROM teachers
@@ -1005,7 +924,6 @@ class AttendanceService {
             ORDER BY last_name, first_name
         `).all();
 
-        // Obtener todas las designaciones activas
         const designations = db.prepare(`
             SELECT d.id, d.teacher_id, d.subject_id, d.day_of_week, d.start_time, d.end_time, d.hours_count,
                    s.name as subject_name, s.code as subject_code, c.name as career_name
@@ -1016,7 +934,6 @@ class AttendanceService {
             ORDER BY s.name, d.day_of_week
         `).all();
 
-        // Mapear designaciones por docente
         const desigsByTeacher = new Map();
         for (const des of designations) {
             if (!desigsByTeacher.has(des.teacher_id)) {
@@ -1025,7 +942,6 @@ class AttendanceService {
             desigsByTeacher.get(des.teacher_id).push(des);
         }
 
-        // Obtener suplencias activas en esta fecha específica
         let substitutions = [];
         try {
             substitutions = db.prepare(`
@@ -1083,11 +999,7 @@ class AttendanceService {
         };
     }
 
-    /**
-     * Exporta la Planilla Imprimible de Control Diario en formato Excel (.xlsx) estructurado
-     * con casillas de verificación manual y diseño horizontal listo para impresión en papel.
-     */
-    static async exportPrintableDailyExcel({ dateStr, outputDir = null }) {
+    static async exportPrintableDailyExcel({ dateStr, outputDir = null, outputPath = null }) {
         const path = require('path');
         const fs = require('fs');
         const ExcelJS = require('exceljs');
@@ -1096,10 +1008,11 @@ class AttendanceService {
         const targetDate = data.targetDate;
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        const fileName = `Planilla_Imprimible_Control_Diario_${targetDate}.xlsx`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Planilla_Imprimible_Control_Diario_${targetDate}.xlsx`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'SIGET - IESETYFP';
@@ -1109,10 +1022,9 @@ class AttendanceService {
         const sheet = workbook.addWorksheet(sheetName);
         sheet.views = [{ showGridLines: true }];
 
-        // Configuración de página para impresión directa en hoja A4 Horizontal
         sheet.pageSetup = {
             orientation: 'landscape',
-            paperSize: 9, // A4
+            paperSize: 9,
             fitToPage: true,
             fitToWidth: 1,
             fitToHeight: 0,
@@ -1126,28 +1038,24 @@ class AttendanceService {
             }
         };
 
-        // Fila 1: Título Institucional Principal
         sheet.mergeCells('A1:L1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
         titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // Slate 800
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(1).height = 28;
 
-        // Fila 2: Subtítulo con fecha y controles operativos
         sheet.mergeCells('A2:L2');
         const subCell = sheet.getCell('A2');
         subCell.value = `PLANILLA IMPRIMIBLE DE CONTROL DIARIO DE ASISTENCIA Y PARTE DE NOVEDADES • FECHA: ${data.formattedDate} (${data.dayOfWeekName.toUpperCase()}) • CONTROL DE BEDELÍA`;
-        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF854D0E' } }; // Amber 800
-        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } }; // Amber 100
+        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF854D0E' } };
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } };
         subCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(2).height = 22;
 
-        // Fila 3: Separador
         sheet.getRow(3).height = 6;
 
-        // Fila 4: Encabezados de Columna
         const headers = [
             { header: 'N°', key: 'idx', width: 5 },
             { header: 'Legajo', key: 'legajo', width: 13 },
@@ -1168,7 +1076,7 @@ class AttendanceService {
         headerRow.values = headers.map(h => h.header);
         headerRow.height = 26;
         headerRow.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; // Slate 700
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
         headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         const thinBorder = {
@@ -1180,11 +1088,10 @@ class AttendanceService {
 
         headerRow.eachCell(c => { c.border = thinBorder; });
 
-        // Filas de Datos de Docentes
         let rowIdx = 5;
         data.rows.forEach(r => {
             const row = sheet.getRow(rowIdx);
-            row.height = 30; // Altura cómoda para escritura manual con lapicera
+            row.height = 30;
 
             row.getCell(1).value = r.index;
             row.getCell(2).value = r.legajo;
@@ -1199,7 +1106,6 @@ class AttendanceService {
             row.getCell(11).value = '[   ]';
             row.getCell(12).value = '[   ] Suple a: .......................................';
 
-            // Alineaciones y Estilos
             row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
             row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
             row.getCell(2).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
@@ -1212,19 +1118,16 @@ class AttendanceService {
             row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
             row.getCell(7).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
 
-            // Celdas de Casillas Manuales
             [8, 9, 10, 11].forEach(col => {
                 const cell = row.getCell(col);
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 cell.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF64748B' } };
             });
 
-            // Columna de Suplencia
             const supCell = row.getCell(12);
             supCell.alignment = { horizontal: 'left', vertical: 'middle' };
             supCell.font = { name: 'Segoe UI', size: 8, color: { argb: 'FF64748B' } };
 
-            // Fondo alternado para lectura nítida
             if (rowIdx % 2 === 0) {
                 for (let c = 1; c <= 12; c++) {
                     row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
@@ -1238,7 +1141,6 @@ class AttendanceService {
             rowIdx++;
         });
 
-        // Fila de Observaciones
         rowIdx++;
         sheet.mergeCells(`A${rowIdx}:L${rowIdx}`);
         const obsTitle = sheet.getCell(`A${rowIdx}`);
@@ -1255,7 +1157,6 @@ class AttendanceService {
         sheet.getRow(rowIdx).height = 32;
         rowIdx += 2;
 
-        // Fila de Firmas Institucionales
         sheet.mergeCells(`A${rowIdx}:E${rowIdx}`);
         const sigBedel = sheet.getCell(`A${rowIdx}`);
         sigBedel.value = '_________________________________________\nFirma y Aclaración Bedel de Turno';
@@ -1275,7 +1176,6 @@ class AttendanceService {
         sigDir.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         sheet.getRow(rowIdx).height = 42;
 
-        // Manejo defensivo contra bloqueos EBUSY en Windows
         let finalFilePath = filePath;
         let finalFileName = fileName;
         try {
@@ -1317,11 +1217,7 @@ class AttendanceService {
         };
     }
 
-    /**
-     * Exporta la Planilla Imprimible de Control Diario en formato PDF formal,
-     * optimizada en A4 apaisado (landscape) con casillas de verificación para imprimir y firmar a mano.
-     */
-    static async exportPrintableDailyPdf({ dateStr, outputDir = null, exportedBy = 'Bedelía' }) {
+    static async exportPrintableDailyPdf({ dateStr, outputDir = null, outputPath = null, exportedBy = 'Bedelía' }) {
         const path = require('path');
         const fs = require('fs');
 
@@ -1329,17 +1225,17 @@ class AttendanceService {
         const targetDate = data.targetDate;
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        const fileName = `Planilla_Imprimible_Control_Diario_${targetDate}.pdf`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Planilla_Imprimible_Control_Diario_${targetDate}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const nowStr = new Date().toLocaleString('es-AR', {
             day: '2-digit', month: '2-digit', year: 'numeric',
             hour: '2-digit', minute: '2-digit'
         });
 
-        // Generar filas HTML
         const rowsHtml = data.rows.map(r => `
             <tr>
                 <td style="text-align: center; font-weight: bold; padding: 6px 3px; border: 1px solid #cbd5e1;">${r.index}</td>
@@ -1354,7 +1250,7 @@ class AttendanceService {
                     ${escapePrintableXml(r.revista)}
                 </td>
                 <td style="padding: 6px 6px; font-size: 8pt; color: #1e293b; border: 1px solid #cbd5e1; line-height: 1.35;">
-                    ${r.subjects.length > 0 
+                    ${r.subjects.length > 0
                         ? r.subjects.map(s => `<div>• <strong>${escapePrintableXml(s.name)}</strong> <span style="color: #475569;">(${escapePrintableXml(s.daysText)} - ${s.hours} hs)</span></div>`).join('')
                         : '<span style="color: #94a3b8; font-style: italic;">Sin cátedra asignada / Planta General</span>'
                     }
@@ -1684,10 +1580,6 @@ class AttendanceService {
     }
 }
 
-/**
- * Agrupa y formatea las materias de un docente con desglose de días múltiples de dictado.
- * Ej: 'Algoritmos I (Lunes, Martes y Viernes - 6 hs)'
- */
 function formatTeacherChairs(designations, todayName = '') {
     if (!designations || designations.length === 0) {
         return {
@@ -1747,7 +1639,6 @@ function formatTeacherChairs(designations, todayName = '') {
             const timeStr = d.start && d.end ? ` ${d.start} a ${d.end}` : '';
             daysText = `${d.day}${timeStr} (${d.hours} hs)`;
         } else {
-            // Días múltiples con desglose de horarios y horas variables por día
             const parts = s.dayDetails.map(d => {
                 const timeStr = d.start && d.end ? ` ${d.start}-${d.end}` : '';
                 return `${d.day}${timeStr}: ${d.hours} hs`;
@@ -1794,8 +1685,8 @@ function escapePrintableXml(unsafe) {
 function createPrintableDailyFallbackPdf(title, lines) {
     const safeTitle = (title || 'PLANILLA DE CONTROL DIARIO').replace(/[\(\)\\]/g, '');
     const cleanLines = (lines || []).slice(0, 35).map(l => String(l).substring(0, 95).replace(/[\(\)\\]/g, ''));
-    
-    let content = `BT /F1 13 Tf 30 560 Td (${safeTitle}) Tj ET\n`;
+
+        let content = `BT /F1 13 Tf 30 560 Td (${safeTitle}) Tj ET\n`;
     cleanLines.forEach((line, idx) => {
         const y = 530 - (idx * 14);
         content += `BT /F1 8 Tf 30 ${y} Td (${line}) Tj ET\n`;
@@ -1805,6 +1696,5 @@ function createPrintableDailyFallbackPdf(title, lines) {
     const pdfData = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length ${stream.length} >>\nstream\n${content}endstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000300 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${380 + stream.length}\n%%EOF`;
     return Buffer.from(pdfData, 'binary');
 }
-
 
 module.exports = { AttendanceService };

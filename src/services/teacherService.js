@@ -1,8 +1,3 @@
-/**
- * Servicio de Gestión de Planta Docente y Legajos para SIGET
- * Implementa RN-01, RN-02 y control de carga horaria institucional.
- */
-
 const { getDatabase } = require('../database/db');
 const { NormativeService } = require('./normativeService');
 const { AuditService } = require('./auditService');
@@ -15,11 +10,11 @@ class TeacherService {
         const db = getDatabase();
         try {
             let sql = `
-                SELECT 
+                SELECT
                     t.id, t.legajo, t.dni, t.cuil, t.first_name, t.last_name,
                     t.email, t.phone, t.revista, t.max_weekly_hours, t.is_active,
-                    (SELECT COALESCE(SUM(d.hours_count), 0) 
-                     FROM designations d 
+                    (SELECT COALESCE(SUM(d.hours_count), 0)
+                     FROM designations d
                      WHERE d.teacher_id = t.id AND d.is_active = 1) as active_hours
                 FROM teachers t
                 WHERE 1=1
@@ -38,9 +33,9 @@ class TeacherService {
             if (searchTerm && searchTerm.trim() !== '') {
                 const term = `%${searchTerm.trim()}%`;
                 sql += ` AND (
-                    t.last_name LIKE ? OR 
-                    t.first_name LIKE ? OR 
-                    t.dni LIKE ? OR 
+                    t.last_name LIKE ? OR
+                    t.first_name LIKE ? OR
+                    t.dni LIKE ? OR
                     t.legajo LIKE ?
                 )`;
                 params.push(term, term, term, term);
@@ -73,12 +68,12 @@ class TeacherService {
     static getById(id) {
         const db = getDatabase();
         const r = db.prepare(`
-            SELECT 
+            SELECT
                 t.*,
-                (SELECT COALESCE(SUM(d.hours_count), 0) 
-                 FROM designations d 
+                (SELECT COALESCE(SUM(d.hours_count), 0)
+                 FROM designations d
                  WHERE d.teacher_id = t.id AND d.is_active = 1) as active_hours
-            FROM teachers t 
+            FROM teachers t
             WHERE t.id = ?
         `).get(id);
 
@@ -116,19 +111,17 @@ class TeacherService {
             const targetId = (payload.id !== undefined && payload.id !== null && payload.id !== '') ? Number(payload.id) : null;
             const cleanLegajo = payload.legajo.trim();
 
-            // RN-01: Validar unicidad de DNI excluyendo al docente actual
             const existingWithDni = targetId
                 ? db.prepare('SELECT id FROM teachers WHERE dni = ? AND id != ?').get(cleanDni, targetId)
                 : db.prepare('SELECT id FROM teachers WHERE dni = ?').get(cleanDni);
 
             if (existingWithDni) {
-                return { 
-                    success: false, 
-                    message: `Ya existe un docente registrado con el DNI ${cleanDni} (RN-01: datos comunes únicos).` 
+                return {
+                    success: false,
+                    message: `Ya existe un docente registrado con el DNI ${cleanDni} (RN-01: datos comunes únicos).`
                 };
             }
 
-            // Validar unicidad de Legajo excluyendo al docente actual
             const existingWithLegajo = targetId
                 ? db.prepare('SELECT id FROM teachers WHERE legajo = ? AND id != ?').get(cleanLegajo, targetId)
                 : db.prepare('SELECT id FROM teachers WHERE legajo = ?').get(cleanLegajo);
@@ -150,7 +143,6 @@ class TeacherService {
                     return { success: false, message: 'Docente no encontrado para actualizar.' };
                 }
 
-                // Actualización
                 db.prepare(`
                     UPDATE teachers SET
                         legajo = ?, dni = ?, cuil = ?, first_name = ?, last_name = ?,
@@ -179,7 +171,6 @@ class TeacherService {
 
                 return { success: true, message: 'Datos del docente actualizados correctamente.' };
             } else {
-                // Alta
                 const result = db.prepare(`
                     INSERT INTO teachers (
                         legajo, dni, cuil, first_name, last_name,
@@ -235,9 +226,9 @@ class TeacherService {
                 `${newStatus ? 'Reactivado' : 'Dado de baja lógica'} docente: ${teacher.last_name}, ${teacher.first_name}`
             );
 
-            return { 
-                success: true, 
-                message: `El docente ha sido ${newStatus ? 'reactivado' : 'dado de baja lógica'} correctamente.` 
+            return {
+                success: true,
+                message: `El docente ha sido ${newStatus ? 'reactivado' : 'dado de baja lógica'} correctamente.`
             };
         } catch (error) {
             console.error('[TeacherService] Error cambiando estado:', error);
@@ -254,30 +245,27 @@ class TeacherService {
                 return { success: false, message: 'Docente no encontrado.' };
             }
 
-            // Validar designaciones
             const desigRow = db.prepare('SELECT COUNT(*) as count FROM designations WHERE teacher_id = ?').get(tid);
             if (desigRow && desigRow.count > 0) {
-                return { 
-                    success: false, 
-                    message: `No se puede eliminar definitivamente al docente: registra ${desigRow.count} cátedra(s) vinculadas. Utilice la Baja Lógica para preservar la integridad.` 
+                return {
+                    success: false,
+                    message: `No se puede eliminar definitivamente al docente: registra ${desigRow.count} cátedra(s) vinculadas. Utilice la Baja Lógica para preservar la integridad.`
                 };
             }
 
-            // Validar suplencias
             const subRow = db.prepare('SELECT COUNT(*) as count FROM substitutions WHERE titular_teacher_id = ? OR suplente_teacher_id = ?').get(tid, tid);
             if (subRow && subRow.count > 0) {
-                return { 
-                    success: false, 
-                    message: `No se puede eliminar definitivamente al docente: registra ${subRow.count} registro(s) de suplencia. Utilice la Baja Lógica.` 
+                return {
+                    success: false,
+                    message: `No se puede eliminar definitivamente al docente: registra ${subRow.count} registro(s) de suplencia. Utilice la Baja Lógica.`
                 };
             }
 
-            // Validar asistencias
             const attRow = db.prepare('SELECT COUNT(*) as count FROM attendances WHERE teacher_id = ?').get(tid);
             if (attRow && attRow.count > 0) {
-                return { 
-                    success: false, 
-                    message: `No se puede eliminar definitivamente al docente: registra ${attRow.count} día(s) de asistencia histórica. Utilice la Baja Lógica (RN-03).` 
+                return {
+                    success: false,
+                    message: `No se puede eliminar definitivamente al docente: registra ${attRow.count} día(s) de asistencia histórica. Utilice la Baja Lógica (RN-03).`
                 };
             }
 

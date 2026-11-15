@@ -1,9 +1,3 @@
-/**
- * Servicio de Estadísticas y Paneles para el Dashboard de SIGET
- * Provee métricas administrativas para Secretaría y operativas para Bedelía.
- * Incluye Módulo de Alertas de Inasistencias y Topes Anuales (Requerimientos v2.0).
- */
-
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
@@ -17,7 +11,6 @@ class DashboardService {
             const isSecretaria = AuthService.isSecretaria();
             const currentYear = NormativeService.getCurrentYear();
 
-            // Métricas generales de planta
             const totalTeachers = db.prepare('SELECT COUNT(*) as count FROM teachers WHERE is_active = 1').get().count;
             const titulares = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Titular'").get().count;
             const provisionales = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Provisional'").get().count;
@@ -28,9 +21,8 @@ class DashboardService {
             const totalDesignations = desigs.length;
             const totalWeeklyHours = desigs.reduce((sum, d) => sum + (d.hours_count || 0), 0);
 
-            // Suplencias activas
             const rawSubs = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
                     s.name as subject_name,
                     t.first_name as tit_first, t.last_name as tit_last,
@@ -54,7 +46,6 @@ class DashboardService {
                 endDateStr: s.end_date || '-'
             }));
 
-            // Docentes cercanos al tope (>= 24 hs de 30 hs)
             const teachers = db.prepare(`
                 SELECT t.id, t.legajo, t.dni, t.first_name, t.last_name, t.revista, t.max_weekly_hours,
                        (SELECT COALESCE(SUM(hours_count), 0) FROM designations WHERE teacher_id = t.id AND is_active = 1) as hours
@@ -74,7 +65,6 @@ class DashboardService {
                     maxHours: t.max_weekly_hours || 30
                 }));
 
-            // Auditoría reciente
             const recentAudits = AuditService.getRecent(8).map(a => ({
                 id: a.id,
                 username: a.username,
@@ -83,9 +73,6 @@ class DashboardService {
                 timestampStr: (a.timestamp || '').replace('T', ' ').substring(0, 16)
             }));
 
-            // -------------------------------------------------------------
-            // CÓMPUTO OPERATIVO DE ASISTENCIAS DE HOY (Conjunto Cerrado v2.0)
-            // -------------------------------------------------------------
             const todayStr = AuditService.getArgentinaTimestamp().substring(0, 10);
             const todayAtts = db.prepare('SELECT status, observations FROM attendances WHERE date = ? AND is_active = 1').all(todayStr);
 
@@ -105,9 +92,6 @@ class DashboardService {
 
             const todaySinRegistrar = Math.max(0, totalTeachers - todayAtts.length);
 
-            // -------------------------------------------------------------
-            // REQUERIMIENTO 6: MÓDULO DE ALERTAS DE INASISTENCIAS Y TOPES ANUALES
-            // -------------------------------------------------------------
             const attendanceAlerts = this._calculateAttendanceAlerts(db, teachers, currentYear);
 
             return {
@@ -129,7 +113,7 @@ class DashboardService {
                     dateStr: todayStr,
                     presentes: todayPresentes,
                     inasistencias: todayInasistencias,
-                    ausentes: todayInasistencias, // Compatibilidad UI
+                    ausentes: todayInasistencias,
                     permisos: todayPermisos,
                     licencias: todayLicencias,
                     sinRegistrar: todaySinRegistrar
@@ -141,15 +125,10 @@ class DashboardService {
         }
     }
 
-    /**
-     * Calcula de forma acumulativa las faltas, permisos y licencias por docente en el ciclo lectivo actual,
-     * generando advertencias antes de agotar los límites anuales permitidos.
-     */
     static _calculateAttendanceAlerts(db, teachers, currentYear) {
         try {
             const yStr = String(currentYear || new Date().getFullYear());
 
-            // Obtener todas las asistencias del ciclo lectivo actual, ordenadas por fecha e id desc
             const yearAtts = db.prepare(`
                 SELECT teacher_id, date, status, observations
                 FROM attendances
@@ -157,7 +136,6 @@ class DashboardService {
                 ORDER BY date ASC, id DESC
             `).all(yStr);
 
-            // Deduplicar por fecha y docente (evita contar duplicados accidentales del mismo día)
             const seenTeacherDate = new Set();
             const countsByTeacher = new Map();
 
@@ -197,7 +175,6 @@ class DashboardService {
                 const c = countsByTeacher.get(t.id) || { inasistencias: 0, permisos: 0, licencias: 0, largoTratamiento: 0 };
                 const teacherFullName = `${t.last_name}, ${t.first_name}`;
 
-                // 1. Alerta de Permisos Particulares (Art. 115 - Máximo estatutario: 6 al año)
                 if (c.permisos >= 6) {
                     alerts.push({
                         teacherId: t.id,
@@ -207,7 +184,7 @@ class DashboardService {
                         tipo: 'Permisos Particulares (Art. 115)',
                         consumido: c.permisos,
                         limite: 6,
-                        nivel: 'danger', // Rojo
+                        nivel: 'danger',
                         badge: 'Cupo Anual Agotado',
                         detalle: `Agotó los 6 permisos particulares permitidos en el año (${c.permisos}/6).`
                     });
@@ -220,13 +197,12 @@ class DashboardService {
                         tipo: 'Permisos Particulares (Art. 115)',
                         consumido: c.permisos,
                         limite: 6,
-                        nivel: 'warning', // Amarillo
+                        nivel: 'warning',
                         badge: 'Próximo al Límite',
                         detalle: `Consumió ${c.permisos} de 6 permisos particulares (quedan ${6 - c.permisos} disponibles).`
                     });
                 }
 
-                // 2. Alerta de Inasistencias Injustificadas ('I')
                 if (c.inasistencias >= 5) {
                     alerts.push({
                         teacherId: t.id,
@@ -255,7 +231,6 @@ class DashboardService {
                     });
                 }
 
-                // 3. Alerta de Licencias Médicas de Corto Tratamiento (Art. 114 a - Máx 25 días)
                 if (c.licencias >= 25) {
                     alerts.push({
                         teacherId: t.id,
@@ -285,7 +260,6 @@ class DashboardService {
                 }
             }
 
-            // Ordenar: primero los de nivel 'danger', luego 'warning'
             alerts.sort((a, b) => {
                 if (a.nivel === 'danger' && b.nivel !== 'danger') return -1;
                 if (a.nivel !== 'danger' && b.nivel === 'danger') return 1;

@@ -1,17 +1,11 @@
-/**
- * Servicio de Validación de Reglas Críticas de Negocio Institucional
- * - Límite de carga horaria semanal (tope institucional)
- * - Incompatibilidad horaria y detección de superposiciones
- */
-
 const { getDatabase } = require('../database/db');
 
 class ValidationService {
     static calculateTeacherActiveHours(teacherId, excludeDesignationId = null) {
         const db = getDatabase();
         let sql = `
-            SELECT COALESCE(SUM(hours_count), 0) as total 
-            FROM designations 
+            SELECT COALESCE(SUM(hours_count), 0) as total
+            FROM designations
             WHERE teacher_id = ? AND is_active = 1
         `;
         const params = [teacherId];
@@ -61,18 +55,14 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida solapamiento de horarios (start_time a end_time) en el mismo day_of_week
-     * Dos intervalos [A, B] y [C, D] se superponen si max(A, C) < min(B, D)
-     */
     static validateScheduleConflict(teacherId, dayOfWeek, startTime, endTime, excludeDesignationId = null) {
         const db = getDatabase();
         let sql = `
             SELECT d.id, d.start_time, d.end_time, s.name as subject_name
             FROM designations d
             JOIN subjects s ON d.subject_id = s.id
-            WHERE d.teacher_id = ? 
-              AND d.day_of_week = ? 
+            WHERE d.teacher_id = ?
+              AND d.day_of_week = ?
               AND d.is_active = 1
         `;
         const params = [teacherId, dayOfWeek];
@@ -104,7 +94,6 @@ class ValidationService {
             const existStart = toMinutes(des.start_time);
             const existEnd = toMinutes(des.end_time);
 
-            // Verificación de solapamiento
             if (Math.max(newStart, existStart) < Math.min(newEnd, existEnd)) {
                 return {
                     isValid: false,

@@ -1,8 +1,3 @@
-/**
- * Servicio de Gestión de Cátedras, Designaciones y Suplencias Oficiales para SIGET
- * Implementa RN-02, RN-03 y vinculación titular-suplente.
- */
-
 const { getDatabase } = require('../database/db');
 const { ValidationService } = require('./validationService');
 const { AuditService } = require('./auditService');
@@ -15,8 +10,8 @@ class DesignationService {
         const db = getDatabase();
         try {
             let sql = `
-                SELECT 
-                    d.id, d.subject_id, d.teacher_id, d.day_of_week, 
+                SELECT
+                    d.id, d.subject_id, d.teacher_id, d.day_of_week,
                     d.start_time, d.end_time, d.hours_count, d.resolution_number,
                     d.cargo, d.revista, d.notes, d.is_active,
                     s.name as subject_name, s.code as subject_code,
@@ -45,7 +40,6 @@ class DesignationService {
 
             const rows = db.prepare(sql).all(...params);
 
-            // Agrupar por teacher_id y subject_id para consolidar cátedras con días y horarios múltiples
             const groupedMap = new Map();
 
             for (const r of rows) {
@@ -103,8 +97,8 @@ class DesignationService {
 
             return Array.from(groupedMap.values()).map(item => {
                 item.schedules.sort((a, b) => order.indexOf(a.dayOfWeek) - order.indexOf(b.dayOfWeek));
-                
-                const dayNames = item.schedules.map(s => s.dayOfWeek);
+
+                                const dayNames = item.schedules.map(s => s.dayOfWeek);
                 if (dayNames.length === 1) {
                     item.dayOfWeek = dayNames[0];
                 } else if (dayNames.length === 2) {
@@ -136,7 +130,6 @@ class DesignationService {
                 return { success: false, message: 'Debe seleccionar una materia y un docente.' };
             }
 
-            // Normalizar schedules: si se envía payload.schedules (array de días/horarios/horas), o si viene formato simple
             let schedules = [];
             if (Array.isArray(payload.schedules) && payload.schedules.length > 0) {
                 schedules = payload.schedules.map(s => ({
@@ -158,14 +151,12 @@ class DesignationService {
                 return { success: false, message: 'Debe especificar al menos un día con carga horaria para la cátedra.' };
             }
 
-            // Validar que cada día tenga horas positivas
             for (const s of schedules) {
                 if (!s.hoursCount || s.hoursCount <= 0) {
                     return { success: false, message: `La carga horaria para el día ${s.dayOfWeek} debe ser un número entero positivo.` };
                 }
             }
 
-            // Validar que no haya días duplicados en la misma cátedra
             const uniqueDays = new Set(schedules.map(s => s.dayOfWeek));
             if (uniqueDays.size !== schedules.length) {
                 return { success: false, message: 'No puede asignar el mismo día de la semana dos veces en la misma cátedra. Ajuste los horarios o unifique las horas.' };
@@ -173,7 +164,6 @@ class DesignationService {
 
             const totalHours = schedules.reduce((sum, s) => sum + s.hoursCount, 0);
 
-            // Identificar qué designaciones preexistentes pertenecen a esta cátedra (docente + materia) para excluirlas de la validación
             let excludeIds = [];
             if (desigId) {
                 const baseDesig = db.prepare('SELECT id, teacher_id, subject_id FROM designations WHERE id = ?').get(desigId);
@@ -185,13 +175,11 @@ class DesignationService {
                 }
             }
 
-            // 1. Validación de Tope de Horas (Regla Crítica)
             const hoursVal = ValidationService.validateHoursLimit(teacherId, totalHours, excludeIds);
             if (!hoursVal.isValid) {
                 return { success: false, message: hoursVal.message };
             }
 
-            // 2. Validación de Incompatibilidad Horaria para CADA DÍA
             for (const s of schedules) {
                 const schedVal = ValidationService.validateScheduleConflict(teacherId, s.dayOfWeek, s.startTime, s.endTime, excludeIds);
                 if (!schedVal.isValid) {
@@ -214,7 +202,6 @@ class DesignationService {
             let primaryId = desigId;
 
             if (desigId && excludeIds.length > 0) {
-                // Hay registros previos de esta cátedra a sincronizar en edición
                 const existingRows = db.prepare(`SELECT id, day_of_week FROM designations WHERE id IN (${excludeIds.map(() => '?').join(',')})`).all(...excludeIds);
                 const existingByDay = new Map(existingRows.map(r => [r.day_of_week, r.id]));
 
@@ -255,7 +242,6 @@ class DesignationService {
                     }
                 }
 
-                // Desactivar o eliminar los días removidos de la cátedra
                 for (const row of existingRows) {
                     if (!preservedIds.has(row.id)) {
                         const hasAtt = db.prepare('SELECT count(*) as count FROM attendances WHERE designation_id = ?').get(row.id)?.count > 0;
@@ -268,7 +254,6 @@ class DesignationService {
                     }
                 }
             } else {
-                // Nueva cátedra: insertar cada día configurado
                 for (const s of schedules) {
                     const res = db.prepare(`
                         INSERT INTO designations (
@@ -315,7 +300,7 @@ class DesignationService {
         const db = getDatabase();
         try {
             const sql = `
-                SELECT 
+                SELECT
                     sub.id, sub.designation_id, sub.license_reason, sub.start_date, sub.end_date,
                     sub.resolution_number, sub.is_active,
                     s.name as subject_name, c.name as career_name,
@@ -378,7 +363,6 @@ class DesignationService {
                 return { success: false, message: 'El docente suplente no puede ser el mismo titular de la cátedra.' };
             }
 
-            // Validar tope de horas del suplente
             const hoursVal = ValidationService.validateHoursLimit(suplenteId, desig.hours_count);
             if (!hoursVal.isValid) {
                 return { success: false, message: `No se puede asignar suplencia: ${hoursVal.message}` };
@@ -423,9 +407,6 @@ class DesignationService {
         }
     }
 
-    /**
-     * RF-05: Alta de Nueva Carrera Institucional (Catálogo Modificable)
-     */
     static createCareer({ code, name, resolutionNumber = null, durationYears = 3 }) {
         const db = getDatabase();
         try {
@@ -444,7 +425,6 @@ class DesignationService {
                 return { success: false, message: 'El código de la carrera no puede exceder 20 caracteres.' };
             }
 
-            // Validar unicidad del código
             const existing = db.prepare('SELECT id, name FROM careers WHERE UPPER(code) = ?').get(cleanCode);
             if (existing) {
                 return {
@@ -496,7 +476,7 @@ class DesignationService {
         const db = getDatabase();
         try {
             const row = db.prepare(`
-                SELECT 
+                SELECT
                     d.*,
                     s.name as subject_name, s.code as subject_code, s.career_id,
                     c.name as career_name, c.code as career_code,
@@ -511,12 +491,11 @@ class DesignationService {
 
             if (!row) return null;
 
-            // Consultar todos los días y horarios que componen esta misma cátedra (docente + materia)
             const siblingRows = db.prepare(`
                 SELECT id, day_of_week, start_time, end_time, hours_count
                 FROM designations
                 WHERE teacher_id = ? AND subject_id = ? AND is_active = 1
-                ORDER BY 
+                ORDER BY
                     CASE day_of_week
                         WHEN 'Lunes' THEN 1
                         WHEN 'Martes' THEN 2
@@ -597,7 +576,6 @@ class DesignationService {
 
             const firstDesig = desigs[0];
 
-            // Verificar si existen asistencias asociadas en cualquiera de los IDs a eliminar
             const attCountRow = db.prepare(`SELECT COUNT(*) as count FROM attendances WHERE designation_id IN (${placeholders})`).get(...targetIds);
             const attCount = attCountRow ? attCountRow.count : 0;
 
@@ -605,7 +583,6 @@ class DesignationService {
             const username = currentUser ? currentUser.username : 'SISTEMA';
 
             if (attCount > 0) {
-                // Baja lógica estricta para preservar registros históricos (RN-03)
                 db.prepare(`UPDATE designations SET is_active = 0 WHERE id IN (${placeholders})`).run(...targetIds);
                 db.prepare(`UPDATE substitutions SET is_active = 0 WHERE designation_id IN (${placeholders})`).run(...targetIds);
 
@@ -616,13 +593,12 @@ class DesignationService {
                     `Baja lógica de cátedra (${firstDesig.subject_name} - ${firstDesig.last_name}, ${firstDesig.first_name}, IDs: ${targetIds.join(', ')}) preservando ${attCount} registros de asistencia (RN-03).`
                 );
 
-                return { 
-                    success: true, 
+                return {
+                    success: true,
                     isLogical: true,
-                    message: `La cátedra ha sido dada de baja lógica preservando ${attCount} registros de asistencias históricas (RN-03).` 
+                    message: `La cátedra ha sido dada de baja lógica preservando ${attCount} registros de asistencias históricas (RN-03).`
                 };
             } else {
-                // Borrado definitivo seguro si fue creada por error sin asistencias
                 db.prepare(`DELETE FROM substitutions WHERE designation_id IN (${placeholders})`).run(...targetIds);
                 db.prepare(`DELETE FROM designations WHERE id IN (${placeholders})`).run(...targetIds);
 
@@ -633,10 +609,10 @@ class DesignationService {
                     `Eliminación definitiva de cátedra errónea (${firstDesig.subject_name} - ${firstDesig.last_name}, ${firstDesig.first_name}) sin asistencias asociadas.`
                 );
 
-                return { 
-                    success: true, 
+                return {
+                    success: true,
                     isLogical: false,
-                    message: 'La designación de cátedra y sus horarios han sido eliminados exitosamente del sistema.' 
+                    message: 'La designación de cátedra y sus horarios han sido eliminados exitosamente del sistema.'
                 };
             }
         } catch (error) {
@@ -686,7 +662,6 @@ class DesignationService {
                 return { success: false, message: 'El código de la carrera no puede exceder 20 caracteres.' };
             }
 
-            // Validar unicidad del código excluyendo la propia carrera
             const existing = db.prepare('SELECT id, name FROM careers WHERE UPPER(code) = ? AND id != ?').get(cleanCode, careerId);
             if (existing) {
                 return {
@@ -696,7 +671,7 @@ class DesignationService {
             }
 
             db.prepare(`
-                UPDATE careers 
+                UPDATE careers
                 SET code = ?, name = ?, resolution_number = ?, duration_years = ?
                 WHERE id = ?
             `).run(cleanCode, cleanName, cleanResolution, duration, careerId);
@@ -735,11 +710,10 @@ class DesignationService {
                 return { success: false, message: 'La carrera no existe o ya fue eliminada.' };
             }
 
-            // 1. Validar si existen cátedras/designaciones activas asociadas
             const desigRow = db.prepare(`
-                SELECT COUNT(*) as count 
-                FROM designations d 
-                JOIN subjects s ON d.subject_id = s.id 
+                SELECT COUNT(*) as count
+                FROM designations d
+                JOIN subjects s ON d.subject_id = s.id
                 WHERE s.career_id = ? AND d.is_active = 1
             `).get(cid);
             const activeDesigs = desigRow ? desigRow.count : 0;
@@ -750,7 +724,6 @@ class DesignationService {
                 };
             }
 
-            // 2. Proceder al borrado seguro (eliminar materias asociadas huérfanas y la carrera)
             db.prepare('DELETE FROM subjects WHERE career_id = ?').run(cid);
             db.prepare('DELETE FROM careers WHERE id = ?').run(cid);
 

@@ -1,14 +1,8 @@
-/**
- * Servicio de Auditoría y Trazabilidad Institucional para SIGET
- * Garantiza marcas de tiempo explícitas en Hora Local de Argentina (GMT-3, America/Argentina/Buenos_Aires).
- */
-
 const { getDatabase } = require('../database/db');
 
 class AuditService {
     static getArgentinaTimestamp() {
         const d = new Date();
-        // Usar formato ISO local para America/Argentina/Buenos_Aires
         const formatter = new Intl.DateTimeFormat('sv-SE', {
             timeZone: 'America/Argentina/Buenos_Aires',
             year: 'numeric',
@@ -19,7 +13,6 @@ class AuditService {
             second: '2-digit',
             hour12: false
         });
-        // sv-SE devuelve YYYY-MM-DD HH:mm:ss
         return formatter.format(d).replace(' ', 'T');
     }
 
@@ -56,9 +49,6 @@ class AuditService {
         }
     }
 
-    /**
-     * Retorna todos los registros de auditoría con filtrado avanzado por texto y categoría.
-     */
     static getAllLogs({ search = '', category = '', limit = 1000 } = {}) {
         try {
             const db = getDatabase();
@@ -118,9 +108,6 @@ class AuditService {
         }
     }
 
-    /**
-     * Genera un informe oficial en PDF con todo el historial de eventos del sistema para archivo institucional.
-     */
     static async generateAuditPdf({ exportedBy = 'SECRETARÍA', search = '', category = '', outputDir = null } = {}) {
         const path = require('path');
         const fs = require('fs');
@@ -207,7 +194,6 @@ class AuditService {
 
         let pdfBuffer;
         try {
-            // Si estamos dentro del entorno Electron
             if (process.versions && process.versions.electron) {
                 const { BrowserWindow } = require('electron');
                 const win = new BrowserWindow({
@@ -242,7 +228,6 @@ class AuditService {
             };
         } catch (err) {
             console.error('[AuditService] Error generando PDF de auditoría:', err);
-            // Intentar con fallback si falló printToPDF
             try {
                 const fallbackBuffer = createFallbackPdf(
                     'REGISTRO OFICIAL DE AUDITORIA - SIGET',
@@ -280,8 +265,8 @@ function escapeXml(unsafe) {
 function createFallbackPdf(title, lines) {
     const safeTitle = (title || 'DOCUMENTO INSTITUCIONAL SIGET').replace(/[\(\)\\]/g, '');
     const cleanLines = (lines || []).slice(0, 35).map(l => String(l).substring(0, 95).replace(/[\(\)\\]/g, ''));
-    
-    let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
+
+        let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
     cleanLines.forEach((line, idx) => {
         const y = 750 - (idx * 20);
         content += `BT /F1 8 Tf 40 ${y} Td (${line}) Tj ET\n`;

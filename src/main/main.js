@@ -1,9 +1,3 @@
-/**
- * Proceso Principal de Electron para SIGET
- * Sistema Integral de Gestión Educativa Terciaria
- */
-
-// Supresión de advertencias experimentales de Node.js / SQLite al inicio y cierre
 if (process && typeof process.emitWarning === 'function') {
     const originalEmitWarning = process.emitWarning;
     process.emitWarning = function(warning, ...args) {
@@ -39,7 +33,7 @@ function createWindow() {
         title: 'SIGET - Sistema Integral de Gestión Educativa Terciaria',
         icon: iconPath,
         backgroundColor: '#F8FAFC',
-        show: false, // Mostrar cuando esté listo para evitar flash blanco
+        show: false,
         webPreferences: {
             preload: path.join(__dirname, '../preload/preload.js'),
             contextIsolation: true,
@@ -49,14 +43,11 @@ function createWindow() {
         }
     });
 
-    // Menú de aplicación minimalista institucional
     Menu.setApplicationMenu(null);
 
-    // Cargar interfaz principal
     const indexPath = path.join(__dirname, '../renderer/index.html');
     mainWindow.loadFile(indexPath);
 
-    // Mostrar ventana suavemente
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
         if (process.env.SIGET_TEST === '1' || process.argv.includes('--test')) {
@@ -72,7 +63,6 @@ function createWindow() {
     });
 }
 
-// Bloqueo de instancia única
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
     app.quit();
@@ -84,8 +74,22 @@ if (!gotTheLock) {
         }
     });
 
-    app.whenReady().then(() => {
+    app.whenReady().then(async () => {
         registerIpcHandlers();
+
+        if (process.argv.includes('--export-schema-pdf')) {
+            const { SchemaPdfService } = require('../services/schemaPdfService');
+            try {
+                const res = await SchemaPdfService.generateSchemaPdf();
+                console.log(`[SCHEMA_PDF_SUCCESS] ${res.filePath}`);
+                app.exit(0);
+            } catch (err) {
+                console.error('[SCHEMA_PDF_ERROR]', err);
+                app.exit(1);
+            }
+            return;
+        }
+
         createWindow();
 
         app.on('activate', () => {

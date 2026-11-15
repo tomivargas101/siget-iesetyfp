@@ -1,8 +1,3 @@
-/**
- * Servicio de Gestión de Usuarios y Roles Secundarios para SIGET
- * Permite a Rector administrar perfiles (Bedeles, Secretarios) y blanquear contraseñas.
- */
-
 const bcrypt = require('bcryptjs');
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
@@ -21,9 +16,7 @@ function normalizeRole(role) {
 function canManageTargetRole(actorRole, targetRole) {
     const normActor = normalizeRole(actorRole);
     const normTarget = normalizeRole(targetRole);
-    // Solo Secretaría puede administrar usuarios
     if (normActor !== 'SECRETARIA') return false;
-    // Secretaría administra Bedelía
     return normTarget === 'BEDEL';
 }
 
@@ -32,18 +25,18 @@ class UserService {
         const db = getDatabase();
         try {
             const rows = db.prepare(`
-                SELECT 
+                SELECT
                     id, username, full_name, role, email, is_active,
                     created_at, last_login, security_question,
                     (recovery_key IS NOT NULL OR recovery_key_hash IS NOT NULL) as has_recovery_key
                 FROM users
-                ORDER BY 
-                    CASE role 
-                        WHEN 'SECRETARIA' THEN 1 
-                        WHEN 'SECRETARIO' THEN 1 
-                        WHEN 'BEDEL' THEN 2 
-                        ELSE 3 
-                    END, 
+                ORDER BY
+                    CASE role
+                        WHEN 'SECRETARIA' THEN 1
+                        WHEN 'SECRETARIO' THEN 1
+                        WHEN 'BEDEL' THEN 2
+                        ELSE 3
+                    END,
                     full_name ASC
             `).all();
 
@@ -109,7 +102,6 @@ class UserService {
                 return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
             }
 
-            // Comprobar si el nombre de usuario ya existe
             const exists = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
             if (exists) {
                 return { success: false, message: `El usuario '${cleanUsername}' ya se encuentra registrado.` };
@@ -171,7 +163,6 @@ class UserService {
             }
 
             const currentUser = AuthService.getCurrentUser();
-            // Evitar que la secretaría se deshabilite a sí misma
             if (currentUser && currentUser.id === id && !isActive) {
                 return { success: false, message: 'No puede desactivar su propia cuenta activa de Secretaría.' };
             }
@@ -214,9 +205,6 @@ class UserService {
         }
     }
 
-    /**
-     * Blanqueo / Restablecimiento inmediato de contraseña por parte de Secretaría
-     */
     static resetPassword(userId, newPassword) {
         const db = getDatabase();
         try {

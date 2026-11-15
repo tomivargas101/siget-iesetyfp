@@ -7,7 +7,8 @@
     "start": "electron .",
     "build:css": "tailwindcss -i src/renderer/css/tailwind.input.css -o src/renderer/css/tailwind.css --minify",
     "test:backend": "node test_backend.js",
-    "test:electron": "electron . --test"
+    "test:electron": "electron . --test",
+    "export:schema-pdf": "electron . --export-schema-pdf"
   },
   "repository": {
     "type": "git",

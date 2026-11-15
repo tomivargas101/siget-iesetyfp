@@ -1,12 +1,3 @@
-/**
- * Generador Oficial de Planillas y Reportes Mensuales Institucionales (Excel)
- * Utiliza exceljs para generar el libro oficial con 3 hojas:
- * 1. Estadística MM-YYYY
- * 2. Cuadro IL-01 (Licencias Médicas / Salud - Hojas 1-2)
- * 3. Cuadro IL-02 (Inasistencias, Permisos y Licencias Especiales - Hojas 3-6)
- * Cumple con RN-01 a RN-08 y Documento de Requerimientos Institucionales Versión 2.0.
- */
-
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
@@ -22,12 +13,10 @@ class ReportService {
         const mStr = String(mNum).padStart(2, '0');
         const db = getDatabase();
 
-        // 1. Obtener datos procesados de IL-01 e IL-02 con desglose por materia y disposición correlativa
         const processed = AttendanceProcessor.processMonthlyRecords(yNum, mNum);
         const listIL01 = processed.il01 || processed.dl01 || [];
         const listIL02 = processed.il02 || processed.dl02 || [];
 
-        // 2. Obtener métricas estadísticas globales de la planta
         const totalDocentes = db.prepare('SELECT COUNT(*) as count FROM teachers WHERE is_active = 1').get().count;
         const titulares = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Titular'").get().count;
         const provisionales = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Provisional'").get().count;
@@ -35,24 +24,18 @@ class ReportService {
         const suplentes = db.prepare("SELECT COUNT(*) as count FROM teachers WHERE is_active = 1 AND revista = 'Suplente'").get().count;
         const totalHoras = db.prepare('SELECT COALESCE(SUM(hours_count), 0) as total FROM designations WHERE is_active = 1').get().total;
 
-        // Crear libro Excel
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'SIGET - Sistema Integral de Gestión Educativa Terciaria';
         workbook.created = new Date();
 
-        // Paleta Institucional
         const COLOR_NAVY = '1E3A5F';
         const COLOR_HEADER_BG = 'E5E7EB';
         const COLOR_HEADER_TXT = '1F2937';
         const COLOR_BORDER = 'D1D5DB';
 
-        // -------------------------------------------------------------
-        // HOJA 1: ESTADÍSTICA MENSUAL
-        // -------------------------------------------------------------
         const sheet1 = workbook.addWorksheet(`Estadística ${mStr}-${yNum}`);
         sheet1.views = [{ showGridLines: true }];
 
-        // Título institucional
         sheet1.mergeCells('B2:G2');
         const titleCell = sheet1.getCell('B2');
         titleCell.value = 'SIGET - INSTITUTO DE EDUCACIÓN SUPERIOR TÉCNICA Y FORMACIÓN PROFESIONAL';
@@ -69,7 +52,6 @@ class ReportService {
         subCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet1.getRow(3).height = 24;
 
-        // Tabla de Resumen de Planta
         sheet1.getCell('B5').value = 'CONCEPTO DE PLANTA DOCENTE';
         sheet1.getCell('B5').font = { bold: true, color: { argb: COLOR_HEADER_TXT } };
         sheet1.getCell('B5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_HEADER_BG } };
@@ -102,9 +84,6 @@ class ReportService {
         sheet1.getColumn('B').width = 48;
         sheet1.getColumn('C').width = 24;
 
-        // -------------------------------------------------------------
-        // HOJA 2: CUADRO IL-01 (LICENCIAS MÉDICAS Y POR SALUD - HOJAS 1 Y 2)
-        // -------------------------------------------------------------
         const sheet2 = workbook.addWorksheet('Cuadro IL-01');
         sheet2.views = [{ showGridLines: true }];
 
@@ -132,13 +111,12 @@ class ReportService {
             };
         });
 
-        // Filas IL-01
         listIL01.forEach((r) => {
             const rowData = [
                 r.oficina,
                 r.año,
                 r.disposicion,
-                r.dni, // DNI como texto (RN-01)
+                r.dni,
                 r.apellidoNombre,
                 r.cargo,
                 r.revista,
@@ -153,12 +131,10 @@ class ReportService {
             const addedRow = sheet2.addRow(rowData);
             addedRow.height = 20;
 
-            // Formato de DNI explícito como texto '@' (RN-01)
             const dniCell = addedRow.getCell(4);
             dniCell.numFmt = '@';
             dniCell.alignment = { horizontal: 'center' };
 
-            // Centrar columnas clave
             addedRow.getCell(1).alignment = { horizontal: 'center' };
             addedRow.getCell(2).alignment = { horizontal: 'center' };
             addedRow.getCell(3).alignment = { horizontal: 'center' };
@@ -176,9 +152,6 @@ class ReportService {
             { width: 14 }, { width: 10 }, { width: 12 }, { width: 28 }
         ];
 
-        // -------------------------------------------------------------
-        // HOJA 3: CUADRO IL-02 (INASISTENCIAS, PERMISOS Y LICENCIAS ESPECIALES - HOJAS 3 A 6)
-        // -------------------------------------------------------------
         const sheet3 = workbook.addWorksheet('Cuadro IL-02');
         sheet3.views = [{ showGridLines: true }];
 
@@ -242,7 +215,6 @@ class ReportService {
             addedRow.getCell(13).alignment = { horizontal: 'center' };
         });
 
-        // Fila de Totalización con FÓRMULA EXCEL de sumatoria (RN-08)
         const lastDataRow = 2 + listIL02.length;
         if (listIL02.length > 0) {
             const totalRow = sheet3.addRow([
@@ -263,7 +235,6 @@ class ReportService {
             { width: 14 }, { width: 10 }, { width: 14 }, { width: 28 }
         ];
 
-        // Guardar archivo
         const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
         if (!fs.existsSync(targetDir)) {
             fs.mkdirSync(targetDir, { recursive: true });

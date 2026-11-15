@@ -1,13 +1,3 @@
-/**
- * Servicio de Importación Masiva por Archivos CSV para SIGET
- * Permite la carga masiva y validación de:
- * 1. Planta funcional / Legajos de personal ("Datos del personal")
- * 2. Registros históricos y operativos de Asistencias ("Asistencia")
- * 
- * Cumple con RN-01 (DNI formato texto), RN-02 (designaciones independientes),
- * RN-03 (tope de 30 horas semanales), prevención de duplicados e informe de inconsistencias.
- */
-
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
@@ -15,11 +5,6 @@ const { NormativeService } = require('./normativeService');
 const { AttendanceService } = require('./attendanceService');
 
 class CsvImportService {
-    /**
-     * Parsea un archivo universal (.xlsx, .xls, .docx, .doc, .csv, .txt) y devuelve
-     * el tipo detectado ('personnel' o 'attendance'), el nombre de hoja (si aplica)
-     * y el contenido tabular normalizado en formato CSV para su posterior previsualización.
-     */
     static async parseUniversalFile({ fileBuffer, fileName = '', explicitType = 'auto' }) {
         if (!fileBuffer || fileBuffer.length === 0) {
             return { success: false, message: 'El archivo está vacío o no se recibieron datos.' };
@@ -48,7 +33,6 @@ class CsvImportService {
                     targetSheet = workbook.worksheets.find(w => /asistencia|novedad/i.test(w.name)) || workbook.worksheets[0];
                     detectedType = 'attendance';
                 } else {
-                    // Auto-detección por nombre de hojas institucionales
                     const persSheet = workbook.worksheets.find(w => /datos.*personal|personal|docentes|planta/i.test(w.name));
                     const attSheet = workbook.worksheets.find(w => /asistencia|novedad/i.test(w.name));
 
@@ -65,7 +49,6 @@ class CsvImportService {
 
                 sheetName = targetSheet.name;
 
-                // Extraer filas de la hoja seleccionada
                 const rawRows = [];
                 targetSheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
                     const values = Array.isArray(row.values) ? row.values.slice(1).map(v => {
@@ -84,7 +67,6 @@ class CsvImportService {
                     return { success: false, message: `La hoja "${sheetName}" del archivo Excel no contiene datos legibles.` };
                 }
 
-                // Identificar fila de cabecera
                 let headerRowIndex = 0;
                 for (let i = 0; i < Math.min(5, rawRows.length); i++) {
                     const lineVals = rawRows[i].values.map(v => v.toLowerCase());
@@ -97,7 +79,6 @@ class CsvImportService {
                 const headers = rawRows[headerRowIndex].values;
                 const dataRows = rawRows.slice(headerRowIndex + 1);
 
-                // Si aún es 'auto', resolver según las cabeceras
                 if (detectedType === 'auto') {
                     const hStr = headers.join(' ').toLowerCase();
                     if (hStr.includes('asistencia') || hStr.includes('lic') || hStr.includes('fecha')) {
@@ -107,14 +88,13 @@ class CsvImportService {
                     }
                 }
 
-                // Verificar si es una hoja de asistencia tipo grilla mensual (días 1 a 31 en columnas)
                 const isGridAttendance = detectedType === 'attendance' && headers.some(h => /^[1-9]$|^[12][0-9]$|^3[01]$/.test(String(h).trim()));
 
                 if (isGridAttendance) {
                     let dniColIdx = headers.findIndex(h => /dni|documento/i.test(String(h)));
-                    if (dniColIdx === -1) dniColIdx = 2; // Default posición institucional
-                    
-                    const now = new Date();
+                    if (dniColIdx === -1) dniColIdx = 2;
+
+                                        const now = new Date();
                     const year = now.getFullYear();
                     let monthNum = now.getMonth() + 1;
                     const monthMap = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
@@ -145,7 +125,6 @@ class CsvImportService {
                     }
                     csvText = unpivotedRows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
                 } else {
-                    // Formato tabular regular (Planta Funcional o Asistencias)
                     const allRows = [headers, ...dataRows.map(r => r.values)];
                     csvText = allRows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
                 }
@@ -179,7 +158,6 @@ class CsvImportService {
                     return { success: false, message: 'No se pudo leer la estructura del documento Word (.docx).' };
                 }
 
-                // Extraer filas si hay tablas (<w:tr>)
                 const trRegex = /<w:tr[\s>][\s\S]*?<\/w:tr>/g;
                 const trMatches = docxXml.match(trRegex);
 
@@ -198,7 +176,6 @@ class CsvImportService {
                     }
                     csvText = tableLines.join('\n');
                 } else {
-                    // Párrafos <w:p>
                     const pRegex = /<w:p[\s>][\s\S]*?<\/w:p>/g;
                     const pMatches = docxXml.match(pRegex) || [];
                     const pLines = [];
@@ -220,14 +197,13 @@ class CsvImportService {
                 }
 
             } else if (ext === 'doc') {
-                // Word binario: extraer cadenas de texto legibles
                 const strAscii = fileBuffer.toString('binary');
                 const cleanLines = strAscii.replace(/[^\x20-\x7E\t\r\n\xC0-\xFF]/g, ' ')
                     .split(/\r?\n/)
                     .map(l => l.trim())
                     .filter(l => l.length > 4 && (l.includes(',') || l.includes(';') || l.includes('\t')));
-                
-                if (cleanLines.length === 0) {
+
+                                if (cleanLines.length === 0) {
                     return { success: false, message: 'No se encontraron tablas ni registros estructurados legibles en el archivo .doc.' };
                 }
                 csvText = cleanLines.join('\n');
@@ -236,8 +212,6 @@ class CsvImportService {
                 }
 
             } else {
-                // CSV o TXT plano
-                // Detectar UTF-16 LE si presenta signatura FF FE
                 if (fileBuffer.length >= 2 && fileBuffer[0] === 0xFF && fileBuffer[1] === 0xFE) {
                     csvText = fileBuffer.subarray(2).toString('utf16le');
                 } else {
@@ -285,10 +259,6 @@ class CsvImportService {
         }
     }
 
-    /**
-     * Parsea texto CSV admitiendo separador por coma, punto y coma, tabulación o pipe,
-     * respetando comillas y detectando automáticamente filas de datos sin cabecera.
-     */
     static parseCsv(csvText, defaultType = 'auto') {
         if (!csvText || typeof csvText !== 'string') {
             return { headers: [], rows: [] };
@@ -303,7 +273,6 @@ class CsvImportService {
             return { headers: [], rows: [] };
         }
 
-        // Detectar delimitador inspeccionando las primeras líneas
         const sampleText = rawLines.slice(0, 10).join('\n');
         const commas = (sampleText.match(/,/g) || []).length;
         const semicolons = (sampleText.match(/;/g) || []).length;
@@ -340,7 +309,7 @@ class CsvImportService {
                 if ((char === '"' || char === "'") && (!inQuotes || char === quoteChar)) {
                     if (inQuotes && line[i + 1] === char) {
                         current += char;
-                        i++; // Saltar comilla escapada
+                        i++;
                     } else if (inQuotes) {
                         inQuotes = false;
                         quoteChar = null;
@@ -361,7 +330,6 @@ class CsvImportService {
 
         const firstRowValues = parseLine(rawLines[0]);
 
-        // Determinar si la primera fila es encabezado o fila de datos directa
         const hasDniOrDateInFirstRow = firstRowValues.some(val => {
             const digits = val.replace(/\D/g, '');
             const isDni = digits.length >= 7 && digits.length <= 10;
@@ -381,7 +349,6 @@ class CsvImportService {
             headers = firstRowValues.map(h => this._normalizeHeader(h));
             startIdx = 1;
         } else {
-            // Son datos directos sin encabezado: sintetizar encabezados adecuados según el tipo esperado
             startIdx = 0;
             const hasDateInLine = firstRowValues.some(val => this._parseDate(val) !== null);
             const isAttendance = (defaultType === 'attendance') || (defaultType === 'auto' && hasDateInLine);
@@ -389,7 +356,6 @@ class CsvImportService {
             if (isAttendance) {
                 headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones'];
             } else {
-                // Estructura oficial de planta institucional: DNI, Legajo, Apellido, Nombre...
                 headers = ['dni', 'legajo', 'apellido', 'nombre', 'revista', 'horas', 'catedra', 'carrera', 'dia', 'horario', 'resolucion'];
             }
         }
@@ -404,7 +370,7 @@ class CsvImportService {
             for (let h = 0; h < Math.max(headers.length, values.length); h++) {
                 const headerName = headers[h] || `col_${h}`;
                 row[headerName] = values[h] !== undefined ? values[h] : '';
-                row[`_${h}`] = values[h] !== undefined ? values[h] : ''; // Acceso posicional de respaldo
+                row[`_${h}`] = values[h] !== undefined ? values[h] : '';
             }
             row._rawLineNumber = i + 1;
             row._rawValues = values;
@@ -420,19 +386,12 @@ class CsvImportService {
         return header
             .toLowerCase()
             .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') // Remover tildes
+            .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]/g, '_')
             .replace(/_+/g, '_')
             .replace(/^_|_$/g, '');
     }
 
-    // -------------------------------------------------------------
-    // IMPORTACIÓN DE PERSONAL / LEGAJOS
-    // -------------------------------------------------------------
-
-    /**
-     * Valida y genera previsualización del archivo de personal antes de persistir.
-     */
     static previewPersonnel(csvText) {
         const db = getDatabase();
         const { rows, hasHeaderRow } = this.parseCsv(csvText, 'personnel');
@@ -453,7 +412,6 @@ class CsvImportService {
         const preview = [];
         const seenDnisInFile = new Map();
 
-        // Cargar mapa multi-clave de docentes existentes en la BD
         const existingTeachers = db.prepare('SELECT id, dni, legajo, first_name, last_name, revista FROM teachers').all();
         const existingByDni = new Map();
         for (const t of existingTeachers) {
@@ -462,15 +420,14 @@ class CsvImportService {
             existingByDni.set(raw, t);
             if (digits) {
                 existingByDni.set(digits, t);
-                existingByDni.set(digits.replace(/^0+/, ''), t); // sin ceros a la izquierda
-                existingByDni.set(digits.padStart(8, '0'), t);   // 8 dígitos normalizados
+                existingByDni.set(digits.replace(/^0+/, ''), t);
+                existingByDni.set(digits.padStart(8, '0'), t);
             }
             if (t.legajo) {
                 existingByDni.set(String(t.legajo).trim().toLowerCase(), t);
             }
         }
 
-        // Cargar horas activas existentes
         const activeHoursByTeacher = new Map();
         const hoursRows = db.prepare(`
             SELECT teacher_id, COALESCE(SUM(hours_count), 0) as total_hours
@@ -489,9 +446,8 @@ class CsvImportService {
             const lineNum = row._rawLineNumber;
             const rowErrors = [];
 
-            // 1. Extraer DNI admitiendo variantes de encabezado o acceso posicional
-            let rawDni = row.dni || row.documento || row.doc || row.nro_doc || row.num_doc || 
-                         row.nro_documento || row.num_documento || row.documento_nro || 
+            let rawDni = row.dni || row.documento || row.doc || row.nro_doc || row.num_doc ||
+                         row.nro_documento || row.num_documento || row.documento_nro ||
                          row.agente || row.docente || '';
             if (!rawDni && row._rawValues) {
                 rawDni = row._rawValues.find(v => /^\d{6,10}$/.test(String(v).replace(/\D/g, ''))) || '';
@@ -510,7 +466,6 @@ class CsvImportService {
             const nonDniCells = rawVals.filter((_, idx) => idx !== dniIdx).map(v => String(v || '').replace(/['"“”«»]/g, '').trim());
 
             if (hasHeaderRow) {
-                // Caso con encabezados explícitos
                 legajo = String(row.legajo || row.nro_legajo || row.n_legajo || row.num_legajo || '').replace(/['"“”«»]/g, '').trim();
                 apellido = String(row.apellido || row.apellidos || '').replace(/['"“”«»]/g, '').trim();
                 nombre = String(row.nombre || row.nombres || '').replace(/['"“”«»]/g, '').trim();
@@ -532,7 +487,6 @@ class CsvImportService {
                     }
                 }
             } else {
-                // Caso directo sin encabezados: mapeo semántico por contenido de celdas
                 const c0 = nonDniCells[0] || '';
                 const c1 = nonDniCells[1] || '';
                 const c2 = nonDniCells[2] || '';
@@ -552,17 +506,14 @@ class CsvImportService {
                     nombre = parts.slice(1).join(' ').trim();
                     legajo = c0;
                 } else if (isC0Code && !isC1Code && c1.length > 0) {
-                    // Formato Institucional Estándar: DNI ; Legajo (c0) ; Apellido (c1) ; Nombre (c2)
                     legajo = c0;
                     apellido = c1;
                     nombre = !isC2Code ? c2 : '';
                 } else if (!isC0Code && !isC1Code && isC2Code) {
-                    // Formato Alternativo: DNI ; Apellido (c0) ; Nombre (c1) ; Legajo (c2)
                     apellido = c0;
                     nombre = c1;
                     legajo = c2;
                 } else if (!isC0Code && isC1Code) {
-                    // Formato DNI ; Apellido (c0) ; Legajo (c1) ; Nombre (c2)
                     apellido = c0;
                     legajo = c1;
                     nombre = !isC2Code ? c2 : '';
@@ -573,22 +524,18 @@ class CsvImportService {
                 }
             }
 
-            // Fallback directo si alguno quedó vacío
             if (!legajo && row._1 && /^\d+$/.test(String(row._1).trim())) legajo = String(row._1).trim();
             if (!apellido && row._2) apellido = String(row._2).trim();
             if (!nombre && row._3) nombre = String(row._3).trim();
             if (!apellido && row._1 && !/^\d+$/.test(String(row._1).trim())) apellido = String(row._1).trim();
             if (!nombre && row._2 && !/^\d+$/.test(String(row._2).trim()) && !nombre) nombre = String(row._2).trim();
 
-            // Desglosar si apellido contiene "Apellido, Nombre"
             if (apellido && !nombre && apellido.includes(',')) {
                 const parts = apellido.split(',');
                 apellido = parts[0].trim();
                 nombre = parts.slice(1).join(' ').trim();
             }
 
-            // SANITY CHECK & AUTOCORRECCIÓN ESTRICTA:
-            // Un apellido o un nombre nunca pueden ser puramente números (ej: "12046")
             const isApellidoNumeric = /^\d+$/.test(apellido.replace(/[\.\-\s]/g, ''));
             const isNombreNumeric = /^\d+$/.test(nombre.replace(/[\.\-\s]/g, ''));
             const isLegajoTextOnly = !/\d/.test(legajo) && legajo.length > 2;
@@ -611,8 +558,7 @@ class CsvImportService {
                 nombre = legajo;
                 legajo = realLegajo;
             }
-            
-            // Situación de revista
+
             let revista = String(row.revista || row.situacion_revista || row.situacion_de_revista || 'Titular').replace(/['"“”«»]/g, '').trim();
             const revistaNorm = revista.toLowerCase();
             if (revistaNorm.includes('titular')) revista = 'Titular';
@@ -626,11 +572,10 @@ class CsvImportService {
             const dia = String(row.dia || row.dia_semana || 'Lunes').replace(/['"“”«»]/g, '').trim();
             const horario = String(row.horario || row.hora || '').replace(/['"“”«»]/g, '').trim();
             const resolucion = String(row.resolucion || row.disposicion || row.disp || '').replace(/['"“”«»]/g, '').trim();
-            
-            const rawHoras = row.horas || row.cant_horas || row.cantidad_horas || '0';
+
+                        const rawHoras = row.horas || row.cant_horas || row.cantidad_horas || '0';
             const horas = parseInt(String(rawHoras).replace(/\D/g, ''), 10) || (catedra ? 4 : 0);
 
-            // Validaciones obligatorias
             if (!cleanDni) {
                 rowErrors.push('DNI obligatorio no especificado.');
             } else if (!/^\d{6,10}$/.test(cleanDni)) {
@@ -644,13 +589,10 @@ class CsvImportService {
                 rowErrors.push('El campo Nombre es obligatorio.');
             }
 
-            // Duplicados dentro del archivo
             if (cleanDni) {
                 if (seenDnisInFile.has(cleanDni)) {
                     const prevLine = seenDnisInFile.get(cleanDni);
-                    // Si trae cátedra distinta, es admisible como designación adicional (RN-02)
                     if (catedra) {
-                        // Válido como designación múltiple
                     } else {
                         rowErrors.push(`DNI ${cleanDni} duplicado en la línea ${prevLine} de este archivo.`);
                     }
@@ -659,7 +601,6 @@ class CsvImportService {
                 }
             }
 
-            // Validar existencia de docente y tope de 30 horas semanales (RN-03)
             let existingTeacher = existingByDni.get(cleanDni);
             if (!existingTeacher && cleanDni) {
                 existingTeacher = existingByDni.get(cleanDni.replace(/^0+/, '')) || existingByDni.get(cleanDni.padStart(8, '0'));
@@ -712,13 +653,10 @@ class CsvImportService {
             validRows: validCount,
             invalidRows: invalidCount,
             errors,
-            preview: preview.slice(0, 100) // Primeros 100 para la vista rápida
+            preview: preview.slice(0, 100)
         };
     }
 
-    /**
-     * Ejecuta la importación efectiva de personal y sus designaciones en una transacción atómica.
-     */
     static importPersonnel(csvText, { updateExisting = true, createDesignations = true } = {}) {
         const db = getDatabase();
         const validation = this.previewPersonnel(csvText);
@@ -735,14 +673,12 @@ class CsvImportService {
         let createdDesignations = 0;
         const processedErrors = [];
 
-        // Asegurar carrera por defecto en caso de crear cátedras
         let defaultCareer = db.prepare('SELECT id FROM careers LIMIT 1').get();
         if (!defaultCareer) {
             const insCar = db.prepare('INSERT INTO careers (name, code) VALUES (?, ?)').run('Profesorado de Educación Secundaria', 'PES');
             defaultCareer = { id: insCar.lastInsertRowid };
         }
 
-        // Cargar mapa multi-clave para identificar docentes existentes
         const existingList = db.prepare('SELECT id, dni, legajo FROM teachers').all();
         const existingMap = new Map();
         for (const t of existingList) {
@@ -769,9 +705,8 @@ class CsvImportService {
                     continue;
                 }
 
-                // 1. Manejo del Docente con búsqueda multi-clave
-                let teacher = existingMap.get(item.dni) || 
-                              existingMap.get(String(item.dni).replace(/^0+/, '')) || 
+                let teacher = existingMap.get(item.dni) ||
+                              existingMap.get(String(item.dni).replace(/^0+/, '')) ||
                               existingMap.get(String(item.dni).padStart(8, '0'));
                 let teacherId;
 
@@ -779,7 +714,7 @@ class CsvImportService {
                     const legajoVal = item.legajo && item.legajo !== '-' ? item.legajo : `LEG-${item.dni.slice(-4)}`;
                     const resT = db.prepare(`
                         INSERT INTO teachers (
-                            legajo, dni, first_name, last_name, revista, 
+                            legajo, dni, first_name, last_name, revista,
                             max_weekly_hours, is_active, created_at
                         ) VALUES (?, ?, ?, ?, ?, 30, 1, ?)
                     `).run(legajoVal, String(item.dni), item.nombre, item.apellido, item.revista, now);
@@ -800,7 +735,7 @@ class CsvImportService {
                         }
                         updateParams.push(teacherId);
                         db.prepare(`
-                            UPDATE teachers 
+                            UPDATE teachers
                             SET ${updateFields.join(', ')}
                             WHERE id = ?
                         `).run(...updateParams);
@@ -808,9 +743,7 @@ class CsvImportService {
                     }
                 }
 
-                // 2. Manejo de Cátedra / Designación (si fue informada)
                 if (createDesignations && item.catedra && item.catedra !== '-') {
-                    // Buscar o crear materia
                     let subject = db.prepare('SELECT id FROM subjects WHERE LOWER(name) = LOWER(?) LIMIT 1').get(item.catedra);
                     let subjectId;
                     if (!subject) {
@@ -824,9 +757,8 @@ class CsvImportService {
                         subjectId = subject.id;
                     }
 
-                    // Verificar si ya existe esta designación para este docente
                     const existingDesig = db.prepare(`
-                        SELECT id FROM designations 
+                        SELECT id FROM designations
                         WHERE teacher_id = ? AND subject_id = ? AND is_active = 1
                     `).get(teacherId, subjectId);
 
@@ -886,13 +818,6 @@ class CsvImportService {
         }
     }
 
-    // -------------------------------------------------------------
-    // IMPORTACIÓN DE ASISTENCIAS HISTÓRICAS / OPERATIVAS
-    // -------------------------------------------------------------
-
-    /**
-     * Valida y previsualiza la importación de asistencias a partir de un archivo CSV.
-     */
     static previewAttendance(csvText) {
         const db = getDatabase();
         const { rows } = this.parseCsv(csvText);
@@ -909,7 +834,6 @@ class CsvImportService {
             };
         }
 
-        // Cargar mapa multi-clave de docentes existentes en la BD
         const teachers = db.prepare('SELECT id, dni, legajo, first_name, last_name FROM teachers').all();
         const teacherByDni = new Map();
         for (const t of teachers) {
@@ -918,8 +842,8 @@ class CsvImportService {
             teacherByDni.set(raw, t);
             if (digits) {
                 teacherByDni.set(digits, t);
-                teacherByDni.set(digits.replace(/^0+/, ''), t); // sin ceros a la izquierda (ej: '9456789')
-                teacherByDni.set(digits.padStart(8, '0'), t);   // con 8 dígitos (ej: '09456789')
+                teacherByDni.set(digits.replace(/^0+/, ''), t);
+                teacherByDni.set(digits.padStart(8, '0'), t);
             }
             if (t.legajo) {
                 teacherByDni.set(String(t.legajo).trim().toLowerCase(), t);
@@ -935,40 +859,35 @@ class CsvImportService {
             const lineNum = row._rawLineNumber;
             const rowErrors = [];
 
-            // 1. DNI con búsqueda flexible por alias o posición
-            let rawDni = row.dni || row.documento || row.doc || row.nro_doc || row.num_doc || 
-                         row.nro_documento || row.num_documento || row.documento_nro || 
+            let rawDni = row.dni || row.documento || row.doc || row.nro_doc || row.num_doc ||
+                         row.nro_documento || row.num_documento || row.documento_nro ||
                          row.agente || row.docente || row.profesor || row._0 || '';
             if (!rawDni && row._rawValues) {
                 rawDni = row._rawValues.find(v => /^\d{6,10}$/.test(String(v).replace(/\D/g, ''))) || '';
             }
             const cleanDni = String(rawDni).replace(/['"“”«»]/g, '').replace(/\D/g, '').trim();
 
-            // 2. Fecha con búsqueda flexible
-            let rawFecha = row.fecha || row.date || row.dia || row.fecha_asistencia || 
+            let rawFecha = row.fecha || row.date || row.dia || row.fecha_asistencia ||
                            row.fecha_novedad || row.dia_fecha || row.jornada || row._1 || '';
             if (!this._parseDate(rawFecha) && row._rawValues) {
                 rawFecha = row._rawValues.find(v => this._parseDate(v) !== null) || rawFecha;
             }
             const parsedDate = this._parseDate(rawFecha);
 
-            // 3. Marca / Estado con búsqueda flexible
-            let rawEstado = String(row.estado || row.marca || row.asistencia || row.novedad || 
-                                   row.condicion || row.situacion || row.motivo || row.codigo || 
+            let rawEstado = String(row.estado || row.marca || row.asistencia || row.novedad ||
+                                   row.condicion || row.situacion || row.motivo || row.codigo ||
                                    row.marca_asistencia || row.tipo || row._2 || '').trim();
             if (!this._normalizeAttendanceStatus(rawEstado) && row._rawValues) {
                 rawEstado = row._rawValues.find(v => this._normalizeAttendanceStatus(v) !== null) || rawEstado;
             }
             const normalizedStatus = this._normalizeAttendanceStatus(rawEstado);
 
-            // 4. Horas y Observaciones
             const rawHoras = row.horas || row.cant_horas || row.cantidad_horas || row.hs || row._3 || '4';
             const horas = parseInt(String(rawHoras).replace(/\D/g, ''), 10) || 4;
 
-            const observaciones = String(row.observaciones || row.observacion || row.obs || 
+            const observaciones = String(row.observaciones || row.observacion || row.obs ||
                                          row.motivo || row.detalle || row.comentario || row._4 || '').replace(/['"“”«»]/g, '').trim();
 
-            // 5. Validaciones de existencia de docente en BD
             let teacher = teacherByDni.get(cleanDni);
             if (!teacher && cleanDni) {
                 teacher = teacherByDni.get(cleanDni.replace(/^0+/, '')) || teacherByDni.get(cleanDni.padStart(8, '0'));
@@ -1023,9 +942,6 @@ class CsvImportService {
         };
     }
 
-    /**
-     * Persiste los registros de asistencia en lote.
-     */
     static importAttendance(csvText) {
         const db = getDatabase();
         const validation = this.previewAttendance(csvText);
@@ -1037,7 +953,6 @@ class CsvImportService {
         const currentUser = AuthService.getCurrentUser();
         const username = currentUser ? currentUser.username : 'SECRETARIA';
 
-        // Cargar mapa multi-clave de IDs de docentes
         const teachers = db.prepare('SELECT id, dni, legajo FROM teachers').all();
         const teacherByDni = new Map();
         for (const t of teachers) {
@@ -1067,14 +982,13 @@ class CsvImportService {
                     continue;
                 }
 
-                const teacherId = teacherByDni.get(item.dni) || 
-                                  teacherByDni.get(String(item.dni).replace(/^0+/, '')) || 
+                const teacherId = teacherByDni.get(item.dni) ||
+                                  teacherByDni.get(String(item.dni).replace(/^0+/, '')) ||
                                   teacherByDni.get(String(item.dni).padStart(8, '0'));
                 if (!teacherId) continue;
 
-                // Verificar si ya existe un registro de asistencia para este docente en esa fecha
                 const existing = db.prepare(`
-                    SELECT id FROM attendances 
+                    SELECT id FROM attendances
                     WHERE teacher_id = ? AND date = ? AND is_active = 1
                 `).get(teacherId, item.fecha);
 
@@ -1127,7 +1041,6 @@ class CsvImportService {
         if (!dateStr) return null;
         let s = String(dateStr).replace(/['"“”«»]/g, '').trim();
 
-        // Formato ISO YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
         const isoMatch = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
         if (isoMatch) {
             const year = isoMatch[1];
@@ -1136,7 +1049,6 @@ class CsvImportService {
             return `${year}-${month}-${day}`;
         }
 
-        // Formato DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
         const dmyMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
         if (dmyMatch) {
             const day = dmyMatch[1].padStart(2, '0');
@@ -1145,7 +1057,6 @@ class CsvImportService {
             return `${year}-${month}-${day}`;
         }
 
-        // Formato DD/MM/YY (año 2 dígitos)
         const dmyShortMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$/);
         if (dmyShortMatch) {
             const day = dmyShortMatch[1].padStart(2, '0');
@@ -1169,28 +1080,21 @@ class CsvImportService {
     }
 }
 
-/**
- * Parsea descripciones de días simples o múltiples con horarios y horas variables.
- * Ejemplos:
- * - "Lunes 3hs, Jueves 1h" -> [{ dayOfWeek: 'Lunes', hoursCount: 3, ... }, { dayOfWeek: 'Jueves', hoursCount: 1, ... }]
- * - "Lunes y Miércoles" (4 hs total) -> [{ dayOfWeek: 'Lunes', hoursCount: 2, ... }, { dayOfWeek: 'Miércoles', hoursCount: 2, ... }]
- */
 function parseMultiDaySchedule(diaStr, horarioStr, totalHours = 4) {
     const knownDays = ['Lunes', 'Martes', 'Miércoles', 'Miercoles', 'Jueves', 'Viernes', 'Sábado', 'Sabado'];
     const normDays = { 'Miercoles': 'Miércoles', 'Sabado': 'Sábado' };
-    
-    const times = (horarioStr || '18:00 a 20:00').split(/a|-/);
+
+        const times = (horarioStr || '18:00 a 20:00').split(/a|-/);
     const defaultStart = times[0] ? times[0].trim() : '18:00';
     const defaultEnd = times[1] ? times[1].trim() : '20:00';
     const totH = Number(totalHours) || 4;
 
     const cleanDia = String(diaStr || '').trim();
 
-    // 1. Caso explícito con horas por día: "Lunes 3hs, Jueves 1h" o "Lunes (3 hs) y Jueves (1 hs)"
     const regexExplicit = /(Lunes|Martes|Miércoles|Miercoles|Jueves|Viernes|Sábado|Sabado)[^\d]*(\d+)\s*h/gi;
     const matches = [...cleanDia.matchAll(regexExplicit)];
-    
-    if (matches.length > 0) {
+
+        if (matches.length > 0) {
         return matches.map(m => {
             const rawDay = m[1];
             const capDay = rawDay.charAt(0).toUpperCase() + rawDay.slice(1).toLowerCase();
@@ -1204,7 +1108,6 @@ function parseMultiDaySchedule(diaStr, horarioStr, totalHours = 4) {
         });
     }
 
-    // 2. Caso días múltiples nombrados: "Lunes y Miércoles" o "Lunes, Miércoles, Viernes"
     const foundDays = [];
     for (const d of knownDays) {
         const regex = new RegExp(`\\b${d}\\b`, 'i');
@@ -1225,7 +1128,6 @@ function parseMultiDaySchedule(diaStr, horarioStr, totalHours = 4) {
         }];
     }
 
-    // Distribuir totalHours entre los días encontrados
     const count = foundDays.length;
     const baseHours = Math.floor(totH / count) || 1;
     const remainder = totH - (baseHours * count);
