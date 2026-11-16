@@ -1,5 +1,6 @@
 const { getDatabase } = require('../database/db');
 const { NormativeService } = require('./normativeService');
+const { ValidationService } = require('./validationService');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 
@@ -98,18 +99,19 @@ class TeacherService {
     static save(payload) {
         const db = getDatabase();
         try {
-            const rawDni = payload.dni;
-            const cleanDni = NormativeService.normalizeDni(rawDni);
-
-            if (!cleanDni) {
-                return { success: false, message: 'El DNI es un campo obligatorio.' };
+            const validation = ValidationService.validateTeacherPayload(payload);
+            if (!validation.isValid) {
+                return {
+                    success: false,
+                    message: validation.message,
+                    fieldErrors: validation.fieldErrors
+                };
             }
-            if (!payload.legajo || !payload.lastName || !payload.firstName) {
-                return { success: false, message: 'Legajo, Apellido y Nombre son obligatorios.' };
-            }
 
-            const targetId = (payload.id !== undefined && payload.id !== null && payload.id !== '') ? Number(payload.id) : null;
-            const cleanLegajo = payload.legajo.trim();
+            const { cleanData } = validation;
+            const cleanDni = cleanData.dni;
+            const cleanLegajo = cleanData.legajo;
+            const targetId = cleanData.id;
 
             const existingWithDni = targetId
                 ? db.prepare('SELECT id FROM teachers WHERE dni = ? AND id != ?').get(cleanDni, targetId)
@@ -151,14 +153,14 @@ class TeacherService {
                 `).run(
                     cleanLegajo,
                     cleanDni,
-                    payload.cuil ? payload.cuil.trim() : null,
-                    payload.firstName.trim(),
-                    payload.lastName.trim(),
-                    payload.email ? payload.email.trim() : null,
-                    payload.phone ? payload.phone.trim() : null,
-                    payload.revista || 'Titular',
-                    payload.maxWeeklyHours !== undefined ? Number(payload.maxWeeklyHours) : (currentTeacher.max_weekly_hours || 30),
-                    payload.isActive !== undefined ? (payload.isActive !== false ? 1 : 0) : currentTeacher.is_active,
+                    cleanData.cuil,
+                    cleanData.firstName,
+                    cleanData.lastName,
+                    cleanData.email,
+                    cleanData.phone,
+                    cleanData.revista,
+                    cleanData.maxWeeklyHours,
+                    cleanData.isActive ? 1 : 0,
                     targetId
                 );
 
@@ -166,7 +168,7 @@ class TeacherService {
                     currentUser ? currentUser.id : null,
                     username,
                     'MODIFICAR_DOCENTE',
-                    `Modificado docente ID ${targetId}: ${payload.lastName}, ${payload.firstName} (DNI ${cleanDni})`
+                    `Modificado docente ID ${targetId}: ${cleanData.lastName}, ${cleanData.firstName} (DNI ${cleanDni})`
                 );
 
                 return { success: true, message: 'Datos del docente actualizados correctamente.' };
@@ -179,13 +181,13 @@ class TeacherService {
                 `).run(
                     cleanLegajo,
                     cleanDni,
-                    payload.cuil ? payload.cuil.trim() : null,
-                    payload.firstName.trim(),
-                    payload.lastName.trim(),
-                    payload.email ? payload.email.trim() : null,
-                    payload.phone ? payload.phone.trim() : null,
-                    payload.revista || 'Titular',
-                    Number(payload.maxWeeklyHours) || 30,
+                    cleanData.cuil,
+                    cleanData.firstName,
+                    cleanData.lastName,
+                    cleanData.email,
+                    cleanData.phone,
+                    cleanData.revista,
+                    cleanData.maxWeeklyHours,
                     1,
                     now
                 );
@@ -194,7 +196,7 @@ class TeacherService {
                     currentUser ? currentUser.id : null,
                     username,
                     'ALTA_DOCENTE',
-                    `Registrado nuevo docente: ${payload.lastName}, ${payload.firstName} (DNI ${cleanDni}, Legajo ${cleanLegajo})`
+                    `Registrado nuevo docente: ${cleanData.lastName}, ${cleanData.firstName} (DNI ${cleanDni}, Legajo ${cleanLegajo})`
                 );
 
                 return { success: true, message: 'Docente registrado exitosamente.', id: result.lastInsertRowid };

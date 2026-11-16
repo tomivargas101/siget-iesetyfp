@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
+const { ValidationService } = require('./validationService');
 
 let currentUser = null;
 
@@ -52,11 +53,19 @@ class AuthService {
                 };
             }
 
-            if (password.length < 6) {
-                return { success: false, message: 'La contraseña de Secretaría debe tener al menos 6 caracteres.' };
-            }
+            const uVal = ValidationService.validateUsername(username);
+            if (!uVal.isValid) return { success: false, message: uVal.message };
+            const cleanUsername = uVal.cleanUsername;
 
-            const cleanUsername = username.trim().toLowerCase();
+            const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+            if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+            const passVal = ValidationService.validatePassword(password, 6);
+            if (!passVal.isValid) return { success: false, message: passVal.message };
+
+            const emailVal = ValidationService.validateEmail(email, false);
+            if (!emailVal.isValid) return { success: false, message: emailVal.message };
+
             const passwordHash = bcrypt.hashSync(password, 12);
             const answerHash = bcrypt.hashSync(securityAnswer.trim().toLowerCase(), 10);
 
@@ -74,8 +83,8 @@ class AuthService {
             `).run(
                 cleanUsername,
                 passwordHash,
-                fullName.trim(),
-                email ? email.trim() : null,
+                nameVal.cleanName,
+                emailVal.cleanEmail,
                 securityQuestion.trim(),
                 answerHash,
                 masterRecoveryKey,
@@ -124,9 +133,18 @@ class AuthService {
             return { success: false, message: 'Todos los campos obligatorios deben ser completados.' };
         }
 
-        if (password.length < 6) {
-            return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
-        }
+        const uVal = ValidationService.validateUsername(username);
+        if (!uVal.isValid) return { success: false, message: uVal.message };
+        const cleanUsername = uVal.cleanUsername;
+
+        const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+        if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+        const passVal = ValidationService.validatePassword(password, 6);
+        if (!passVal.isValid) return { success: false, message: passVal.message };
+
+        const emailVal = ValidationService.validateEmail(email, false);
+        if (!emailVal.isValid) return { success: false, message: emailVal.message };
 
         const VALID_ROLES = ['SECRETARIA', 'BEDEL'];
         const normalizedRole = AuthService.normalizeRole(role);
@@ -136,7 +154,6 @@ class AuthService {
 
         const db = getDatabase();
         try {
-            const cleanUsername = username.trim().toLowerCase();
             const existing = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
             if (existing) {
                 return { success: false, message: `El nombre de usuario '${cleanUsername}' ya está registrado.` };
@@ -163,9 +180,9 @@ class AuthService {
             `).run(
                 cleanUsername,
                 passwordHash,
-                fullName.trim(),
+                nameVal.cleanName,
                 normalizedRole,
-                email ? email.trim() : null,
+                emailVal.cleanEmail,
                 securityQuestion.trim(),
                 answerHash,
                 masterRecoveryKey,

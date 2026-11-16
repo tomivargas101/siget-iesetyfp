@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
+const { ValidationService } = require('./validationService');
 
 const VALID_ROLES = ['SECRETARIA', 'BEDEL'];
 
@@ -91,15 +92,22 @@ class UserService {
                 return { success: false, message: 'Usuario, Nombre Completo y Contraseña son obligatorios.' };
             }
 
-            const cleanUsername = username.trim().toLowerCase();
-            const normalizedRole = normalizeRole(role);
+            const uVal = ValidationService.validateUsername(username);
+            if (!uVal.isValid) return { success: false, message: uVal.message };
+            const cleanUsername = uVal.cleanUsername;
 
+            const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+            if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+            const passVal = ValidationService.validatePassword(password, 6);
+            if (!passVal.isValid) return { success: false, message: passVal.message };
+
+            const emailVal = ValidationService.validateEmail(email, false);
+            if (!emailVal.isValid) return { success: false, message: emailVal.message };
+
+            const normalizedRole = normalizeRole(role);
             if (!VALID_ROLES.includes(normalizedRole)) {
                 return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Secretaría o Bedelía.` };
-            }
-
-            if (password.length < 6) {
-                return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
             }
 
             const exists = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
@@ -171,6 +179,12 @@ class UserService {
                 return { success: false, message: 'Acceso denegado: Se requiere rol de Secretaría para modificar usuarios.' };
             }
 
+            const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+            if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+            const emailVal = ValidationService.validateEmail(email, false);
+            if (!emailVal.isValid) return { success: false, message: emailVal.message };
+
             const normalizedRole = normalizeRole(role || user.role);
             if (!VALID_ROLES.includes(normalizedRole)) {
                 return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Secretaría o Bedelía.` };
@@ -184,9 +198,9 @@ class UserService {
                     is_active = ?
                 WHERE id = ?
             `).run(
-                fullName.trim(),
+                nameVal.cleanName,
                 normalizedRole,
-                email ? email.trim() : null,
+                emailVal.cleanEmail,
                 isActive ? 1 : 0,
                 id
             );

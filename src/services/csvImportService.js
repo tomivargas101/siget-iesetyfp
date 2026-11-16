@@ -3,6 +3,7 @@ const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 const { NormativeService } = require('./normativeService');
 const { AttendanceService } = require('./attendanceService');
+const { ValidationService } = require('./validationService');
 
 class CsvImportService {
     static async parseUniversalFile({ fileBuffer, fileName = '', explicitType = 'auto' }) {
@@ -576,16 +577,22 @@ class CsvImportService {
                         const rawHoras = row.horas || row.cant_horas || row.cantidad_horas || '0';
             const horas = parseInt(String(rawHoras).replace(/\D/g, ''), 10) || (catedra ? 4 : 0);
 
-            if (!cleanDni) {
-                rowErrors.push('DNI obligatorio no especificado.');
-            } else if (!/^\d{6,10}$/.test(cleanDni)) {
-                rowErrors.push(`Formato de DNI inválido: "${cleanDni}". Debe contener entre 6 y 10 dígitos.`);
+            const dniVal = ValidationService.validateDni(cleanDni);
+            if (!dniVal.isValid) {
+                rowErrors.push(dniVal.message);
             }
 
-            if (!apellido) {
-                rowErrors.push('El campo Apellido es obligatorio.');
+            const lastNameVal = ValidationService.validatePersonName(apellido, 'Apellido');
+            if (!lastNameVal.isValid) {
+                rowErrors.push(lastNameVal.message);
             }
-            if (!nombre && !row.apellido_y_nombre) {
+
+            if (nombre) {
+                const firstNameVal = ValidationService.validatePersonName(nombre, 'Nombre');
+                if (!firstNameVal.isValid) {
+                    rowErrors.push(firstNameVal.message);
+                }
+            } else if (!row.apellido_y_nombre) {
                 rowErrors.push('El campo Nombre es obligatorio.');
             }
 
@@ -895,8 +902,13 @@ class CsvImportService {
 
             if (!cleanDni) {
                 rowErrors.push('DNI obligatorio no indicado.');
-            } else if (!teacher) {
-                rowErrors.push(`No existe ningún docente registrado con el DNI "${cleanDni}". Debe cargarlo previamente en Planta Funcional.`);
+            } else {
+                const dniVal = ValidationService.validateDni(cleanDni);
+                if (!dniVal.isValid) {
+                    rowErrors.push(dniVal.message);
+                } else if (!teacher) {
+                    rowErrors.push(`No existe ningún docente registrado con el DNI "${cleanDni}". Debe cargarlo previamente en Planta Funcional.`);
+                }
             }
 
             if (!parsedDate) {

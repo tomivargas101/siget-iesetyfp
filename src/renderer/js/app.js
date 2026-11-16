@@ -1428,20 +1428,61 @@ function openNewUserModal() {
             const errDiv = document.getElementById('modal-u-error');
             errDiv.classList.add('hidden');
 
-            const pass = document.getElementById('modal-u-password').value;
-            const confirm = document.getElementById('modal-u-confirm').value;
+            const usernameInput = document.getElementById('modal-u-username');
+            const fullnameInput = document.getElementById('modal-u-fullname');
+            const emailInput = document.getElementById('modal-u-email');
+            const passInput = document.getElementById('modal-u-password');
+            const confirmInput = document.getElementById('modal-u-confirm');
+
+            const cleanUser = usernameInput ? usernameInput.value.trim().toLowerCase() : '';
+            if (!cleanUser || cleanUser.length < 3 || cleanUser.length > 30 || !/^[a-zA-Z0-9_]+$/.test(cleanUser)) {
+                errDiv.textContent = 'El nombre de usuario debe contener entre 3 y 30 caracteres alfanuméricos o guión bajo (_).';
+                errDiv.classList.remove('hidden');
+                if (usernameInput) usernameInput.focus();
+                showToast('Usuario no válido.', 'error');
+                return;
+            }
+
+            const cleanName = fullnameInput ? fullnameInput.value.trim() : '';
+            if (!cleanName || cleanName.length < 2 || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'\-\._]+$/.test(cleanName)) {
+                errDiv.textContent = 'El Nombre Completo debe tener al menos 2 caracteres y contener solo letras.';
+                errDiv.classList.remove('hidden');
+                if (fullnameInput) fullnameInput.focus();
+                showToast('Nombre completo no válido.', 'error');
+                return;
+            }
+
+            const cleanEmail = emailInput ? emailInput.value.trim() : '';
+            if (cleanEmail && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanEmail)) {
+                errDiv.textContent = 'El formato del correo electrónico es inválido.';
+                errDiv.classList.remove('hidden');
+                if (emailInput) emailInput.focus();
+                showToast('Correo electrónico inválido.', 'error');
+                return;
+            }
+
+            const pass = passInput ? passInput.value : '';
+            const confirm = confirmInput ? confirmInput.value : '';
+
+            if (pass.length < 6) {
+                errDiv.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+                errDiv.classList.remove('hidden');
+                if (passInput) passInput.focus();
+                return;
+            }
 
             if (pass !== confirm) {
                 errDiv.textContent = 'Las contraseñas no coinciden.';
                 errDiv.classList.remove('hidden');
+                if (confirmInput) confirmInput.focus();
                 return;
             }
 
             const payload = {
-                username: document.getElementById('modal-u-username').value.trim(),
+                username: cleanUser,
                 role: document.getElementById('modal-u-role').value,
-                fullName: document.getElementById('modal-u-fullname').value.trim(),
-                email: document.getElementById('modal-u-email').value.trim(),
+                fullName: cleanName,
+                email: cleanEmail || null,
                 password: pass,
                 securityQuestion: document.getElementById('modal-u-question').value.trim(),
                 securityAnswer: document.getElementById('modal-u-answer').value.trim()
@@ -1924,44 +1965,65 @@ function openTeacherModal(teacher = null) {
     const title = isEdit ? 'Editar Legajo Docente' : 'Nuevo Docente Institucional';
 
     const modalHtml = `
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <h3 class="text-sm font-bold text-slate-900">${title}</h3>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 mb-4">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-zinc-100">${title}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-zinc-400">Datos personales unívocos por DNI y situación de revista (RN-01)</p>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 font-bold p-1">✕</button>
         </div>
 
-        <form id="teacher-form" class="space-y-3">
+        <form id="teacher-form" class="space-y-3" novalidate>
             <input type="hidden" id="modal-teacher-id" value="${teacher ? teacher.id : ''}">
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">DNI (como texto) *</label>
-                    <input type="text" id="modal-teacher-dni" required value="${teacher ? escapeHtml(teacher.dni) : ''}"
-                        placeholder="Ej. 08456123" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
+                        DNI (como texto) <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="modal-teacher-dni" required maxlength="8" inputmode="numeric"
+                        value="${teacher ? escapeHtml(teacher.dni) : ''}"
+                        placeholder="Ej. 28456123"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
+                    <span class="text-[10px] text-slate-400 dark:text-zinc-500">7 u 8 dígitos numéricos</span>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">N° de Legajo</label>
-                    <input type="text" id="modal-teacher-legajo" value="${teacher ? escapeHtml(teacher.legajo || '') : ''}"
-                        placeholder="Ej. L-1045" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Apellido(s) *</label>
-                    <input type="text" id="modal-teacher-lastname" required value="${teacher ? escapeHtml(teacher.lastName || teacher.last_name || '') : ''}"
-                        placeholder="Ej. PÉREZ" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Nombre(s) *</label>
-                    <input type="text" id="modal-teacher-firstname" required value="${teacher ? escapeHtml(teacher.firstName || teacher.first_name || '') : ''}"
-                        placeholder="Ej. Juan Carlos" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
+                        N° de Legajo <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="modal-teacher-legajo" required maxlength="50"
+                        value="${teacher ? escapeHtml(teacher.legajo || '') : ''}"
+                        placeholder="Ej. DOC-00105"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
+                    <span class="text-[10px] text-slate-400 dark:text-zinc-500">Identificador institucional</span>
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Situación de Revista</label>
-                    <select id="modal-teacher-revista" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
+                        Apellido(s) <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="modal-teacher-lastname" required maxlength="100"
+                        value="${teacher ? escapeHtml(teacher.lastName || teacher.last_name || '') : ''}"
+                        placeholder="Ej. PÉREZ"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
+                        Nombre(s) <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="modal-teacher-firstname" required maxlength="100"
+                        value="${teacher ? escapeHtml(teacher.firstName || teacher.first_name || '') : ''}"
+                        placeholder="Ej. Juan Carlos"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Situación de Revista</label>
+                    <select id="modal-teacher-revista" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold font-medium">
                         <option value="Titular" ${teacher && teacher.revista === 'Titular' ? 'selected' : ''}>Titular</option>
                         <option value="Provisional" ${teacher && teacher.revista === 'Provisional' ? 'selected' : ''}>Provisional</option>
                         <option value="Interino" ${teacher && teacher.revista === 'Interino' ? 'selected' : ''}>Interino</option>
@@ -1969,67 +2031,260 @@ function openTeacherModal(teacher = null) {
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">CUIL</label>
-                    <input type="text" id="modal-teacher-cuil" value="${teacher ? escapeHtml(teacher.cuil || '') : ''}"
-                        placeholder="20-xxxxxxxx-x" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">CUIL (Opcional)</label>
+                    <input type="text" id="modal-teacher-cuil" maxlength="13"
+                        value="${teacher ? escapeHtml(teacher.cuil || '') : ''}"
+                        placeholder="20-28456123-7"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
+                    <span class="text-[10px] text-slate-400 dark:text-zinc-500">11 dígitos (coincidente con DNI)</span>
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Correo Electrónico</label>
-                    <input type="email" id="modal-teacher-email" value="${teacher ? escapeHtml(teacher.email || '') : ''}"
-                        placeholder="profesor@instituto.edu.ar" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Correo Electrónico (Opcional)</label>
+                    <input type="email" id="modal-teacher-email"
+                        value="${teacher ? escapeHtml(teacher.email || '') : ''}"
+                        placeholder="profesor@instituto.edu.ar"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Teléfono</label>
-                    <input type="text" id="modal-teacher-phone" value="${teacher ? escapeHtml(teacher.phone || '') : ''}"
-                        placeholder="+54 383 4..." class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Teléfono (Opcional)</label>
+                    <input type="tel" id="modal-teacher-phone"
+                        value="${teacher ? escapeHtml(teacher.phone || '') : ''}"
+                        placeholder="+54 383 4123456"
+                        class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
                 </div>
             </div>
 
-            <div id="modal-teacher-error" class="hidden p-2 rounded bg-red-50 text-red-700 text-xs"></div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Tope Horario Semanal (hs cátedra)</label>
+                <input type="number" id="modal-teacher-maxhours" min="1" max="60"
+                    value="${teacher && teacher.maxWeeklyHours ? teacher.maxWeeklyHours : (teacher && teacher.max_weekly_hours ? teacher.max_weekly_hours : 30)}"
+                    class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
+                <span class="text-[10px] text-slate-400 dark:text-zinc-500">Tope institucional por defecto: 30 hs semanales</span>
+            </div>
 
-            <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
-                <button type="submit" class="btn-gold px-4 py-2 text-xs font-bold shadow-sm">Guardar Legajo</button>
+            <div id="modal-teacher-error" class="hidden p-3 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center space-x-2">
+                <span class="font-bold text-base flex-shrink-0">⚠️</span>
+                <span id="modal-teacher-error-text" class="leading-relaxed"></span>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition">Cancelar</button>
+                <button type="submit" id="btn-save-teacher-submit" class="btn-gold px-4 py-2 text-xs font-bold shadow-sm">Guardar Legajo</button>
             </div>
         </form>
     `;
 
     openModal(modalHtml, () => {
         const form = document.getElementById('teacher-form');
+        const dniInput = document.getElementById('modal-teacher-dni');
+        const legajoInput = document.getElementById('modal-teacher-legajo');
+        const lastNameInput = document.getElementById('modal-teacher-lastname');
+        const firstNameInput = document.getElementById('modal-teacher-firstname');
+        const cuilInput = document.getElementById('modal-teacher-cuil');
+        const emailInput = document.getElementById('modal-teacher-email');
+        const phoneInput = document.getElementById('modal-teacher-phone');
+        const revistaSelect = document.getElementById('modal-teacher-revista');
+        const maxHoursInput = document.getElementById('modal-teacher-maxhours');
+        const errDiv = document.getElementById('modal-teacher-error');
+        const errText = document.getElementById('modal-teacher-error-text');
+        const allInputs = [dniInput, legajoInput, lastNameInput, firstNameInput, cuilInput, emailInput, phoneInput, maxHoursInput];
+
+        // Sanitize DNI typing: only digits, max 8 chars
+        if (dniInput) {
+            dniInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                clearFieldError(dniInput);
+            });
+        }
+
+        allInputs.forEach(input => {
+            if (input) {
+                input.addEventListener('input', () => clearFieldError(input));
+            }
+        });
+
+        function clearFieldError(inputEl) {
+            if (inputEl) {
+                inputEl.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50/30');
+            }
+            if (errDiv) errDiv.classList.add('hidden');
+        }
+
+        function showFieldError(inputEl, message) {
+            allInputs.forEach(el => el && el.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50/30'));
+            if (inputEl) {
+                inputEl.classList.add('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50/30');
+                inputEl.focus();
+            }
+            if (errText) errText.textContent = message;
+            if (errDiv) errDiv.classList.remove('hidden');
+            showToast(message, 'error');
+        }
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const errDiv = document.getElementById('modal-teacher-error');
             errDiv.classList.add('hidden');
+
+            const rawDni = dniInput ? dniInput.value.trim() : '';
+            const cleanDni = rawDni.replace(/\D/g, '');
+
+            // 1. DNI Validation
+            if (!rawDni) {
+                return showFieldError(dniInput, 'El DNI es un campo obligatorio.');
+            }
+            if (cleanDni.length < 6 || cleanDni.length > 8) {
+                return showFieldError(dniInput, `El DNI debe contener 7 u 8 dígitos numéricos válidos (ej. 28456123). Se ingresó un valor incompleto o fuera de rango: "${rawDni}".`);
+            }
+
+            // 2. Legajo Validation
+            const legajoVal = legajoInput ? legajoInput.value.trim() : '';
+            if (!legajoVal) {
+                return showFieldError(legajoInput, 'El número de Legajo es un campo obligatorio.');
+            }
+            if (legajoVal.length < 2) {
+                return showFieldError(legajoInput, 'El Legajo debe tener al menos 2 caracteres.');
+            }
+            if (!/[a-zA-Z0-9]/.test(legajoVal)) {
+                return showFieldError(legajoInput, 'El Legajo debe contener al menos un carácter alfanumérico.');
+            }
+
+            // 3. Apellido Validation
+            const lastNameVal = lastNameInput ? lastNameInput.value.trim() : '';
+            if (!lastNameVal) {
+                return showFieldError(lastNameInput, 'El Apellido es un campo obligatorio.');
+            }
+            if (lastNameVal.length < 2) {
+                return showFieldError(lastNameInput, 'El Apellido debe tener al menos 2 caracteres.');
+            }
+            if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'\-\._]+$/.test(lastNameVal)) {
+                return showFieldError(lastNameInput, 'El Apellido solo puede contener letras y signos de puntuación válidos (sin números ni símbolos no permitidos).');
+            }
+            const lnLetters = lastNameVal.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/g, '');
+            if (lnLetters.length <= 4 && /^(.)\1+$/i.test(lnLetters)) {
+                return showFieldError(lastNameInput, `El valor ingresado para Apellido ("${lastNameVal}") no parece un apellido válido.`);
+            }
+            if (lnLetters.length <= 4 && !/[aeiouáéíóúyü]/i.test(lnLetters)) {
+                return showFieldError(lastNameInput, `El valor ingresado para Apellido ("${lastNameVal}") no contiene vocales válidas.`);
+            }
+
+            // 4. Nombre Validation
+            const firstNameVal = firstNameInput ? firstNameInput.value.trim() : '';
+            if (!firstNameVal) {
+                return showFieldError(firstNameInput, 'El Nombre es un campo obligatorio.');
+            }
+            if (firstNameVal.length < 2) {
+                return showFieldError(firstNameInput, 'El Nombre debe tener al menos 2 caracteres.');
+            }
+            if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'\-\._]+$/.test(firstNameVal)) {
+                return showFieldError(firstNameInput, 'El Nombre solo puede contener letras y signos de puntuación válidos (sin números ni símbolos no permitidos).');
+            }
+            const fnLetters = firstNameVal.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/g, '');
+            if (fnLetters.length <= 4 && /^(.)\1+$/i.test(fnLetters)) {
+                return showFieldError(firstNameInput, `El valor ingresado para Nombre ("${firstNameVal}") no parece un nombre válido.`);
+            }
+            if (fnLetters.length <= 4 && !/[aeiouáéíóúyü]/i.test(fnLetters)) {
+                return showFieldError(firstNameInput, `El valor ingresado para Nombre ("${firstNameVal}") no contiene vocales válidas.`);
+            }
+
+            // 5. CUIL Validation (si está provisto)
+            const cuilVal = cuilInput ? cuilInput.value.trim() : '';
+            if (cuilVal) {
+                const cuilDigits = cuilVal.replace(/\D/g, '');
+                if (cuilDigits.length !== 11) {
+                    return showFieldError(cuilInput, `El CUIL/CUIT debe contener exactamente 11 dígitos numéricos (ej. 20-${cleanDni}-7). Se recibió: "${cuilVal}".`);
+                }
+                const prefix = cuilDigits.slice(0, 2);
+                if (!['20', '23', '24', '27', '30', '33', '34'].includes(prefix)) {
+                    return showFieldError(cuilInput, `El prefijo del CUIL "${prefix}" no es válido en el sistema argentino.`);
+                }
+                const cuilDniPart = cuilDigits.slice(2, 10);
+                const matches = (cuilDniPart === cleanDni) ||
+                    (cleanDni.length === 7 && (cuilDniPart === '0' + cleanDni || cuilDigits.slice(3, 10) === cleanDni)) ||
+                    (cleanDni.length === 6 && cuilDniPart.endsWith(cleanDni));
+                if (!matches) {
+                    return showFieldError(cuilInput, `El DNI contenido en el CUIL (${cuilDniPart}) no coincide con el DNI del docente (${cleanDni}).`);
+                }
+            }
+
+            // 6. Email Validation (si está provisto)
+            const emailVal = emailInput ? emailInput.value.trim() : '';
+            if (emailVal) {
+                if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
+                    return showFieldError(emailInput, `El correo electrónico "${emailVal}" tiene un formato inválido. Debe ser del tipo usuario@dominio.com.`);
+                }
+            }
+
+            // 7. Phone Validation (si está provisto)
+            const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+            if (phoneVal) {
+                if (!/^[0-9+()\s\-]{6,25}$/.test(phoneVal) || phoneVal.replace(/\D/g, '').length < 6) {
+                    return showFieldError(phoneInput, `El número de teléfono "${phoneVal}" debe contener al menos 6 dígitos válidos.`);
+                }
+            }
+
+            // 8. Max Weekly Hours
+            const maxHoursVal = maxHoursInput ? parseInt(maxHoursInput.value, 10) : 30;
+            if (isNaN(maxHoursVal) || maxHoursVal < 1 || maxHoursVal > 60) {
+                return showFieldError(maxHoursInput, 'El tope semanal debe ser un número entero entre 1 y 60 horas.');
+            }
 
             const teacherIdVal = document.getElementById('modal-teacher-id').value;
             const payload = {
                 id: teacherIdVal ? parseInt(teacherIdVal, 10) : null,
-                dni: document.getElementById('modal-teacher-dni').value.trim(),
-                lastName: document.getElementById('modal-teacher-lastname').value.trim(),
-                firstName: document.getElementById('modal-teacher-firstname').value.trim(),
-                legajo: document.getElementById('modal-teacher-legajo').value.trim(),
-                revista: document.getElementById('modal-teacher-revista').value,
-                cuil: document.getElementById('modal-teacher-cuil').value.trim(),
-                email: document.getElementById('modal-teacher-email').value.trim(),
-                phone: document.getElementById('modal-teacher-phone').value.trim()
+                dni: cleanDni,
+                lastName: lastNameVal,
+                firstName: firstNameVal,
+                legajo: legajoVal,
+                revista: revistaSelect ? revistaSelect.value : 'Titular',
+                cuil: cuilVal ? cuilVal.replace(/\D/g, '').replace(/^(\d{2})(\d{8})(\d{1})$/, '$1-$2-$3') : null,
+                email: emailVal || null,
+                phone: phoneVal || null,
+                maxWeeklyHours: maxHoursVal
             };
+
+            const submitBtn = document.getElementById('btn-save-teacher-submit');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-70');
+            }
 
             try {
                 const res = await window.sigetApi.teachers.save(payload);
                 if (res.success) {
-                    showToast('Docente guardado con éxito.', 'success');
+                    showToast(isEdit ? 'Datos del docente actualizados correctamente.' : 'Docente registrado exitosamente.', 'success');
                     closeModal();
                     loadTeachers();
                 } else {
-                    errDiv.textContent = res.message || 'Error al guardar docente.';
-                    errDiv.classList.remove('hidden');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-70');
+                    }
+                    if (res.fieldErrors) {
+                        const firstKey = Object.keys(res.fieldErrors)[0];
+                        const targetInput = {
+                            dni: dniInput,
+                            legajo: legajoInput,
+                            lastName: lastNameInput,
+                            firstName: firstNameInput,
+                            cuil: cuilInput,
+                            email: emailInput,
+                            phone: phoneInput,
+                            maxWeeklyHours: maxHoursInput
+                        }[firstKey];
+                        showFieldError(targetInput || dniInput, res.message || res.fieldErrors[firstKey]);
+                    } else {
+                        showFieldError(null, res.message || 'Error al guardar docente.');
+                    }
                 }
             } catch (err) {
-                errDiv.textContent = 'Error de comunicación al guardar.';
-                errDiv.classList.remove('hidden');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-70');
+                }
+                showFieldError(null, 'Error de comunicación al guardar docente: ' + (err.message || 'Error desconocido'));
             }
         });
     });
@@ -2909,9 +3164,12 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
                 const formNumber = document.getElementById('pf-form-number').value.trim();
                 const observations = document.getElementById('pf-observations').value.trim();
 
-                if (!formNumber) {
-                    errDiv.textContent = 'Debe ingresar el número del formulario físico o certificado recibido.';
+                const formNumberInput = document.getElementById('pf-form-number');
+                if (!formNumber || formNumber.length < 2) {
+                    errDiv.textContent = 'Debe ingresar el número del formulario físico o certificado recibido (mínimo 2 caracteres).';
                     errDiv.classList.remove('hidden');
+                    if (formNumberInput) formNumberInput.focus();
+                    showToast('Formulario físico obligatorio.', 'error');
                     return;
                 }
 
@@ -3612,16 +3870,21 @@ function openCareerModal(returnToDesignation = false, careerToEdit = null) {
                 durationYears: parseInt(document.getElementById('modal-career-duration').value) || 3
             };
 
-            if (!payload.name) {
-                errMsg.textContent = 'El nombre de la carrera es obligatorio.';
+            const nameInput = document.getElementById('modal-career-name');
+            const codeInputEl = document.getElementById('modal-career-code');
+
+            if (!payload.name || payload.name.length < 3) {
+                errMsg.textContent = 'El nombre de la carrera es obligatorio y debe tener al menos 3 caracteres.';
                 errDiv.classList.remove('hidden');
+                if (nameInput) nameInput.focus();
                 initLucideIcons();
                 return;
             }
 
-            if (!payload.code) {
-                errMsg.textContent = 'El código identificador de la carrera es obligatorio.';
+            if (!payload.code || payload.code.length < 2 || !/^[A-Z0-9\-]+$/.test(payload.code)) {
+                errMsg.textContent = 'El código de carrera debe tener entre 2 y 20 caracteres alfanuméricos en mayúsculas (ej: TEC-DS).';
                 errDiv.classList.remove('hidden');
+                if (codeInputEl) codeInputEl.focus();
                 initLucideIcons();
                 return;
             }
@@ -3928,31 +4191,88 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
             e.preventDefault();
             errDiv.classList.add('hidden');
 
+            const careerVal = careerSelect ? careerSelect.value : '';
+            if (!careerVal) {
+                errDiv.textContent = 'Debe seleccionar una carrera institucional.';
+                errDiv.classList.remove('hidden');
+                if (careerSelect) careerSelect.focus();
+                showToast('Debe seleccionar una carrera institucional.', 'error');
+                return;
+            }
+
+            const subjectVal = subjectSelect ? subjectSelect.value : '';
+            if (!subjectVal) {
+                errDiv.textContent = 'Debe seleccionar una materia o espacio curricular.';
+                errDiv.classList.remove('hidden');
+                if (subjectSelect) subjectSelect.focus();
+                showToast('Debe seleccionar una materia o espacio curricular.', 'error');
+                return;
+            }
+
+            const teacherVal = teacherSelect ? teacherSelect.value : '';
+            if (!teacherVal) {
+                errDiv.textContent = 'Debe seleccionar un docente titular para la cátedra.';
+                errDiv.classList.remove('hidden');
+                if (teacherSelect) teacherSelect.focus();
+                showToast('Debe seleccionar un docente titular para la cátedra.', 'error');
+                return;
+            }
+
             const rows = schedulesContainer.querySelectorAll('.schedule-row');
             if (rows.length === 0) {
                 errDiv.textContent = 'Debe configurar al menos un día de dictado para la cátedra.';
                 errDiv.classList.remove('hidden');
+                showToast('Debe configurar al menos un día de dictado para la cátedra.', 'error');
                 return;
             }
 
             const schedules = [];
             const seenDays = new Set();
             let hasDuplicateDay = false;
-            let invalidHours = false;
+            let invalidScheduleError = null;
+            let invalidInputEl = null;
 
-            rows.forEach(r => {
+            for (const r of rows) {
                 const day = r.querySelector('.schedule-day').value;
-                const start = r.querySelector('.schedule-start').value || '18:00';
-                const end = r.querySelector('.schedule-end').value || '20:00';
-                const hours = parseInt(r.querySelector('.schedule-hours').value) || 0;
+                const start = r.querySelector('.schedule-start').value || '';
+                const end = r.querySelector('.schedule-end').value || '';
+                const hoursInput = r.querySelector('.schedule-hours');
+                const hours = parseInt(hoursInput.value, 10) || 0;
 
                 if (seenDays.has(day)) {
                     hasDuplicateDay = true;
                 }
                 seenDays.add(day);
 
-                if (hours <= 0) {
-                    invalidHours = true;
+                if (!start || !end) {
+                    invalidScheduleError = `Debe especificar hora de inicio y fin para el día ${day}.`;
+                    invalidInputEl = !start ? r.querySelector('.schedule-start') : r.querySelector('.schedule-end');
+                    break;
+                }
+
+                const toMin = t => {
+                    const [h, m] = t.split(':').map(Number);
+                    return h * 60 + (m || 0);
+                };
+                const startMin = toMin(start);
+                const endMin = toMin(end);
+
+                if (endMin <= startMin) {
+                    invalidScheduleError = `La hora de finalización (${end}) debe ser estrictamente posterior a la hora de inicio (${start}) el día ${day}.`;
+                    invalidInputEl = r.querySelector('.schedule-end');
+                    break;
+                }
+
+                if (endMin - startMin < 15) {
+                    invalidScheduleError = `La duración de la clase el día ${day} debe ser de al menos 15 minutos.`;
+                    invalidInputEl = r.querySelector('.schedule-end');
+                    break;
+                }
+
+                if (hours <= 0 || hours > 12) {
+                    invalidScheduleError = `Las horas cátedra para el día ${day} deben ser un número entero entre 1 y 12 hs.`;
+                    invalidInputEl = hoursInput;
+                    break;
                 }
 
                 schedules.push({
@@ -3961,17 +4281,20 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
                     endTime: end,
                     hoursCount: hours
                 });
-            });
+            }
+
+            if (invalidScheduleError) {
+                errDiv.textContent = invalidScheduleError;
+                errDiv.classList.remove('hidden');
+                if (invalidInputEl) invalidInputEl.focus();
+                showToast(invalidScheduleError, 'error');
+                return;
+            }
 
             if (hasDuplicateDay) {
                 errDiv.textContent = 'No puede asignar el mismo día de la semana dos veces en la misma cátedra. Ajuste los horarios o unifique las horas.';
                 errDiv.classList.remove('hidden');
-                return;
-            }
-
-            if (invalidHours) {
-                errDiv.textContent = 'Las horas cátedra de cada día deben ser mayores a cero.';
-                errDiv.classList.remove('hidden');
+                showToast('No puede asignar el mismo día dos veces en la cátedra.', 'error');
                 return;
             }
 
@@ -4073,13 +4396,64 @@ window.openSubstitutionModal = function (designationId) {
             const errDiv = document.getElementById('modal-subst-error');
             errDiv.classList.add('hidden');
 
+            const suplenteSelect = document.getElementById('modal-subst-teacher');
+            const reasonInput = document.getElementById('modal-subst-reason');
+            const startInput = document.getElementById('modal-subst-start');
+            const endInput = document.getElementById('modal-subst-end');
+            const resInput = document.getElementById('modal-subst-resolution');
+
+            const suplenteTeacherId = suplenteSelect ? parseInt(suplenteSelect.value, 10) : null;
+            if (!suplenteTeacherId || isNaN(suplenteTeacherId)) {
+                errDiv.textContent = 'Debe seleccionar un profesor suplente.';
+                errDiv.classList.remove('hidden');
+                if (suplenteSelect) suplenteSelect.focus();
+                showToast('Debe seleccionar el docente suplente.', 'error');
+                return;
+            }
+
+            const reason = reasonInput ? reasonInput.value.trim() : '';
+            if (!reason || reason.length < 3) {
+                errDiv.textContent = 'El motivo de la licencia es obligatorio y debe tener al menos 3 caracteres.';
+                errDiv.classList.remove('hidden');
+                if (reasonInput) reasonInput.focus();
+                showToast('Motivo de licencia obligatorio.', 'error');
+                return;
+            }
+
+            const startDate = startInput ? startInput.value : '';
+            if (!startDate) {
+                errDiv.textContent = 'La fecha de inicio de la suplencia es obligatoria.';
+                errDiv.classList.remove('hidden');
+                if (startInput) startInput.focus();
+                showToast('Fecha de inicio obligatoria.', 'error');
+                return;
+            }
+
+            const endDate = endInput ? endInput.value : '';
+            if (endDate && endDate < startDate) {
+                errDiv.textContent = 'La fecha de finalización no puede ser anterior a la fecha de inicio.';
+                errDiv.classList.remove('hidden');
+                if (endInput) endInput.focus();
+                showToast('Rango de fechas inválido.', 'error');
+                return;
+            }
+
+            const resolutionNumber = resInput ? resInput.value.trim() : '';
+            if (!resolutionNumber) {
+                errDiv.textContent = 'El número de resolución ministerial o expediente es obligatorio.';
+                errDiv.classList.remove('hidden');
+                if (resInput) resInput.focus();
+                showToast('Resolución ministerial obligatoria.', 'error');
+                return;
+            }
+
             const payload = {
                 designationId: parseInt(document.getElementById('modal-subst-desig-id').value),
-                suplenteTeacherId: parseInt(document.getElementById('modal-subst-teacher').value),
-                licenseReason: document.getElementById('modal-subst-reason').value.trim(),
-                startDate: document.getElementById('modal-subst-start').value,
-                endDate: document.getElementById('modal-subst-end').value || null,
-                resolutionNumber: document.getElementById('modal-subst-resolution').value.trim()
+                suplenteTeacherId,
+                licenseReason: reason,
+                startDate,
+                endDate: endDate || null,
+                resolutionNumber
             };
 
             try {
@@ -5124,9 +5498,21 @@ function openInstitutionalDayModal(defaultDate = null) {
                 const name = document.getElementById('inst-day-name').value.trim();
                 const type = document.getElementById('inst-day-type').value;
 
-                if (!date || !name) {
-                    errDiv.textContent = 'Debe ingresar la fecha y el nombre de la jornada.';
+                const dateInput = document.getElementById('inst-day-date');
+                const nameInput = document.getElementById('inst-day-name');
+
+                if (!date) {
+                    errDiv.textContent = 'Debe ingresar la fecha de la jornada institucional.';
                     errDiv.classList.remove('hidden');
+                    if (dateInput) dateInput.focus();
+                    showToast('Fecha de jornada obligatoria.', 'error');
+                    return;
+                }
+                if (!name || name.length < 3) {
+                    errDiv.textContent = 'El nombre de la jornada institucional debe contener al menos 3 caracteres.';
+                    errDiv.classList.remove('hidden');
+                    if (nameInput) nameInput.focus();
+                    showToast('Nombre de jornada obligatorio.', 'error');
                     return;
                 }
 

@@ -2,6 +2,7 @@ const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 const { NormativeService } = require('./normativeService');
+const { ValidationService } = require('./validationService');
 
 class AttendanceService {
     static classifyRecord(recordOrStatus, maybeObs = '') {
@@ -255,10 +256,27 @@ class AttendanceService {
     static saveDailyRecord({ teacherId, dateStr, status, hours = null, observations = '', designationId = null }) {
         const db = getDatabase();
         try {
+            if (!teacherId || isNaN(Number(teacherId))) {
+                return { success: false, message: 'Docente no válido.' };
+            }
+
+            const dateVal = ValidationService.validateDate(dateStr, 'Fecha de asistencia');
+            if (!dateVal.isValid) return { success: false, message: dateVal.message };
+
+            const statusVal = ValidationService.validateAttendanceStatus(status);
+            if (!statusVal.isValid) return { success: false, message: statusVal.message };
+
+            if (hours !== null && hours !== undefined && hours !== '') {
+                const hNum = Number(hours);
+                if (isNaN(hNum) || hNum < 0 || hNum > 12) {
+                    return { success: false, message: 'Las horas deben estar comprendidas entre 0 y 12.' };
+                }
+            }
+
             const currentUser = AuthService.getCurrentUser();
             const username = currentUser ? currentUser.username : 'BEDELIA';
             const now = AuditService.getArgentinaTimestamp();
-            const normalizedStatus = this.normalizeStatusCode(status);
+            const normalizedStatus = statusVal.cleanStatus;
 
             let cleanObs = observations ? observations.trim() : null;
             if (normalizedStatus === 'PR') {
@@ -315,7 +333,12 @@ class AttendanceService {
         const db = getDatabase();
         try {
             const dStr = String(date || dateStr || '').trim();
-            if (!dStr) throw new Error('Fecha no especificada');
+            const dateVal = ValidationService.validateDate(dStr, 'Fecha de inasistencia');
+            if (!dateVal.isValid) return { success: false, message: dateVal.message };
+
+            if (!formNumber || !String(formNumber).trim()) {
+                return { success: false, message: 'El número de formulario físico o certificado es obligatorio.' };
+            }
 
             const validStatus = (newStatus === 'LIC' || newStatus === 'LT' || newStatus === 'P') ? newStatus : 'LIC';
             const currentUser = AuthService.getCurrentUser();

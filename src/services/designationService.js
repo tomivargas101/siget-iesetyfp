@@ -126,8 +126,24 @@ class DesignationService {
             const teacherId = Number(payload.teacherId);
             const desigId = payload.id ? Number(payload.id) : null;
 
-            if (!subjectId || !teacherId) {
-                return { success: false, message: 'Debe seleccionar una materia y un docente.' };
+            if (!subjectId || isNaN(subjectId) || subjectId <= 0) {
+                return { success: false, message: 'Debe seleccionar una materia válida.' };
+            }
+            if (!teacherId || isNaN(teacherId) || teacherId <= 0) {
+                return { success: false, message: 'Debe seleccionar un docente válido.' };
+            }
+
+            const teacher = db.prepare('SELECT id, last_name, first_name, is_active FROM teachers WHERE id = ?').get(teacherId);
+            if (!teacher) {
+                return { success: false, message: 'El docente seleccionado no existe en el sistema.' };
+            }
+            if (!teacher.is_active) {
+                return { success: false, message: `El docente ${teacher.last_name}, ${teacher.first_name} se encuentra dado de baja lógica.` };
+            }
+
+            const subject = db.prepare('SELECT id, name FROM subjects WHERE id = ?').get(subjectId);
+            if (!subject) {
+                return { success: false, message: 'La materia seleccionada no existe en el catálogo.' };
             }
 
             let schedules = [];
@@ -151,9 +167,19 @@ class DesignationService {
                 return { success: false, message: 'Debe especificar al menos un día con carga horaria para la cátedra.' };
             }
 
+            const ALL_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             for (const s of schedules) {
-                if (!s.hoursCount || s.hoursCount <= 0) {
-                    return { success: false, message: `La carga horaria para el día ${s.dayOfWeek} debe ser un número entero positivo.` };
+                if (!ALL_DAYS.includes(s.dayOfWeek)) {
+                    return { success: false, message: `Día de cursado no válido: "${s.dayOfWeek}".` };
+                }
+
+                const rangeVal = ValidationService.validateTimeRange(s.startTime, s.endTime);
+                if (!rangeVal.isValid) {
+                    return { success: false, message: `Error en horario del día ${s.dayOfWeek}: ${rangeVal.message}` };
+                }
+
+                if (!s.hoursCount || s.hoursCount <= 0 || !Number.isInteger(s.hoursCount) || s.hoursCount > 12) {
+                    return { success: false, message: `La carga horaria para el día ${s.dayOfWeek} debe ser un número entero entre 1 y 12 hs cátedra.` };
                 }
             }
 
@@ -351,6 +377,22 @@ class DesignationService {
             }
             if (!resolutionNumber || !resolutionNumber.trim()) {
                 return { success: false, message: 'El número de resolución ministerial es obligatorio.' };
+            }
+
+            const cleanReason = (licenseReason || '').trim();
+            if (cleanReason.length < 3) {
+                return { success: false, message: 'El motivo de la licencia debe tener al menos 3 caracteres.' };
+            }
+
+            const startVal = ValidationService.validateDate(startDate, 'Fecha de inicio de suplencia', true);
+            if (!startVal.isValid) return { success: false, message: startVal.message };
+
+            if (endDate && String(endDate).trim() !== '') {
+                const endVal = ValidationService.validateDate(endDate, 'Fecha de fin de suplencia', false);
+                if (!endVal.isValid) return { success: false, message: endVal.message };
+                if (endDate < startDate) {
+                    return { success: false, message: 'La fecha de finalización no puede ser anterior a la fecha de inicio.' };
+                }
             }
 
             const desig = db.prepare('SELECT teacher_id, hours_count FROM designations WHERE id = ?').get(desigId);
