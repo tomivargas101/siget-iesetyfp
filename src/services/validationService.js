@@ -349,10 +349,14 @@ class ValidationService {
         }
 
         let maxWeeklyHours = 30;
-        if (payload.maxWeeklyHours !== undefined && payload.maxWeeklyHours !== null && payload.maxWeeklyHours !== '') {
-            const mh = Number(payload.maxWeeklyHours);
-            if (!Number.isInteger(mh) || mh < 1 || mh > 60) {
-                fieldErrors.maxWeeklyHours = 'El tope semanal debe ser un número entero entre 1 y 60 horas.';
+        const rawMh = (payload.maxWeeklyHours !== undefined && payload.maxWeeklyHours !== null && payload.maxWeeklyHours !== '')
+            ? payload.maxWeeklyHours
+            : ((payload.max_weekly_hours !== undefined && payload.max_weekly_hours !== null && payload.max_weekly_hours !== '') ? payload.max_weekly_hours : null);
+
+        if (rawMh !== null) {
+            const mh = Number(rawMh);
+            if (!Number.isInteger(mh) || mh < 1 || mh > 30) {
+                fieldErrors.maxWeeklyHours = 'El tope semanal institucional no puede exceder las 30 horas cátedra (valor permitido: número entero entre 1 y 30).';
             } else {
                 maxWeeklyHours = mh;
             }

@@ -1,5 +1,5 @@
 from database.connection import init_db, get_db_session
-from models.validation import validate_dni, validate_cuil, validate_name, validate_legajo, validate_email
+from models.validation import validate_dni, validate_cuil, validate_name, validate_legajo, validate_email, validate_max_weekly_hours
 from models.teacher import TeacherService
 
 def test_strict_validations():
@@ -43,7 +43,21 @@ def test_strict_validations():
     assert val_valid_name and clean_name == "María del Carmen"
     print(f"  [OK] Python Nombre compuesto aceptado: {clean_name}")
 
-    # 4. TeacherService.save en Python
+    # 4. Tope Horario Semanal (1 a 30)
+    val_h60, _, err_h60 = validate_max_weekly_hours(60)
+    assert not val_h60
+    assert "30 horas" in err_h60
+    print(f"  [OK] Python Tope 60 hs rechazado: {err_h60}")
+
+    val_h0, _, err_h0 = validate_max_weekly_hours(0)
+    assert not val_h0
+    print(f"  [OK] Python Tope 0 hs rechazado: {err_h0}")
+
+    val_h30, clean_h30, _ = validate_max_weekly_hours(30)
+    assert val_h30 and clean_h30 == 30
+    print(f"  [OK] Python Tope institucional 30 hs aceptado")
+
+    # 5. TeacherService.save en Python
     init_db()
     save_res_47, msg_47 = TeacherService.save({
         "dni": "47",
@@ -62,6 +76,17 @@ def test_strict_validations():
     })
     assert not save_res_fs
     print(f"  [OK] Python TeacherService.save bloqueó nombre 'fs': {msg_fs}")
+
+    save_res_60, msg_60 = TeacherService.save({
+        "dni": "28123998",
+        "legajo": "DOC-PY-60",
+        "last_name": "López",
+        "first_name": "María",
+        "max_weekly_hours": 60
+    })
+    assert not save_res_60
+    assert "30 horas" in msg_60
+    print(f"  [OK] Python TeacherService.save bloqueó tope 60 hs: {msg_60}")
 
     print("========================================================")
     print("   TODAS LAS PRUEBAS DE VALIDACIÓN PYTHON PASARON")

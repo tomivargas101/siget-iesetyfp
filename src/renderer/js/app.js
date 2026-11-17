@@ -2059,10 +2059,10 @@ function openTeacherModal(teacher = null) {
 
             <div>
                 <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Tope Horario Semanal (hs cátedra)</label>
-                <input type="number" id="modal-teacher-maxhours" min="1" max="60"
+                <input type="number" id="modal-teacher-maxhours" min="1" max="30"
                     value="${teacher && teacher.maxWeeklyHours ? teacher.maxWeeklyHours : (teacher && teacher.max_weekly_hours ? teacher.max_weekly_hours : 30)}"
                     class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold transition">
-                <span class="text-[10px] text-slate-400 dark:text-zinc-500">Tope institucional por defecto: 30 hs semanales</span>
+                <span class="text-[10px] text-slate-400 dark:text-zinc-500">Tope institucional por defecto: 30 hs semanales (límite máximo reglamentario)</span>
             </div>
 
             <div id="modal-teacher-error" class="hidden p-3 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center space-x-2">
@@ -2227,8 +2227,8 @@ function openTeacherModal(teacher = null) {
 
             // 8. Max Weekly Hours
             const maxHoursVal = maxHoursInput ? parseInt(maxHoursInput.value, 10) : 30;
-            if (isNaN(maxHoursVal) || maxHoursVal < 1 || maxHoursVal > 60) {
-                return showFieldError(maxHoursInput, 'El tope semanal debe ser un número entero entre 1 y 60 horas.');
+            if (isNaN(maxHoursVal) || maxHoursVal < 1 || maxHoursVal > 30) {
+                return showFieldError(maxHoursInput, 'El tope semanal institucional no puede superar las 30 horas cátedra (valor permitido: entre 1 y 30).');
             }
 
             const teacherIdVal = document.getElementById('modal-teacher-id').value;

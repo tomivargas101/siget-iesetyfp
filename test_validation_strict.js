@@ -156,6 +156,38 @@ console.log('\n6. Verificando protección en TeacherService.save:');
     });
     assert.strictEqual(saveResFs.success, false, 'TeacherService debe rechazar nombre "fs"');
     console.log(`   ✅ [PASS] TeacherService bloqueó guardado con nombre "fs": "${saveResFs.message}"`);
+
+    // Intento de guardar docente con tope semanal superior a 30 horas (ej. 60 o 35)
+    const saveRes60 = TeacherService.save({
+        dni: '35123998',
+        legajo: 'DOC-TEST-60',
+        lastName: 'LÓPEZ',
+        firstName: 'María Elena',
+        maxWeeklyHours: 60
+    });
+    assert.strictEqual(saveRes60.success, false, 'TeacherService debe rechazar tope > 30 hs');
+    assert(saveRes60.message.includes('30 horas'), 'El mensaje debe indicar tope de 30 horas');
+    console.log(`   ✅ [PASS] TeacherService bloqueó tope semanal excesivo (60 hs): "${saveRes60.message}"`);
+
+    const saveRes35 = TeacherService.save({
+        dni: '35123997',
+        legajo: 'DOC-TEST-35',
+        lastName: 'LÓPEZ',
+        firstName: 'María Elena',
+        maxWeeklyHours: 35
+    });
+    assert.strictEqual(saveRes35.success, false, 'TeacherService debe rechazar 35 hs');
+    console.log(`   ✅ [PASS] TeacherService bloqueó tope semanal de 35 hs: "${saveRes35.message}"`);
+
+    const saveResNegative = TeacherService.save({
+        dni: '35123996',
+        legajo: 'DOC-TEST-NEG',
+        lastName: 'LÓPEZ',
+        firstName: 'María Elena',
+        maxWeeklyHours: 0
+    });
+    assert.strictEqual(saveResNegative.success, false, 'TeacherService debe rechazar 0 horas');
+    console.log(`   ✅ [PASS] TeacherService bloqueó tope semanal de 0 hs: "${saveResNegative.message}"`);
 }
 
 // 7. BLOQUEO EN DESIGNATIONSERVICE ANTE HORARIOS INVÁLIDOS

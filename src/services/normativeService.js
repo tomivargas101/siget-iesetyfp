@@ -542,6 +542,13 @@ class NormativeService {
 
     static saveInstitutionalDay({ date, name, type = 'jornada', username = 'SECRETARÍA' }) {
         try {
+            const { ValidationService } = require('./validationService');
+            const dateVal = ValidationService.validateDate(date, 'Fecha de jornada');
+            if (!dateVal.isValid) return { success: false, message: dateVal.message };
+            if (!name || String(name).trim().length < 3) {
+                return { success: false, message: 'El nombre de la jornada institucional debe contener al menos 3 caracteres.' };
+            }
+
             const { getDatabase } = require('../database/db');
             const db = getDatabase();
             const now = new Date().toISOString();
@@ -553,9 +560,9 @@ class NormativeService {
                     type = excluded.type,
                     created_by = excluded.created_by,
                     created_at = excluded.created_at
-            `).run(date, name.trim(), type || 'jornada', username, now);
+            `).run(dateVal.cleanDate, name.trim(), type || 'jornada', username, now);
 
-            return { success: true, message: `Jornada institucional guardada para ${date}.` };
+            return { success: true, message: `Jornada institucional guardada para ${dateVal.cleanDate}.` };
         } catch (e) {
             console.error('[NormativeService] Error guardando jornada institucional:', e.message);
             return { success: false, message: e.message };

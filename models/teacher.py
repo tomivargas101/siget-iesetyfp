@@ -73,7 +73,7 @@ class TeacherService:
         Guarda o actualiza los datos personales comunes de un docente (RN-01).
         Los datos personales se almacenan una sola vez independientemente de sus designaciones.
         """
-        from models.validation import validate_dni, validate_cuil, validate_name, validate_legajo, validate_email
+        from models.validation import validate_dni, validate_cuil, validate_name, validate_legajo, validate_email, validate_max_weekly_hours
         session = get_db_session()
         try:
             t_id = data.get("id")
@@ -103,6 +103,10 @@ class TeacherService:
             if not val_email:
                 return False, err_email
 
+            val_hours, clean_max_hours, err_hours = validate_max_weekly_hours(data.get("max_weekly_hours", 30))
+            if not val_hours:
+                return False, err_hours
+
             # Validar unicidad DNI y Legajo (RN-01)
             dni_check = session.query(Teacher).filter(Teacher.dni == clean_dni)
             if t_id:
@@ -128,7 +132,7 @@ class TeacherService:
                 teacher.email = clean_email if clean_email else None
                 teacher.phone = str(data.get("phone")).strip() if data.get("phone") else None
                 teacher.revista = data.get("revista", "Titular")
-                teacher.max_weekly_hours = int(data.get("max_weekly_hours", 30))
+                teacher.max_weekly_hours = clean_max_hours
                 teacher.is_active = data.get("is_active", True)
                 action = "ACTUALIZAR_DOCENTE"
             else:
@@ -141,7 +145,7 @@ class TeacherService:
                     email=clean_email if clean_email else None,
                     phone=str(data.get("phone")).strip() if data.get("phone") else None,
                     revista=data.get("revista", "Titular"),
-                    max_weekly_hours=int(data.get("max_weekly_hours", 30)),
+                    max_weekly_hours=clean_max_hours,
                     is_active=data.get("is_active", True)
                 )
                 session.add(teacher)

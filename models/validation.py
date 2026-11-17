@@ -107,6 +107,21 @@ def validate_email(email: any, is_required: bool = False) -> tuple[bool, str, st
         return False, trimmed, f"El correo electrónico '{trimmed}' tiene un formato inválido."
     return True, trimmed, ""
 
+def validate_max_weekly_hours(hours: any) -> tuple[bool, int, str]:
+    """
+    Valida que el tope semanal de horas cátedra esté dentro del rango institucional permitido (1 a 30).
+    Retorna: (is_valid, clean_hours, error_message)
+    """
+    if hours is None or str(hours).strip() == "":
+        return True, 30, ""
+    try:
+        val = int(hours)
+        if val < 1 or val > 30:
+            return False, val, f"El tope semanal institucional no puede exceder las 30 horas cátedra (valor permitido: entre 1 y 30). Se recibió: '{hours}'."
+        return True, val, ""
+    except (ValueError, TypeError):
+        return False, 0, f"El tope semanal de horas cátedra debe ser un número entero válido entre 1 y 30. Se recibió: '{hours}'."
+
 class BusinessValidationService:
     @staticmethod
     def calculate_teacher_active_hours(teacher_id: int, session: Session, exclude_designation_id: int = None) -> int:
