@@ -1188,7 +1188,7 @@ class TeacherCalendarService {
 
         let finalFilePath = filePath;
         let finalFileName = fileName;
-        const attachments = ResguardoBundleService.getAttachmentsForTeacher(tid, period.startDate, period.endDate);
+        const attachments = ResguardoBundleService.getAttachmentsForTeacher(teacherId, period.startDate, period.endDate);
         const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
 
         if (isZip) {
