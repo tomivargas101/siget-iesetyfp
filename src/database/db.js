@@ -88,6 +88,18 @@ function _ensureInstitutionalSchema(db) {
                 created_at TEXT
             );
         `);
+
+        const attCols = db.prepare('PRAGMA table_info(attendances)').all();
+        const colNames = new Set(attCols.map(c => c.name));
+        if (!colNames.has('suplente_teacher_id')) {
+            db.exec('ALTER TABLE attendances ADD COLUMN suplente_teacher_id INTEGER;');
+        }
+        if (!colNames.has('attachment_filename')) {
+            db.exec('ALTER TABLE attendances ADD COLUMN attachment_filename VARCHAR(255);');
+        }
+        if (!colNames.has('attachment_path')) {
+            db.exec('ALTER TABLE attendances ADD COLUMN attachment_path TEXT;');
+        }
     } catch (e) {
         console.error('[DB] Error asegurando esquema de días institucionales:', e.message);
     }

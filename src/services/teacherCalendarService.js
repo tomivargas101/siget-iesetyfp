@@ -1,6 +1,7 @@
 const { getDatabase } = require('../database/db');
 const { AttendanceService } = require('./attendanceService');
 const { NormativeService } = require('./normativeService');
+const { ResguardoBundleService } = require('./resguardoBundleService');
 
 class TeacherCalendarService {
     static getTeacherTimeline({ teacherId, startDate = null, endDate = null }) {
@@ -749,16 +750,42 @@ class TeacherCalendarService {
 
         let finalFilePath = filePath;
         let finalFileName = fileName;
-        try {
-            await workbook.xlsx.writeFile(filePath);
-        } catch (writeErr) {
-            if (writeErr.code === 'EBUSY') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
-                finalFilePath = path.join(outDir, finalFileName);
-                await workbook.xlsx.writeFile(finalFilePath);
-            } else {
-                throw writeErr;
+        const attachments = ResguardoBundleService.getAttachmentsForMonth(matrix.year, matrix.monthStr);
+        const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+        if (isZip) {
+            const os = require('os');
+            const tempExcel = path.join(os.tmpdir(), `Planilla_Mensual_${matrix.year}_${matrix.monthStr}_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(tempExcel);
+            await ResguardoBundleService.createResguardoZipBundle({
+                reportFilePath: tempExcel,
+                certificateFiles: attachments,
+                zipOutputPath: path.resolve(outputPath)
+            });
+            try { fs.unlinkSync(tempExcel); } catch (_) {}
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+        } else {
+            try {
+                await workbook.xlsx.writeFile(filePath);
+            } catch (writeErr) {
+                if (writeErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    await workbook.xlsx.writeFile(finalFilePath);
+                } else {
+                    throw writeErr;
+                }
+            }
+
+            if (attachments.length > 0 && outputPath) {
+                const companionZip = finalFilePath.replace(/\.xlsx$/i, '_Paquete_Resguardo.zip');
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: finalFilePath,
+                    certificateFiles: attachments,
+                    zipOutputPath: companionZip
+                });
             }
         }
 
@@ -1161,16 +1188,42 @@ class TeacherCalendarService {
 
         let finalFilePath = filePath;
         let finalFileName = fileName;
-        try {
-            await workbook.xlsx.writeFile(filePath);
-        } catch (writeErr) {
-            if (writeErr.code === 'EBUSY') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
-                finalFilePath = path.join(outDir, finalFileName);
-                await workbook.xlsx.writeFile(finalFilePath);
-            } else {
-                throw writeErr;
+        const attachments = ResguardoBundleService.getAttachmentsForTeacher(tid, period.startDate, period.endDate);
+        const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+        if (isZip) {
+            const os = require('os');
+            const tempExcel = path.join(os.tmpdir(), `Ficha_Docente_${safeLegajo}_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(tempExcel);
+            await ResguardoBundleService.createResguardoZipBundle({
+                reportFilePath: tempExcel,
+                certificateFiles: attachments,
+                zipOutputPath: path.resolve(outputPath)
+            });
+            try { fs.unlinkSync(tempExcel); } catch (_) {}
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+        } else {
+            try {
+                await workbook.xlsx.writeFile(filePath);
+            } catch (writeErr) {
+                if (writeErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    await workbook.xlsx.writeFile(finalFilePath);
+                } else {
+                    throw writeErr;
+                }
+            }
+
+            if (attachments.length > 0 && outputPath) {
+                const companionZip = finalFilePath.replace(/\.xlsx$/i, '_Paquete_Resguardo.zip');
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: finalFilePath,
+                    certificateFiles: attachments,
+                    zipOutputPath: companionZip
+                });
             }
         }
         const buffer = await workbook.xlsx.writeBuffer();
@@ -1387,16 +1440,42 @@ class TeacherCalendarService {
             }
             let finalFilePath = filePath;
             let finalFileName = fileName;
-            try {
-                fs.writeFileSync(filePath, pdfBuffer);
-            } catch (wErr) {
-                if (wErr.code === 'EBUSY') {
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
-                    finalFilePath = path.join(outDir, finalFileName);
-                    fs.writeFileSync(finalFilePath, pdfBuffer);
-                } else {
-                    throw wErr;
+            const attachments = ResguardoBundleService.getAttachmentsForTeacher(teacherId, period.startDate, period.endDate);
+            const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+            if (isZip) {
+                const os = require('os');
+                const tempPdf = path.join(os.tmpdir(), `Ficha_Docente_${safeLegajo}_${Date.now()}.pdf`);
+                fs.writeFileSync(tempPdf, pdfBuffer);
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: tempPdf,
+                    certificateFiles: attachments,
+                    zipOutputPath: path.resolve(outputPath)
+                });
+                try { fs.unlinkSync(tempPdf); } catch (_) {}
+                finalFilePath = path.resolve(outputPath);
+                finalFileName = path.basename(finalFilePath);
+            } else {
+                try {
+                    fs.writeFileSync(filePath, pdfBuffer);
+                } catch (wErr) {
+                    if (wErr.code === 'EBUSY') {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
+                        finalFilePath = path.join(outDir, finalFileName);
+                        fs.writeFileSync(finalFilePath, pdfBuffer);
+                    } else {
+                        throw wErr;
+                    }
+                }
+
+                if (attachments.length > 0 && outputPath) {
+                    const companionZip = finalFilePath.replace(/\.pdf$/i, '_Paquete_Resguardo.zip');
+                    await ResguardoBundleService.createResguardoZipBundle({
+                        reportFilePath: finalFilePath,
+                        certificateFiles: attachments,
+                        zipOutputPath: companionZip
+                    });
                 }
             }
 

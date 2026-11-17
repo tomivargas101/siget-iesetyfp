@@ -3,6 +3,7 @@ const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 const { NormativeService } = require('./normativeService');
 const { ValidationService } = require('./validationService');
+const { ResguardoBundleService } = require('./resguardoBundleService');
 
 class AttendanceService {
     static classifyRecord(recordOrStatus, maybeObs = '') {
@@ -329,7 +330,7 @@ class AttendanceService {
         }
     }
 
-    static receivePhysicalForm({ teacherId, date, dateStr, newStatus, articleCode = '', formNumber = '', observations = '' }) {
+    static receivePhysicalForm({ teacherId, date, dateStr, newStatus, articleCode = '', formNumber = '', observations = '', suplenteTeacherId = null, attachedFile = null }) {
         const db = getDatabase();
         try {
             const dStr = String(date || dateStr || '').trim();
@@ -347,7 +348,68 @@ class AttendanceService {
             const articleDetails = NormativeService.getArticleDetails(articleCode);
             const articleName = articleDetails ? `${articleDetails.article} (${articleDetails.code})` : (articleCode || 'Justificado');
             const formTag = formNumber ? `Formulario Físico N°: ${formNumber}` : 'Formulario Físico Recibido';
-            const fullObs = `[${formTag}] Art: ${articleName}. ${observations ? observations.trim() : ''}`.trim();
+
+            let suplenteTag = '';
+            let suplenteObj = null;
+            const suplenteIdNum = suplenteTeacherId ? Number(suplenteTeacherId) : null;
+            if (suplenteIdNum && !isNaN(suplenteIdNum) && suplenteIdNum > 0) {
+                suplenteObj = db.prepare('SELECT id, first_name, last_name, dni, legajo FROM teachers WHERE id = ?').get(suplenteIdNum);
+                if (suplenteObj) {
+                    suplenteTag = `Suplente: ${suplenteObj.last_name}, ${suplenteObj.first_name} (DNI ${suplenteObj.dni}${suplenteObj.legajo ? ' - Leg. ' + suplenteObj.legajo : ''})`;
+
+                    const desig = db.prepare(`
+                        SELECT id FROM designations
+                        WHERE teacher_id = ? AND is_active = 1
+                        ORDER BY id ASC LIMIT 1
+                    `).get(teacherId);
+
+                    if (desig) {
+                        const now = AuditService.getArgentinaTimestamp();
+                        db.prepare(`
+                            INSERT INTO substitutions (
+                                designation_id, titular_teacher_id, suplente_teacher_id,
+                                license_reason, start_date, end_date, resolution_number,
+                                is_active, created_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+                        `).run(
+                            desig.id,
+                            teacherId,
+                            suplenteIdNum,
+                            articleName,
+                            dStr,
+                            dStr,
+                            formNumber.trim(),
+                            now
+                        );
+                    }
+                }
+            }
+
+            let savedAttachmentName = null;
+            let savedAttachmentPath = null;
+            let attachmentTag = '';
+            if (attachedFile && (attachedFile.fileName || attachedFile.name)) {
+                const fname = attachedFile.fileName || attachedFile.name;
+                const saved = ResguardoBundleService.saveCertificateFile({
+                    teacherId,
+                    dateStr: dStr,
+                    fileName: fname,
+                    base64: attachedFile.base64,
+                    buffer: attachedFile.buffer,
+                    filePath: attachedFile.path || attachedFile.filePath
+                });
+                if (saved) {
+                    savedAttachmentName = saved.originalFileName;
+                    savedAttachmentPath = saved.filePath;
+                    attachmentTag = `Certificado adjunto: ${saved.originalFileName}`;
+                }
+            }
+
+            const obsParts = [`[${formTag}] Art: ${articleName}`];
+            if (suplenteTag) obsParts.push(suplenteTag);
+            if (attachmentTag) obsParts.push(attachmentTag);
+            if (observations && observations.trim()) obsParts.push(observations.trim());
+            const fullObs = obsParts.join('. ').trim();
 
             const existing = db.prepare('SELECT id FROM attendances WHERE teacher_id = ? AND date = ?').get(teacherId, dStr);
             const now = AuditService.getArgentinaTimestamp();
@@ -355,15 +417,17 @@ class AttendanceService {
             if (existing) {
                 db.prepare(`
                     UPDATE attendances SET
-                        status = ?, observations = ?, registered_by = ?, is_active = 1
+                        status = ?, observations = ?, registered_by = ?, is_active = 1,
+                        suplente_teacher_id = ?, attachment_filename = ?, attachment_path = ?
                     WHERE id = ?
-                `).run(validStatus, fullObs, username, existing.id);
+                `).run(validStatus, fullObs, username, suplenteIdNum, savedAttachmentName, savedAttachmentPath, existing.id);
             } else {
                 db.prepare(`
                     INSERT INTO attendances (
-                        teacher_id, date, status, observations, registered_by, created_at, is_active
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1)
-                `).run(teacherId, dStr, validStatus, fullObs, username, now);
+                        teacher_id, date, status, observations, registered_by, created_at, is_active,
+                        suplente_teacher_id, attachment_filename, attachment_path
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+                `).run(teacherId, dStr, validStatus, fullObs, username, now, suplenteIdNum, savedAttachmentName, savedAttachmentPath);
             }
 
             const teacher = db.prepare('SELECT first_name, last_name, dni FROM teachers WHERE id = ?').get(teacherId);
@@ -373,14 +437,18 @@ class AttendanceService {
                 currentUser ? currentUser.id : null,
                 username,
                 'RECEPCION_FORMULARIO_FISICO',
-                `Recepción de formulario para ${teacherName} fecha ${dateStr}: Inasistencia convertida a ${validStatus} (${formTag}, ${articleName})`
+                `Recepción de formulario para ${teacherName} fecha ${dStr}: Inasistencia convertida a ${validStatus} (${formTag}, ${articleName})${suplenteTag ? ' | ' + suplenteTag : ''}${attachmentTag ? ' | ' + attachmentTag : ''}`
             );
 
             return {
                 success: true,
-                message: `Formulario registrado con éxito. Estado actualizado a ${validStatus}.`,
+                message: `Formulario registrado con éxito. Estado actualizado a ${validStatus}.${suplenteTag ? ' ' + suplenteTag + '.' : ''}${attachmentTag ? ' ' + attachmentTag + '.' : ''}`,
                 status: validStatus,
-                observations: fullObs
+                observations: fullObs,
+                suplenteTeacherId: suplenteIdNum,
+                suplenteName: suplenteObj ? `${suplenteObj.last_name}, ${suplenteObj.first_name}` : null,
+                attachmentFilename: savedAttachmentName,
+                attachmentPath: savedAttachmentPath
             };
         } catch (error) {
             console.error('[AttendanceService] Error en recepción de formulario físico:', error);
@@ -881,8 +949,22 @@ class AttendanceService {
 
         let finalFilePath;
         let finalFileName;
+        const attachments = ResguardoBundleService.getAttachmentsForDate(targetDate);
+        const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
 
-        if (outputPath) {
+        if (isZip) {
+            const os = require('os');
+            const tempExcel = path.join(os.tmpdir(), `Parte_Diario_Docentes_${targetDate}_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(tempExcel);
+            await ResguardoBundleService.createResguardoZipBundle({
+                reportFilePath: tempExcel,
+                certificateFiles: attachments,
+                zipOutputPath: path.resolve(outputPath)
+            });
+            try { fs.unlinkSync(tempExcel); } catch (_) {}
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+        } else if (outputPath) {
             finalFilePath = path.resolve(outputPath);
             finalFileName = path.basename(finalFilePath);
             const parentDir = path.dirname(finalFilePath);
@@ -890,6 +972,15 @@ class AttendanceService {
                 fs.mkdirSync(parentDir, { recursive: true });
             }
             await workbook.xlsx.writeFile(finalFilePath);
+
+            if (attachments.length > 0) {
+                const companionZip = finalFilePath.replace(/\.xlsx$/i, '_Paquete_Resguardo.zip');
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: finalFilePath,
+                    certificateFiles: attachments,
+                    zipOutputPath: companionZip
+                });
+            }
         } else {
             const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
             if (!fs.existsSync(targetDir)) {
@@ -1214,16 +1305,42 @@ class AttendanceService {
 
         let finalFilePath = filePath;
         let finalFileName = fileName;
-        try {
-            await workbook.xlsx.writeFile(filePath);
-        } catch (writeErr) {
-            if (writeErr.code === 'EBUSY') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
-                finalFilePath = path.join(outDir, finalFileName);
-                await workbook.xlsx.writeFile(finalFilePath);
-            } else {
-                throw writeErr;
+        const attachments = ResguardoBundleService.getAttachmentsForDate(targetDate);
+        const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+        if (isZip) {
+            const os = require('os');
+            const tempExcel = path.join(os.tmpdir(), `Control_Diario_${targetDate}_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(tempExcel);
+            await ResguardoBundleService.createResguardoZipBundle({
+                reportFilePath: tempExcel,
+                certificateFiles: attachments,
+                zipOutputPath: path.resolve(outputPath)
+            });
+            try { fs.unlinkSync(tempExcel); } catch (_) {}
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+        } else {
+            try {
+                await workbook.xlsx.writeFile(filePath);
+            } catch (writeErr) {
+                if (writeErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    await workbook.xlsx.writeFile(finalFilePath);
+                } else {
+                    throw writeErr;
+                }
+            }
+
+            if (attachments.length > 0 && outputPath) {
+                const companionZip = finalFilePath.replace(/\.xlsx$/i, '_Paquete_Resguardo.zip');
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: finalFilePath,
+                    certificateFiles: attachments,
+                    zipOutputPath: companionZip
+                });
             }
         }
 
@@ -1545,16 +1662,42 @@ class AttendanceService {
 
             let finalFilePath = filePath;
             let finalFileName = fileName;
-            try {
-                fs.writeFileSync(filePath, pdfBuffer);
-            } catch (wErr) {
-                if (wErr.code === 'EBUSY') {
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
-                    finalFilePath = path.join(outDir, finalFileName);
-                    fs.writeFileSync(finalFilePath, pdfBuffer);
-                } else {
-                    throw wErr;
+            const attachments = ResguardoBundleService.getAttachmentsForDate(targetDate);
+            const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+            if (isZip) {
+                const os = require('os');
+                const tempPdf = path.join(os.tmpdir(), `Control_Diario_${targetDate}_${Date.now()}.pdf`);
+                fs.writeFileSync(tempPdf, pdfBuffer);
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: tempPdf,
+                    certificateFiles: attachments,
+                    zipOutputPath: path.resolve(outputPath)
+                });
+                try { fs.unlinkSync(tempPdf); } catch (_) {}
+                finalFilePath = path.resolve(outputPath);
+                finalFileName = path.basename(finalFilePath);
+            } else {
+                try {
+                    fs.writeFileSync(filePath, pdfBuffer);
+                } catch (wErr) {
+                    if (wErr.code === 'EBUSY') {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
+                        finalFilePath = path.join(outDir, finalFileName);
+                        fs.writeFileSync(finalFilePath, pdfBuffer);
+                    } else {
+                        throw wErr;
+                    }
+                }
+
+                if (attachments.length > 0 && outputPath) {
+                    const companionZip = finalFilePath.replace(/\.pdf$/i, '_Paquete_Resguardo.zip');
+                    await ResguardoBundleService.createResguardoZipBundle({
+                        reportFilePath: finalFilePath,
+                        certificateFiles: attachments,
+                        zipOutputPath: companionZip
+                    });
                 }
             }
 

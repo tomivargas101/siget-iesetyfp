@@ -404,7 +404,10 @@ function setupEventListeners() {
                     const saveRes = await window.sigetApi.dialog.showSaveDialog({
                         title: 'Guardar Registro Oficial de Acciones (PDF)',
                         defaultPath: defaultName,
-                        filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                        filters: [
+                    { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                    { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                ]
                     });
                     if (saveRes.canceled || !saveRes.filePath) return;
                     outputPath = saveRes.filePath;
@@ -502,7 +505,10 @@ function setupEventListeners() {
                     const saveRes = await window.sigetApi.dialog.showSaveDialog({
                         title: 'Guardar Planilla Mensual Oficial (Excel)',
                         defaultPath: defaultName,
-                        filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                        filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                     });
                     if (saveRes.canceled || !saveRes.filePath) return;
                     outputPath = saveRes.filePath;
@@ -539,7 +545,10 @@ function setupEventListeners() {
                     const saveRes = await window.sigetApi.dialog.showSaveDialog({
                         title: 'Guardar Calendario Institucional (PDF)',
                         defaultPath: defaultName,
-                        filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                        filters: [
+                    { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                    { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                ]
                     });
                     if (saveRes.canceled || !saveRes.filePath) return;
                     outputPath = saveRes.filePath;
@@ -2982,6 +2991,20 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
         console.error('Error cargando catálogo maestro de licencias:', e);
     }
 
+    let teachersList = [];
+    try {
+        if (window.sigetApi && window.sigetApi.teachers && window.sigetApi.teachers.getAll) {
+            teachersList = await window.sigetApi.teachers.getAll({ activeOnly: true });
+        }
+    } catch (e) {
+        teachersList = AppState.teachersCache || [];
+    }
+
+    const suplenteOptions = (teachersList || [])
+        .filter(t => t.id !== teacherId)
+        .map(t => `<option value="${t.id}">${escapeHtml(t.lastName)}, ${escapeHtml(t.firstName)} (DNI ${escapeHtml(t.dni)} - Leg. ${escapeHtml(t.legajo || 'S/L')})</option>`)
+        .join('');
+
     const il01Options = catalog.filter(c => c.targetCuadro === 'IL-01').map(c =>
         `<option value="${escapeHtml(c.code)}">${escapeHtml(c.article)} - ${escapeHtml(c.name)} (${escapeHtml(c.code)})</option>`
     ).join('');
@@ -3045,6 +3068,14 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
             </div>
 
             <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Docente Suplente que Cubrirá la Cátedra / Inasistencia</label>
+                <select id="pf-suplente-teacher" class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-gold">
+                    <option value="">-- Sin Suplente Designado / A Cubrir --</option>
+                    ${suplenteOptions}
+                </select>
+            </div>
+
+            <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">N° Formulario Físico / Certificado Oficial <span class="text-rose-500">*</span></label>
                 <input type="text" id="pf-form-number" required placeholder="Ej. Form. F-1029 / Cert. Médico N° 45812"
                     class="w-full px-3 py-2 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-gold">
@@ -3083,12 +3114,20 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
         const fileInput = document.getElementById('pf-file-input');
         const fileFeedback = document.getElementById('pf-file-feedback');
 
+        let currentAttachedFile = null;
+
         const processJustificationFile = (file) => {
             if (!file) return;
             fileFeedback.innerHTML = `<span class="text-gold animate-pulse">Analizando documento ${escapeHtml(file.name)}...</span>`;
             const reader = new FileReader();
             reader.onload = async (ev) => {
                 const base64Data = ev.target.result.split(',')[1];
+                currentAttachedFile = {
+                    fileName: file.name,
+                    base64: base64Data,
+                    mimeType: file.type,
+                    size: file.size
+                };
                 try {
                     const parsed = await window.sigetApi.attendance.parseJustificationFile({
                         fileBufferBase64: base64Data,
@@ -3123,14 +3162,14 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
                                 }
                             }
                         }
-                        fileFeedback.innerHTML = `<span class="text-emerald-500 font-bold">✓ Archivo ${escapeHtml(file.name)} procesado con éxito. Campos completados.</span>`;
+                        fileFeedback.innerHTML = `<span class="text-emerald-500 font-bold">✓ Archivo ${escapeHtml(file.name)} adjuntado y procesado.</span>`;
                         showToast(`Archivo ${file.name} procesado: datos precargados en el formulario.`, 'success');
                     } else {
-                        fileFeedback.innerHTML = `<span class="text-amber-500 font-bold">Archivo leído. Complete manualmente los campos no reconocidos.</span>`;
+                        fileFeedback.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-bold">✓ Archivo ${escapeHtml(file.name)} adjuntado correctamente.</span>`;
                     }
                 } catch (parseErr) {
                     console.error('Error parseando archivo de justificación:', parseErr);
-                    fileFeedback.innerHTML = `<span class="text-rose-500 font-bold">Error analizando el archivo: ${escapeHtml(parseErr.message)}</span>`;
+                    fileFeedback.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-bold">✓ Archivo ${escapeHtml(file.name)} adjuntado para resguardo.</span>`;
                 }
             };
             reader.readAsDataURL(file);
@@ -3171,6 +3210,8 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
                 const articleCode = document.getElementById('pf-article-code').value;
                 const formNumber = document.getElementById('pf-form-number').value.trim();
                 const observations = document.getElementById('pf-observations').value.trim();
+                const suplenteSelect = document.getElementById('pf-suplente-teacher');
+                const suplenteTeacherId = suplenteSelect?.value ? parseInt(suplenteSelect.value, 10) : null;
 
                 const formNumberInput = document.getElementById('pf-form-number');
                 if (!formNumber || formNumber.length < 2) {
@@ -3188,7 +3229,9 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
                         newStatus,
                         formNumber,
                         articleCode,
-                        observations
+                        observations,
+                        suplenteTeacherId,
+                        attachedFile: currentAttachedFile
                     });
 
                     if (res && res.success) {
@@ -3424,7 +3467,10 @@ async function saveAllAttendanceRecords() {
                 const saveRes = await window.sigetApi.dialog.showSaveDialog({
                     title: 'Guardar Parte Diario de Asistencias (Excel)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     showToast('Cambios guardados en base de datos. Exportación de Excel cancelada por el usuario.', 'info');
@@ -3597,7 +3643,10 @@ async function downloadPrintableDaily(format = 'pdf') {
             const saveRes = await window.sigetApi.dialog.showSaveDialog({
                 title: `Guardar Planilla Imprimible de Control Diario (${formatLabel})`,
                 defaultPath: defaultName,
-                filters: [{ name: filterName, extensions: [ext] }]
+                filters: [
+                    { name: filterName, extensions: [ext] },
+                    { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                ]
             });
             if (saveRes.canceled || !saveRes.filePath) return;
             outputPath = saveRes.filePath;
@@ -5745,7 +5794,10 @@ async function handleExportTeacherPdf() {
             const saveRes = await window.sigetApi.dialog.showSaveDialog({
                 title: 'Guardar Ficha Docente Oficial (PDF)',
                 defaultPath: defaultName,
-                filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                filters: [
+                    { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                    { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                ]
             });
             if (saveRes.canceled || !saveRes.filePath) return;
             outputPath = saveRes.filePath;
@@ -5797,7 +5849,10 @@ async function handleExportTeacherExcel() {
             const saveRes = await window.sigetApi.dialog.showSaveDialog({
                 title: 'Guardar Ficha Docente Oficial (Excel)',
                 defaultPath: defaultName,
-                filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                filters: [
+                    { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                    { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                ]
             });
             if (saveRes.canceled || !saveRes.filePath) return;
             outputPath = saveRes.filePath;

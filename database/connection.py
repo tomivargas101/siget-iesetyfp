@@ -201,6 +201,12 @@ def _ensure_schema_columns(engine):
                 att_cols = {c["name"] for c in inspector.get_columns("attendances")}
                 if "designation_id" not in att_cols:
                     conn.execute(text("ALTER TABLE attendances ADD COLUMN designation_id INTEGER"))
+                if "suplente_teacher_id" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN suplente_teacher_id INTEGER"))
+                if "attachment_filename" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN attachment_filename VARCHAR(255)"))
+                if "attachment_path" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN attachment_path TEXT"))
                 if "is_active" not in att_cols:
                     conn.execute(text("ALTER TABLE attendances ADD COLUMN is_active BOOLEAN DEFAULT 1"))
 

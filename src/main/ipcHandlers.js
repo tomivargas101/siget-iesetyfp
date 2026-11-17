@@ -176,7 +176,10 @@ function registerIpcHandlers() {
                 const saveRes = await dialog.showSaveDialog(win, {
                     title: 'Guardar Parte Diario de Asistencias (Excel)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
@@ -204,7 +207,10 @@ function registerIpcHandlers() {
                 const saveRes = await dialog.showSaveDialog(win, {
                     title: 'Guardar Planilla Imprimible de Control Diario (PDF)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                    filters: [
+                        { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
@@ -237,7 +243,10 @@ function registerIpcHandlers() {
                 const saveRes = await dialog.showSaveDialog(win, {
                     title: 'Guardar Planilla Imprimible de Control Diario (Excel)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
@@ -335,7 +344,10 @@ function registerIpcHandlers() {
                 const saveRes = await dialog.showSaveDialog(win, {
                     title: 'Guardar Planilla Mensual Oficial (Excel)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
@@ -383,7 +395,10 @@ function registerIpcHandlers() {
                 const saveRes = await dialog.showSaveDialog(win, {
                     title: 'Guardar Ficha Docente Oficial (PDF)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                    filters: [
+                        { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
@@ -412,7 +427,10 @@ function registerIpcHandlers() {
                 const saveRes = await dialog.showSaveDialog(win, {
                     title: 'Guardar Ficha Docente Oficial (Excel)',
                     defaultPath: defaultName,
-                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
                 });
                 if (saveRes.canceled || !saveRes.filePath) {
                     return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };

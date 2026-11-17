@@ -151,7 +151,7 @@ class AttendanceProcessor:
             else:
                 last_day = date(report_year, month + 1, 1) - timedelta(days=1)
 
-            att_query = session.query(Attendance).join(Teacher).filter(
+            att_query = session.query(Attendance).join(Teacher, Attendance.teacher_id == Teacher.id).filter(
                 Attendance.date >= first_day,
                 Attendance.date <= last_day,
                 Attendance.is_active == True

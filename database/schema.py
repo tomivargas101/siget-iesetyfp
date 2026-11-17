@@ -104,7 +104,7 @@ class Teacher(Base):
     created_at = Column(DateTime, default=get_argentina_now)
 
     designations = relationship("Designation", back_populates="teacher")
-    attendances = relationship("Attendance", back_populates="teacher")
+    attendances = relationship("Attendance", back_populates="teacher", foreign_keys="[Attendance.teacher_id]")
 
     @property
     def full_name(self):
@@ -175,6 +175,9 @@ class Attendance(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
     designation_id = Column(Integer, ForeignKey("designations.id"), nullable=True)
+    suplente_teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
+    attachment_filename = Column(String(255), nullable=True)
+    attachment_path = Column(Text, nullable=True)
     date = Column(Date, nullable=False, index=True)
     status = Column(String(30), default="Presente", nullable=False)
     hours = Column(Integer, default=4)
@@ -183,6 +186,7 @@ class Attendance(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=get_argentina_now)
 
-    teacher = relationship("Teacher", back_populates="attendances")
+    teacher = relationship("Teacher", back_populates="attendances", foreign_keys=[teacher_id])
+    suplente_teacher = relationship("Teacher", foreign_keys=[suplente_teacher_id])
     designation = relationship("Designation", back_populates="attendances")
 

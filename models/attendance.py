@@ -209,7 +209,7 @@ class AttendanceService:
     def get_history(teacher_id: Optional[int] = None, start_date: Optional[date] = None, end_date: Optional[date] = None) -> list[dict]:
         session = get_db_session()
         try:
-            query = session.query(Attendance).join(Teacher)
+            query = session.query(Attendance).join(Teacher, Attendance.teacher_id == Teacher.id)
             if teacher_id:
                 query = query.filter(Attendance.teacher_id == teacher_id)
             if start_date:
