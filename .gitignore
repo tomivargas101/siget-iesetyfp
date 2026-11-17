@@ -21,9 +21,8 @@ siget.db
 *.sqlite3
 
 # Reportes y planillas generadas
-reportes/*.xlsx
-reportes/*.xls
-reportes/*.pdf
+reportes/*
+!reportes/.gitkeep
 
 # Compilación, empaquetado y logs
 dist/
