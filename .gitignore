@@ -28,6 +28,7 @@ reportes/*
 resguardo/*
 !resguardo/.gitkeep
 !resguardo/certificados/
+resguardo/certificados/*
 !resguardo/certificados/.gitkeep
 
 # Compilación, empaquetado y logs
