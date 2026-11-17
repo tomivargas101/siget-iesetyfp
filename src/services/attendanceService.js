@@ -122,7 +122,7 @@ class AttendanceService {
             `).all();
 
             const attendances = db.prepare(`
-                SELECT id, teacher_id, status, hours, observations, registered_by, designation_id
+                SELECT id, teacher_id, status, hours, observations, registered_by, designation_id, suplente_teacher_id
                 FROM attendances
                 WHERE date = ? AND is_active = 1
             `).all(dateStr);
@@ -232,6 +232,7 @@ class AttendanceService {
                     status: currentStatus,
                     rawStatus: att ? att.status : 'I',
                     observations: att ? (att.observations || '') : '',
+                    suplenteTeacherId: att ? (att.suplente_teacher_id || null) : null,
                     registeredBy: att ? (att.registered_by || '') : '',
                     hasPhysicalForm: Boolean(att && att.observations && (att.observations.includes('Form:') || att.observations.includes('Formulario') || att.observations.includes('Certificado'))),
                     annualStats: {
@@ -351,38 +352,49 @@ class AttendanceService {
 
             let suplenteTag = '';
             let suplenteObj = null;
+            let finalSuplenteId = null;
             const suplenteIdNum = suplenteTeacherId ? Number(suplenteTeacherId) : null;
             if (suplenteIdNum && !isNaN(suplenteIdNum) && suplenteIdNum > 0) {
                 suplenteObj = db.prepare('SELECT id, first_name, last_name, dni, legajo FROM teachers WHERE id = ?').get(suplenteIdNum);
-                if (suplenteObj) {
-                    suplenteTag = `Suplente: ${suplenteObj.last_name}, ${suplenteObj.first_name} (DNI ${suplenteObj.dni}${suplenteObj.legajo ? ' - Leg. ' + suplenteObj.legajo : ''})`;
+            }
 
-                    const desig = db.prepare(`
-                        SELECT id FROM designations
-                        WHERE teacher_id = ? AND is_active = 1
-                        ORDER BY id ASC LIMIT 1
-                    `).get(teacherId);
+            if (suplenteObj) {
+                finalSuplenteId = suplenteObj.id;
+                suplenteTag = `Reemplazado por: ${suplenteObj.last_name}, ${suplenteObj.first_name}`;
 
-                    if (desig) {
-                        const now = AuditService.getArgentinaTimestamp();
-                        db.prepare(`
-                            INSERT INTO substitutions (
-                                designation_id, titular_teacher_id, suplente_teacher_id,
-                                license_reason, start_date, end_date, resolution_number,
-                                is_active, created_at
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-                        `).run(
-                            desig.id,
-                            teacherId,
-                            suplenteIdNum,
-                            articleName,
-                            dStr,
-                            dStr,
-                            formNumber.trim(),
-                            now
-                        );
-                    }
+                const desig = db.prepare(`
+                    SELECT id FROM designations
+                    WHERE teacher_id = ? AND is_active = 1
+                    ORDER BY id ASC LIMIT 1
+                `).get(teacherId);
+
+                if (desig) {
+                    const now = AuditService.getArgentinaTimestamp();
+                    db.prepare(`
+                        INSERT INTO substitutions (
+                            designation_id, titular_teacher_id, suplente_teacher_id,
+                            license_reason, start_date, end_date, resolution_number,
+                            is_active, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+                    `).run(
+                        desig.id,
+                        teacherId,
+                        finalSuplenteId,
+                        articleName,
+                        dStr,
+                        dStr,
+                        formNumber.trim(),
+                        now
+                    );
                 }
+            } else {
+                finalSuplenteId = null;
+                suplenteTag = 'Sin suplente asignado / Cátedra sin cobertura';
+                db.prepare(`
+                    UPDATE substitutions 
+                    SET is_active = 0 
+                    WHERE titular_teacher_id = ? AND start_date = ?
+                `).run(teacherId, dStr);
             }
 
             let savedAttachmentName = null;
@@ -420,14 +432,14 @@ class AttendanceService {
                         status = ?, observations = ?, registered_by = ?, is_active = 1,
                         suplente_teacher_id = ?, attachment_filename = ?, attachment_path = ?
                     WHERE id = ?
-                `).run(validStatus, fullObs, username, suplenteIdNum, savedAttachmentName, savedAttachmentPath, existing.id);
+                `).run(validStatus, fullObs, username, finalSuplenteId, savedAttachmentName, savedAttachmentPath, existing.id);
             } else {
                 db.prepare(`
                     INSERT INTO attendances (
                         teacher_id, date, status, observations, registered_by, created_at, is_active,
                         suplente_teacher_id, attachment_filename, attachment_path
                     ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
-                `).run(teacherId, dStr, validStatus, fullObs, username, now, suplenteIdNum, savedAttachmentName, savedAttachmentPath);
+                `).run(teacherId, dStr, validStatus, fullObs, username, now, finalSuplenteId, savedAttachmentName, savedAttachmentPath);
             }
 
             const teacher = db.prepare('SELECT first_name, last_name, dni FROM teachers WHERE id = ?').get(teacherId);
@@ -760,6 +772,14 @@ class AttendanceService {
             subBySuplente.set(sub.suplente_id, sub);
         }
 
+        const teacherNameMap = new Map();
+        try {
+            const allTeachers = db.prepare('SELECT id, first_name, last_name FROM teachers').all();
+            for (const t of allTeachers) {
+                teacherNameMap.set(t.id, `${t.last_name}, ${t.first_name}`);
+            }
+        } catch (_) {}
+
         const dateParts = targetDate.split('-');
         const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : targetDate;
         const nowStr = new Date().toLocaleString('es-AR', {
@@ -844,11 +864,18 @@ class AttendanceService {
                 if (!finalObservations) {
                     finalObservations = `Suplente en ${subSuplente.subject_name} (Reemplaza a: ${subSuplente.tit_last}, ${subSuplente.tit_first})`;
                 }
-            } else if (subTitular) {
+            } else if (r.suplenteTeacherId) {
+                const supName = teacherNameMap.get(r.suplenteTeacherId) || (subTitular ? `${subTitular.sup_last}, ${subTitular.sup_first}` : null);
                 statusLabel = 'Licencia Médica / Especial (Suplente Activo)';
                 licCount++;
-                if (!finalObservations) {
-                    finalObservations = `Reemplazado por: ${subTitular.sup_last}, ${subTitular.sup_first} (Res. ${subTitular.resolution_number || 'S/N'})`;
+                if (supName && !finalObservations.includes('Reemplazado por')) {
+                    finalObservations = finalObservations ? `${finalObservations} • Reemplazado por: ${supName}` : `Reemplazado por: ${supName}`;
+                }
+            } else if (subTitular && r.suplenteTeacherId !== null && !String(r.observations || '').includes('Sin suplente')) {
+                statusLabel = 'Licencia Médica / Especial (Suplente Activo)';
+                licCount++;
+                if (!finalObservations.includes('Reemplazado por')) {
+                    finalObservations = finalObservations ? `${finalObservations} • Reemplazado por: ${subTitular.sup_last}, ${subTitular.sup_first}` : `Reemplazado por: ${subTitular.sup_last}, ${subTitular.sup_first}`;
                 }
             } else if (rawStatus === 'PR') {
                 prCount++;
@@ -856,15 +883,27 @@ class AttendanceService {
             } else if (rawStatus === 'I') {
                 iCount++;
                 statusLabel = 'Inasistencia';
+                if (!finalObservations.includes('Sin suplente') && !finalObservations.includes('Reemplazado por') && (r.hasPhysicalForm || r.observations)) {
+                    finalObservations = finalObservations ? `${finalObservations} • Sin suplente asignado / Cátedra sin cobertura` : 'Sin suplente asignado / Cátedra sin cobertura';
+                }
             } else if (rawStatus === 'LIC') {
                 licCount++;
                 statusLabel = 'Licencia Médica / Especial';
+                if (!finalObservations.includes('Sin suplente') && !finalObservations.includes('Reemplazado por')) {
+                    finalObservations = finalObservations ? `${finalObservations} • Sin suplente asignado / Cátedra sin cobertura` : 'Sin suplente asignado / Cátedra sin cobertura';
+                }
             } else if (rawStatus === 'P') {
                 pCount++;
                 statusLabel = 'Permiso Particular (Art. 115)';
+                if (!finalObservations.includes('Sin suplente') && !finalObservations.includes('Reemplazado por')) {
+                    finalObservations = finalObservations ? `${finalObservations} • Sin suplente asignado / Cátedra sin cobertura` : 'Sin suplente asignado / Cátedra sin cobertura';
+                }
             } else if (rawStatus === 'LT') {
                 ltCount++;
                 statusLabel = 'Largo Tratamiento';
+                if (!finalObservations.includes('Sin suplente') && !finalObservations.includes('Reemplazado por')) {
+                    finalObservations = finalObservations ? `${finalObservations} • Sin suplente asignado / Cátedra sin cobertura` : 'Sin suplente asignado / Cátedra sin cobertura';
+                }
             }
 
             const row = sheet.getRow(currentRowIndex);

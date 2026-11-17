@@ -762,7 +762,7 @@ class TeacherCalendarService {
                 certificateFiles: attachments,
                 zipOutputPath: path.resolve(outputPath)
             });
-            try { fs.unlinkSync(tempExcel); } catch (_) {}
+            try { fs.unlinkSync(tempExcel); } catch (_) { }
             finalFilePath = path.resolve(outputPath);
             finalFileName = path.basename(finalFilePath);
         } else {
@@ -1200,7 +1200,7 @@ class TeacherCalendarService {
                 certificateFiles: attachments,
                 zipOutputPath: path.resolve(outputPath)
             });
-            try { fs.unlinkSync(tempExcel); } catch (_) {}
+            try { fs.unlinkSync(tempExcel); } catch (_) { }
             finalFilePath = path.resolve(outputPath);
             finalFileName = path.basename(finalFilePath);
         } else {
@@ -1452,7 +1452,7 @@ class TeacherCalendarService {
                     certificateFiles: attachments,
                     zipOutputPath: path.resolve(outputPath)
                 });
-                try { fs.unlinkSync(tempPdf); } catch (_) {}
+                try { fs.unlinkSync(tempPdf); } catch (_) { }
                 finalFilePath = path.resolve(outputPath);
                 finalFileName = path.basename(finalFilePath);
             } else {
@@ -1531,7 +1531,7 @@ function createCalendarFallbackPdf(title, lines) {
     const safeTitle = (title || 'CALENDARIO ACADEMICO').replace(/[\(\)\\]/g, '');
     const cleanLines = (lines || []).slice(0, 35).map(l => String(l).substring(0, 95).replace(/[\(\)\\]/g, ''));
 
-        let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
+    let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
     cleanLines.forEach((line, idx) => {
         const y = 750 - (idx * 20);
         content += `BT /F1 8 Tf 40 ${y} Td (${line}) Tj ET\n`;
