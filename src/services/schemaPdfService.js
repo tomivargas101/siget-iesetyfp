@@ -40,7 +40,6 @@ class SchemaPdfService {
             page-break-inside: avoid;
         }
 
-        /* Encabezado Institucional */
         .doc-header {
             display: flex;
             justify-content: space-between;
@@ -80,7 +79,6 @@ class SchemaPdfService {
             text-align: right;
         }
 
-        /* Secciones y Tipografía */
         h2 {
             font-size: 13px;
             font-weight: 800;
@@ -108,7 +106,6 @@ class SchemaPdfService {
             text-align: justify;
         }
 
-        /* Cajas de Alerta y Notas */
         .callout-box {
             background-color: #fffbeb;
             border: 1px solid #fde68a;
@@ -123,7 +120,6 @@ class SchemaPdfService {
             color: #78350f;
         }
 
-        /* Tablas */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -156,7 +152,6 @@ class SchemaPdfService {
             background-color: #f1f5f9;
         }
 
-        /* Badges de Código y Tipos */
         code {
             font-family: 'Consolas', 'Courier New', monospace;
             background-color: #f1f5f9;
@@ -205,7 +200,6 @@ class SchemaPdfService {
             text-transform: uppercase;
         }
 
-        /* Diagram Containers */
         .diagram-container {
             background-color: #ffffff;
             border: 1px solid #cbd5e1;
@@ -224,7 +218,6 @@ class SchemaPdfService {
             letter-spacing: 0.5px;
         }
 
-        /* Footer */
         .doc-footer {
             border-top: 1px solid #cbd5e1;
             padding-top: 8px;

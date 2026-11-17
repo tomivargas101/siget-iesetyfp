@@ -29,12 +29,10 @@ class DesignationModal(ctk.CTkToplevel):
     def _load_options(self):
         session = get_db_session()
         try:
-            # Materias con carrera
             subjects = session.query(Subject).join(Career).all()
             self.subject_map = {f"[{s.career.code}] {s.name} ({s.code})": s.id for s in subjects}
             self.reverse_subject_map = {v: k for k, v in self.subject_map.items()}
 
-            # Docentes activos
             teachers = session.query(Teacher).filter(Teacher.is_active == True).order_by(Teacher.last_name).all()
             self.teacher_map = {}
             self.teacher_obj_map = {}
@@ -58,7 +56,6 @@ class DesignationModal(ctk.CTkToplevel):
         form = ctk.CTkFrame(self, fg_color="transparent")
         form.pack(fill="both", expand=True, padx=35)
 
-        # Materia / Cátedra
         f_sub = ctk.CTkFrame(form, fg_color="transparent")
         f_sub.pack(fill="x", pady=6)
         ctk.CTkLabel(f_sub, text="Materia / Espacio Curricular:*", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -78,7 +75,6 @@ class DesignationModal(ctk.CTkToplevel):
         )
         self.combo_subject.pack(fill="x", pady=(2, 0))
 
-        # Docente
         f_tea = ctk.CTkFrame(form, fg_color="transparent")
         f_tea.pack(fill="x", pady=6)
         ctk.CTkLabel(f_tea, text="Docente Designado:*", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -99,7 +95,6 @@ class DesignationModal(ctk.CTkToplevel):
         )
         self.combo_teacher.pack(fill="x", pady=(2, 0))
 
-        # Indicador de horas actuales del docente
         self.lbl_teacher_hours = ctk.CTkLabel(
             form,
             text="Cargando estado horario...",
@@ -108,7 +103,6 @@ class DesignationModal(ctk.CTkToplevel):
         )
         self.lbl_teacher_hours.pack(anchor="w", pady=(0, 6))
 
-        # Día de la semana y Horas Cátedra
         row_time = ctk.CTkFrame(form, fg_color="transparent")
         row_time.pack(fill="x", pady=6)
 
@@ -142,7 +136,6 @@ class DesignationModal(ctk.CTkToplevel):
         self.entry_hours.insert(0, "4")
         self.entry_hours.pack(fill="x", pady=(2, 0))
 
-        # Horario Inicio y Fin
         row_slot = ctk.CTkFrame(form, fg_color="transparent")
         row_slot.pack(fill="x", pady=6)
 
@@ -174,7 +167,6 @@ class DesignationModal(ctk.CTkToplevel):
         self.entry_end.insert(0, "21:30")
         self.entry_end.pack(fill="x", pady=(2, 0))
 
-        # Resolución Ministerial / Interna
         f_res = ctk.CTkFrame(form, fg_color="transparent")
         f_res.pack(fill="x", pady=6)
         ctk.CTkLabel(f_res, text="N° de Resolución / Disposición:", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -188,7 +180,6 @@ class DesignationModal(ctk.CTkToplevel):
         )
         self.entry_res.pack(fill="x", pady=(2, 0))
 
-        # Observaciones
         f_obs = ctk.CTkFrame(form, fg_color="transparent")
         f_obs.pack(fill="x", pady=6)
         ctk.CTkLabel(f_obs, text="Observaciones:", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -202,7 +193,6 @@ class DesignationModal(ctk.CTkToplevel):
         )
         self.entry_notes.pack(fill="x", pady=(2, 0))
 
-        # Si es edición, prellenar
         if self.designation_data:
             s_name = self.reverse_subject_map.get(self.designation_data["subject_id"])
             if s_name:
@@ -224,7 +214,6 @@ class DesignationModal(ctk.CTkToplevel):
 
         self._update_teacher_hours_info(self.var_teacher.get())
 
-        # Botones
         btn_box = ctk.CTkFrame(self, fg_color="transparent")
         btn_box.pack(fill="x", padx=35, pady=(15, 20))
 
@@ -327,11 +316,9 @@ class SubstitutionModal(ctk.CTkToplevel):
     def _load_options(self):
         session = get_db_session()
         try:
-            # Lista de docentes disponibles para suplencia
             teachers = session.query(Teacher).filter(Teacher.is_active == True).order_by(Teacher.last_name).all()
             self.suplentes_map = {}
             for t in teachers:
-                # Excluir titular de la lista de suplentes
                 if self.designation_info and t.id == self.designation_info["teacher_id"]:
                     continue
                 label = f"{t.full_name} (DNI: {t.dni}) - {t.revista}"
@@ -347,7 +334,6 @@ class SubstitutionModal(ctk.CTkToplevel):
             text_color=Theme.TEXT_PRIMARY
         ).pack(pady=(20, 10))
 
-        # Cuadro de Resumen de la Cátedra y Titular
         box_titular = ctk.CTkFrame(
             self,
             fg_color=Theme.BG_CARD_SUB,
@@ -382,7 +368,6 @@ class SubstitutionModal(ctk.CTkToplevel):
         form = ctk.CTkFrame(self, fg_color="transparent")
         form.pack(fill="both", expand=True, padx=35)
 
-        # Seleccionar Suplente
         f_sup = ctk.CTkFrame(form, fg_color="transparent")
         f_sup.pack(fill="x", pady=5)
         ctk.CTkLabel(f_sup, text="Docente Suplente Designado:*", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -402,7 +387,6 @@ class SubstitutionModal(ctk.CTkToplevel):
         )
         self.combo_suplente.pack(fill="x", pady=(2, 0))
 
-        # Motivo de Licencia
         f_mot = ctk.CTkFrame(form, fg_color="transparent")
         f_mot.pack(fill="x", pady=5)
         ctk.CTkLabel(f_mot, text="Motivo de Licencia del Titular:*", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -427,7 +411,6 @@ class SubstitutionModal(ctk.CTkToplevel):
         )
         self.combo_motivo.pack(fill="x", pady=(2, 0))
 
-        # Fechas Inicio y Fin
         row_dates = ctk.CTkFrame(form, fg_color="transparent")
         row_dates.pack(fill="x", pady=5)
 
@@ -457,7 +440,6 @@ class SubstitutionModal(ctk.CTkToplevel):
         self.entry_end_date.insert(0, (date.today().replace(day=28)).strftime("%Y-%m-%d"))
         self.entry_end_date.pack(fill="x", pady=(2, 0))
 
-        # Resolución Ministerial
         f_res = ctk.CTkFrame(form, fg_color="transparent")
         f_res.pack(fill="x", pady=5)
         ctk.CTkLabel(f_res, text="N° Resolución Ministerial de Designación:*", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
@@ -471,7 +453,6 @@ class SubstitutionModal(ctk.CTkToplevel):
         )
         self.entry_res.pack(fill="x", pady=(2, 0))
 
-        # Botones
         btn_box = ctk.CTkFrame(self, fg_color="transparent")
         btn_box.pack(fill="x", padx=35, pady=(20, 20))
 
@@ -546,7 +527,6 @@ class DesignationsView(ctk.CTkFrame):
             session.close()
 
     def _build_ui(self):
-        # Tabs de Navegación: Cátedras vs Suplencias
         self.tabview = ctk.CTkTabview(
             self,
             fg_color="transparent",
@@ -560,10 +540,8 @@ class DesignationsView(ctk.CTkFrame):
         self.tab_desig = self.tabview.add("Planta de Cátedras y Designaciones")
         self.tab_subst = self.tabview.add("Suplencias y Reemplazos Oficiales")
 
-        # Tab 1: Cátedras
         self._build_desig_tab()
 
-        # Tab 2: Suplencias
         self._build_subst_tab()
 
     def _build_desig_tab(self):
@@ -611,7 +589,6 @@ class DesignationsView(ctk.CTkFrame):
         )
         self.btn_new_desig.pack(side="right", padx=15, pady=12)
 
-        # Tabla estilo Excel con scroll bidireccional (evita desborde y cortes)
         self.desig_table = ExcelTableFrame(self.tab_desig, min_width=1120)
         self.desig_table.pack(fill="both", expand=True, pady=5)
 
@@ -642,7 +619,6 @@ class DesignationsView(ctk.CTkFrame):
             text_color=Theme.TEXT_SECONDARY
         ).pack(anchor="w")
 
-        # Tabla estilo Excel con scroll bidireccional que asegura visualización total de columnas
         self.subst_table = ExcelTableFrame(self.tab_subst, min_width=1180)
         self.subst_table.pack(fill="both", expand=True, pady=5)
 
@@ -674,7 +650,6 @@ class DesignationsView(ctk.CTkFrame):
         for idx, d in enumerate(designations):
             row = self.desig_table.create_row(idx)
 
-            # Cátedra
             c_box = self.desig_table.add_cell(row, 0)
             ctk.CTkLabel(
                 c_box,
@@ -691,7 +666,6 @@ class DesignationsView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Docente
             t_box = self.desig_table.add_cell(row, 1)
             ctk.CTkLabel(
                 t_box,
@@ -708,7 +682,6 @@ class DesignationsView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Día y Horario
             h_box = self.desig_table.add_cell(row, 2)
             ctk.CTkLabel(
                 h_box,
@@ -725,7 +698,6 @@ class DesignationsView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Hs Cátedra (Badge centrado tipo Excel)
             hs_box = self.desig_table.add_cell(row, 3)
             hs_badge = ctk.CTkFrame(
                 hs_box,
@@ -742,7 +714,6 @@ class DesignationsView(ctk.CTkFrame):
                 text_color=Theme.SUCCESS_TEXT
             ).pack(padx=6, pady=2)
 
-            # Condición (Titular o Suplencia)
             cond_box = self.desig_table.add_cell(row, 4)
             if d["active_substitution"]:
                 sub = d["active_substitution"]
@@ -783,7 +754,6 @@ class DesignationsView(ctk.CTkFrame):
                     text_color=Theme.SUCCESS_TEXT
                 ).pack(padx=6, pady=2)
 
-            # Acciones
             actions = self.desig_table.add_cell(row, 5)
             btn_subst = ctk.CTkButton(
                 actions,
@@ -834,7 +804,6 @@ class DesignationsView(ctk.CTkFrame):
         for idx, s in enumerate(substitutions):
             row = self.subst_table.create_row(idx)
 
-            # Cátedra Asociada
             c_box = self.subst_table.add_cell(row, 0)
             ctk.CTkLabel(
                 c_box,
@@ -851,7 +820,6 @@ class DesignationsView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Docente Titular
             t_box = self.subst_table.add_cell(row, 1)
             ctk.CTkLabel(
                 t_box,
@@ -868,7 +836,6 @@ class DesignationsView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Docente Suplente
             sup_box = self.subst_table.add_cell(row, 2)
             ctk.CTkLabel(
                 sup_box,
@@ -885,7 +852,6 @@ class DesignationsView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Motivo de Licencia
             m_box = self.subst_table.add_cell(row, 3)
             ctk.CTkLabel(
                 m_box,
@@ -897,7 +863,6 @@ class DesignationsView(ctk.CTkFrame):
                 justify="left"
             ).pack(fill="x", anchor="w")
 
-            # Vigencia (Inicio - Fin)
             v_box = self.subst_table.add_cell(row, 4)
             v_badge = ctk.CTkFrame(
                 v_box,
@@ -914,7 +879,6 @@ class DesignationsView(ctk.CTkFrame):
                 text_color=Theme.WARNING_TEXT
             ).pack(padx=6, pady=3)
 
-            # N° Resolución
             r_box = self.subst_table.add_cell(row, 5)
             r_badge = ctk.CTkFrame(
                 r_box,

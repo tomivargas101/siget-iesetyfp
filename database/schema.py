@@ -6,10 +6,6 @@ except Exception:
     ARGENTINA_TZ = timezone(timedelta(hours=-3))
 
 def get_argentina_now() -> datetime:
-    """
-    Retorna la fecha y hora actual en la zona horaria oficial de Argentina (GMT-3 / UTC-3).
-    Devuelve un objeto datetime naive ajustado a la hora local para compatibilidad total con SQLite y SQLAlchemy.
-    """
     return datetime.now(ARGENTINA_TZ).replace(tzinfo=None)
 
 from sqlalchemy import (
@@ -27,7 +23,7 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(100), nullable=False)
-    role = Column(String(20), nullable=False)  # 'RECTOR', 'SECRETARIA', 'BEDEL'
+    role = Column(String(20), nullable=False)
     email = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     security_question = Column(String(255), nullable=True)
@@ -60,12 +56,10 @@ class AuditLog(Base):
 
     @property
     def local_timestamp(self) -> datetime:
-        """Devuelve el timestamp en hora local de Argentina."""
         return self.timestamp
 
     @property
     def formatted_timestamp(self) -> str:
-        """Devuelve la fecha y hora formateada en hora local argentina."""
         return self.timestamp.strftime("%d/%m/%Y %H:%M") if self.timestamp else "-"
 
 
@@ -87,8 +81,8 @@ class Subject(Base):
     career_id = Column(Integer, ForeignKey("careers.id"), nullable=False)
     code = Column(String(20), nullable=False)
     name = Column(String(150), nullable=False)
-    year_level = Column(Integer, default=1)  # 1°, 2°, 3° año
-    weekly_hours = Column(Integer, default=4)  # Horas cátedra semanales
+    year_level = Column(Integer, default=1)
+    weekly_hours = Column(Integer, default=4)
 
     career = relationship("Career", back_populates="subjects")
     designations = relationship("Designation", back_populates="subject")
@@ -104,7 +98,6 @@ class Teacher(Base):
     last_name = Column(String(100), nullable=False)
     email = Column(String(120), nullable=True)
     phone = Column(String(50), nullable=True)
-    # Situación de revista: 'Titular', 'Provisional', 'Interino', 'Suplente'
     revista = Column(String(30), default="Titular", nullable=False)
     max_weekly_hours = Column(Integer, default=30, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -119,24 +112,20 @@ class Teacher(Base):
 
 
 class Designation(Base):
-    """
-    Designación de Cátedra / Cargo: Asigna un docente a una materia o cargo con horario y revista específicos.
-    Cumple con RN-01 y RN-02 permitiendo múltiples designaciones por docente con situación de revista diferenciada.
-    """
     __tablename__ = "designations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
-    cargo = Column(String(150), nullable=True)  # Cargo o función docente
-    revista = Column(String(20), nullable=True)  # Situación de revista: 'TIT', 'INT', 'SUP' (RN-02)
-    day_of_week = Column(String(20), nullable=False)  # 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'
-    start_time = Column(String(10), nullable=False)   # '18:00'
-    end_time = Column(String(10), nullable=False)     # '20:00'
-    hours_count = Column(Integer, default=4, nullable=False)  # Horas cátedra efectivas
+    cargo = Column(String(150), nullable=True)
+    revista = Column(String(20), nullable=True)
+    day_of_week = Column(String(20), nullable=False)
+    start_time = Column(String(10), nullable=False)
+    end_time = Column(String(10), nullable=False)
+    hours_count = Column(Integer, default=4, nullable=False)
     resolution_number = Column(String(100), nullable=True)
     academic_year = Column(Integer, default=datetime.now().year)
-    is_active = Column(Boolean, default=True, nullable=False)  # Baja lógica histórica (RN-03)
+    is_active = Column(Boolean, default=True, nullable=False)
     notes = Column(Text, nullable=True)
 
     subject = relationship("Subject", back_populates="designations")
@@ -146,7 +135,6 @@ class Designation(Base):
 
     @property
     def effective_revista(self):
-        """Devuelve la situación de revista normalizada ('TIT', 'INT', 'SUP')."""
         if self.revista:
             from models.normative import NormativeClassifier
             return NormativeClassifier.normalize_revista(self.revista)
@@ -157,7 +145,6 @@ class Designation(Base):
 
     @property
     def effective_cargo(self):
-        """Devuelve la descripción del cargo o materia asignada."""
         if self.cargo:
             return self.cargo
         if self.subject:
@@ -165,19 +152,16 @@ class Designation(Base):
         return "Cátedra"
 
 class Substitution(Base):
-    """
-    Registro de suplencias vinculando docente suplente a la designación del titular reemplazado.
-    """
     __tablename__ = "substitutions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     designation_id = Column(Integer, ForeignKey("designations.id"), nullable=False)
     titular_teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
     suplente_teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
-    license_reason = Column(String(200), nullable=False)  # Ej. Art. 48 Salud, Maternidad, etc.
+    license_reason = Column(String(200), nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-    resolution_number = Column(String(100), nullable=False)  # Resolución ministerial
+    resolution_number = Column(String(100), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=get_argentina_now)
 
@@ -186,21 +170,17 @@ class Substitution(Base):
     suplente = relationship("Teacher", foreign_keys=[suplente_teacher_id])
 
 class Attendance(Base):
-    """
-    Control de asistencia diaria docente.
-    Conserva registros históricos ante bajas lógicas (RN-03).
-    """
     __tablename__ = "attendances"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
-    designation_id = Column(Integer, ForeignKey("designations.id"), nullable=True)  # Vinculación opcional a designación específica
+    designation_id = Column(Integer, ForeignKey("designations.id"), nullable=True)
     date = Column(Date, nullable=False, index=True)
-    status = Column(String(30), default="Presente", nullable=False)  # 'Presente', 'Ausente c/aviso', 'Ausente s/aviso', 'Licencia'
+    status = Column(String(30), default="Presente", nullable=False)
     hours = Column(Integer, default=4)
     observations = Column(String(255), nullable=True)
     registered_by = Column(String(50), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)  # Soporte para bajas lógicas o anulación sin perder trazabilidad
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=get_argentina_now)
 
     teacher = relationship("Teacher", back_populates="attendances")

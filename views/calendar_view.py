@@ -1,12 +1,3 @@
-"""
-Vista de Calendario Institucional del Profesorado para SIGET (CustomTkinter)
-Permite visualizar de fecha a fecha el historial completo de cada docente:
-- Licencias médicas (Art. 114 a, 114 b)
-- Faltas y permisos particulares (Art. 115)
-- Designaciones activas y control de 30 horas semanales
-- Suplencias vigentes (titular sustituido y suplente asignado)
-- Barra de progreso de topes anuales y estado de disponibilidad institucional.
-"""
 
 import customtkinter as ctk
 from datetime import datetime, date
@@ -29,14 +20,12 @@ class CalendarView(ctk.CTkFrame):
             self._load_timeline()
 
     def _build_ui(self):
-        # Barra superior de filtros
         filter_card = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)
         filter_card.pack(fill="x", padx=16, pady=(12, 8))
 
         row = ctk.CTkFrame(filter_card, fg_color="transparent")
         row.pack(fill="x", padx=14, pady=12)
 
-        # Selector de Docente
         lbl_doc = ctk.CTkLabel(row, text="Docente:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_SECONDARY)
         lbl_doc.pack(side="left", padx=(0, 6))
 
@@ -50,7 +39,6 @@ class CalendarView(ctk.CTkFrame):
         )
         self.combo_teacher.pack(side="left", padx=(0, 16))
 
-        # Rango de fechas
         now = datetime.now()
         lbl_start = ctk.CTkLabel(row, text="Desde:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_SECONDARY)
         lbl_start.pack(side="left", padx=(0, 6))
@@ -78,7 +66,6 @@ class CalendarView(ctk.CTkFrame):
         )
         btn_search.pack(side="left")
 
-        # Contenedor de Ficha del Docente y Topes Estatutarios
         self.profile_frame = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)
         self.profile_frame.pack(fill="x", padx=16, pady=(6, 12))
 
@@ -116,11 +103,9 @@ class CalendarView(ctk.CTkFrame):
         )
         self.lbl_teacher_meta.pack(anchor="w", pady=(2, 8))
 
-        # Métricas de carga horaria y topes en columnas
         metrics_grid = ctk.CTkFrame(p_inner, fg_color="transparent")
         metrics_grid.pack(fill="x", pady=(4, 0))
 
-        # Carga Horaria Semanal
         col_hours = ctk.CTkFrame(metrics_grid, fg_color=Theme.BG_SURFACE, corner_radius=8, border_width=1, border_color=Theme.BORDER)
         col_hours.pack(side="left", fill="both", expand=True, padx=(0, 6), pady=4)
         ctk.CTkLabel(col_hours, text="Carga Horaria Semanal", font=ctk.CTkFont(size=10, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w", padx=10, pady=(6, 2))
@@ -130,7 +115,6 @@ class CalendarView(ctk.CTkFrame):
         self.bar_hours.set(0)
         self.bar_hours.pack(fill="x", padx=10, pady=(4, 8))
 
-        # Inasistencias Injustificadas
         col_i = ctk.CTkFrame(metrics_grid, fg_color=Theme.BG_SURFACE, corner_radius=8, border_width=1, border_color=Theme.BORDER)
         col_i.pack(side="left", fill="both", expand=True, padx=4, pady=4)
         ctk.CTkLabel(col_i, text="Inasistencias (I)", font=ctk.CTkFont(size=10, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w", padx=10, pady=(6, 2))
@@ -140,7 +124,6 @@ class CalendarView(ctk.CTkFrame):
         self.bar_i.set(0)
         self.bar_i.pack(fill="x", padx=10, pady=(4, 8))
 
-        # Permisos Art. 115
         col_p = ctk.CTkFrame(metrics_grid, fg_color=Theme.BG_SURFACE, corner_radius=8, border_width=1, border_color=Theme.BORDER)
         col_p.pack(side="left", fill="both", expand=True, padx=4, pady=4)
         ctk.CTkLabel(col_p, text="Permisos Particulares (115)", font=ctk.CTkFont(size=10, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w", padx=10, pady=(6, 2))
@@ -150,7 +133,6 @@ class CalendarView(ctk.CTkFrame):
         self.bar_p.set(0)
         self.bar_p.pack(fill="x", padx=10, pady=(4, 8))
 
-        # Licencias Médicas Art. 114 a
         col_lic = ctk.CTkFrame(metrics_grid, fg_color=Theme.BG_SURFACE, corner_radius=8, border_width=1, border_color=Theme.BORDER)
         col_lic.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=4)
         ctk.CTkLabel(col_lic, text="Lic. Médica (114 a)", font=ctk.CTkFont(size=10, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w", padx=10, pady=(6, 2))
@@ -160,7 +142,6 @@ class CalendarView(ctk.CTkFrame):
         self.bar_lic.set(0)
         self.bar_lic.pack(fill="x", padx=10, pady=(4, 8))
 
-        # Historial de Novedades / Cronograma
         tbl_frame = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)
         tbl_frame.pack(fill="both", expand=True, padx=16, pady=(6, 16))
 
@@ -218,12 +199,10 @@ class CalendarView(ctk.CTkFrame):
         self.lbl_teacher_meta.configure(text=f"DNI: {t['dni']} | Legajo: {t['legajo']} | Situación de Revista: {t['revista']}")
         self.badge_avail.configure(text=t["availabilityStatus"])
 
-        # Barra horas
         active_h = t["activeHours"]
         self.lbl_hours.configure(text=f"{active_h} / 30 hs")
         self.bar_hours.set(min(1.0, active_h / 30.0))
 
-        # Topes
         i_cnt = m["inasistencias"]["count"]
         self.lbl_i.configure(text=f"{i_cnt} / 5 faltas")
         self.bar_i.set(min(1.0, i_cnt / 5.0))
@@ -236,7 +215,6 @@ class CalendarView(ctk.CTkFrame):
         self.lbl_lic.configure(text=f"{lic_cnt} / 25 días")
         self.bar_lic.set(min(1.0, lic_cnt / 25.0))
 
-        # Limpiar eventos previos
         for widget in self.scroll_events.winfo_children():
             widget.destroy()
 

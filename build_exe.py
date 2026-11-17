@@ -1,10 +1,3 @@
-"""
-Script automatizado de compilación y empaquetado para SIGET.
-Genera el ejecutable (.exe) institucional standalone con el icono oficial y todos sus activos.
-
-Uso:
-    python build_exe.py
-"""
 
 import sys
 import os
@@ -15,7 +8,6 @@ def build():
     print("Iniciando empaquetado corporativo de SIGET con PyInstaller...")
     print("=" * 60)
 
-    # Verificar existencia de archivos clave
     if not os.path.exists("assets/icon.ico"):
         print("[ERROR] No se encontró 'assets/icon.ico'.")
         sys.exit(1)

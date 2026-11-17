@@ -1,40 +1,20 @@
-"""
-Módulo de Catálogo y Reglas Normativas del Instituto (RN-01 a RN-08).
-
-Implementa las directrices oficiales para la gestión docente y el procesamiento de novedades:
-- RN-01: Identificación unívoca de persona por DNI (almacenado como texto) y datos comunes almacenados una sola vez.
-- RN-02: Múltiples designaciones por persona (cargos, materias, situación de revista: TIT, INT, SUP).
-- RN-03: Conservación del historial completo de designaciones y registros de asistencia (bajas lógicas sin borrado físico).
-- RN-04: Cuadro DL-01 - Exclusivo para licencias por enfermedad (catálogo médico).
-- RN-05: Cuadro DL-02 - Inasistencias, permisos y otras licencias que no sean por enfermedad.
-- RN-06: Una inasistencia solo puede abarcar un día (Desde == Hasta, Total Días == 1).
-- RN-07: Autocompletado normativo de columna "Oficina" con el valor 1452.
-- RN-08: Autocompletado normativo de columna "Año" con el año calendario actual.
-"""
-
 from datetime import datetime, date
 from typing import Optional, Union
 
-# ==============================================================================
-# CONSTANTES NORMATIVAS INSTITUCIONALES (RN-07, RN-08, RN-01, RN-02)
-# ==============================================================================
-DEFAULT_OFFICE_CODE: int = 1452  # RN-07: Código de oficina oficial de liquidaciones
+DEFAULT_OFFICE_CODE: int = 1452
 
-REVISTA_TIT: str = "TIT"  # Titular
-REVISTA_INT: str = "INT"  # Interino / Provisional
-REVISTA_SUP: str = "SUP"  # Suplente
+REVISTA_TIT: str = "TIT"
+REVISTA_INT: str = "INT"
+REVISTA_SUP: str = "SUP"
 
 REVISTA_CODES: list[str] = [REVISTA_TIT, REVISTA_INT, REVISTA_SUP]
 
-# Estados cerrados acordados (Documento de Requerimientos v2.0):
-# P (Permiso), I (Inasistencia - estado por defecto), LIC (Licencia), LT (Largo tratamiento), PR (Presente)
 STATUS_PERMISO: str = "P"
 STATUS_INASISTENCIA: str = "I"
 STATUS_LIC: str = "LIC"
 STATUS_LARGO_TRATAMIENTO: str = "LT"
 STATUS_PRESENTE_CODE: str = "PR"
 
-# Compatibilidad con nomenclaturas históricas
 STATUS_PRESENTE: str = "Presente"
 STATUS_AUSENTE_AVISO: str = "Ausente c/aviso"
 STATUS_AUSENTE_SIN_AVISO: str = "Ausente s/aviso"
@@ -43,11 +23,6 @@ STATUS_CLOSED_CODES: list[str] = [
     STATUS_INASISTENCIA, STATUS_PRESENTE_CODE, STATUS_PERMISO, STATUS_LIC, STATUS_LARGO_TRATAMIENTO
 ]
 
-# ==============================================================================
-# CATÁLOGO DE ARTÍCULOS Y MOTIVOS NORMATIVOS (RN-04 & RN-05)
-# ==============================================================================
-
-# Licencias Médicas / Salud (Cuadro DL-01 - RN-04)
 MEDICAL_ARTICLES: dict[str, str] = {
     "ART_48": "Art. 48 - Tratamiento Médico Prolongado",
     "ART_47": "Art. 47 - Enfermedad Corta Duración",
@@ -60,11 +35,7 @@ MEDICAL_ARTICLES: dict[str, str] = {
     "REPOSO_MEDICO": "Reposo Médico Domiciliario"
 }
 
-# ==============================================================================
-# CATÁLOGO MAESTRO DE LICENCIAS Y NOVEDADES (HOJAS 1 A 6 - REQUERIMIENTOS V2.0)
-# ==============================================================================
 MASTER_LICENSE_CATALOG: list[dict] = [
-    # --- HOJA 1: Licencias Médicas de Corto Tratamiento / Afección Común (Cuadro IL-01 / DL-01) ---
     {
         "sheet": 1,
         "sheet_name": "Hoja 1: Enfermedad Corto Tratamiento",
@@ -98,8 +69,6 @@ MASTER_LICENSE_CATALOG: list[dict] = [
         "is_medical": True,
         "max_days_annual": 20
     },
-
-    # --- HOJA 2: Licencias Médicas de Largo Tratamiento y Riesgos de Trabajo (Cuadro IL-01 / DL-01) ---
     {
         "sheet": 2,
         "sheet_name": "Hoja 2: Largo Tratamiento y ART",
@@ -133,8 +102,6 @@ MASTER_LICENSE_CATALOG: list[dict] = [
         "is_medical": True,
         "max_days_annual": None
     },
-
-    # --- HOJA 3: Inasistencias y Permisos Particulares (Cuadro IL-02 / DL-02) ---
     {
         "sheet": 3,
         "sheet_name": "Hoja 3: Inasistencias y Permisos",
@@ -168,8 +135,6 @@ MASTER_LICENSE_CATALOG: list[dict] = [
         "is_medical": False,
         "max_days_annual": 6
     },
-
-    # --- HOJA 4: Licencias Familiares, Maternidad, Nacimiento y Adopción (Cuadro IL-02 / DL-02) ---
     {
         "sheet": 4,
         "sheet_name": "Hoja 4: Maternidad y Familiares",
@@ -203,8 +168,6 @@ MASTER_LICENSE_CATALOG: list[dict] = [
         "is_medical": False,
         "max_days_annual": 90
     },
-
-    # --- HOJA 5: Licencias por Matrimonio y Duelo Familiar (Cuadro IL-02 / DL-02) ---
     {
         "sheet": 5,
         "sheet_name": "Hoja 5: Matrimonio y Duelo",
@@ -249,8 +212,6 @@ MASTER_LICENSE_CATALOG: list[dict] = [
         "is_medical": False,
         "max_days_annual": 3
     },
-
-    # --- HOJA 6: Licencias Especiales, Exámenes, Perfeccionamiento y Gremial (Cuadro IL-02 / DL-02) ---
     {
         "sheet": 6,
         "sheet_name": "Hoja 6: Exámenes y Licencias Especiales",
@@ -308,9 +269,6 @@ MASTER_LICENSE_CATALOG: list[dict] = [
     }
 ]
 
-# ==============================================================================
-# CALENDARIO ESCOLAR INSTITUCIONAL Y FERIADOS (RF-10)
-# ==============================================================================
 ACADEMIC_CALENDAR_HOLIDAYS: list[dict] = [
     {"date": "01-01", "name": "Año Nuevo", "type": "Feriado Nacional Inamovible"},
     {"date": "03-24", "name": "Día Nacional de la Memoria por la Verdad y la Justicia", "type": "Feriado Nacional Inamovible"},
@@ -320,7 +278,6 @@ ACADEMIC_CALENDAR_HOLIDAYS: list[dict] = [
     {"date": "06-17", "name": "Paso a la Inmortalidad del Gral. Don Martín Miguel de Güemes", "type": "Feriado Nacional"},
     {"date": "06-20", "name": "Paso a la Inmortalidad del Gral. Manuel Belgrano", "type": "Feriado Nacional Inamovible"},
     {"date": "07-09", "name": "Día de la Independencia", "type": "Feriado Nacional Inamovible"},
-    # Receso Escolar de Invierno (Julio institucional)
     {"date": "07-13", "name": "Receso Escolar de Invierno", "type": "Receso Invernal Institucional"},
     {"date": "07-14", "name": "Receso Escolar de Invierno", "type": "Receso Invernal Institucional"},
     {"date": "07-15", "name": "Receso Escolar de Invierno", "type": "Receso Invernal Institucional"},
@@ -341,13 +298,10 @@ ACADEMIC_CALENDAR_HOLIDAYS: list[dict] = [
     {"date": "12-25", "name": "Navidad", "type": "Feriado Nacional Inamovible"}
 ]
 
-# Inasistencias y Licencias No Médicas (Cuadro DL-02 - RN-05)
 NON_MEDICAL_ARTICLES: dict[str, str] = {
-    # Inasistencias (RN-06: 1 día exclusivo)
     "AUSENTE_AVISO": "Inasistencia con Aviso",
     "AUSENTE_SIN_AVISO": "Inasistencia Injustificada / sin Aviso",
     "FALTA_PUNTUAL": "Falta Puntual de Jornada",
-    # Permisos y otras licencias no médicas
     "ART_114_D": "Art. 114 d - Maternidad / Paternidad",
     "ART_115": "Art. 115 - Razones Particulares",
     "DUELO": "Duelo Familiar",
@@ -359,7 +313,6 @@ NON_MEDICAL_ARTICLES: dict[str, str] = {
     "FUERZA_MAYOR": "Fuerza Mayor / Climática"
 }
 
-# Palabras clave para clasificación inteligente de licencias médicas (RN-04)
 MEDICAL_KEYWORDS: tuple[str, ...] = (
     "art. 48", "art 48", "art. 47", "art 47",
     "art. 114 a", "art 114 a", "art. 114a",
@@ -371,36 +324,22 @@ MEDICAL_KEYWORDS: tuple[str, ...] = (
     "art", "tratamiento médico", "familiar enfermo", "aislamiento", "covid"
 )
 
-# Palabras clave para inasistencias (RN-06: regla de 1 solo día)
 ABSENCE_KEYWORDS: tuple[str, ...] = (
     "ausente", "falta", "inasistencia", "no asistió", "no asistio"
 )
 
 
 class NormativeClassifier:
-    """
-    Clasificador y validador de normas institucionales para personal y novedades.
-    """
-
     @staticmethod
     def normalize_dni(dni: any) -> str:
-        """
-        Garantiza que el DNI se almacene y manipule como texto limpio (RN-01),
-        preservando ceros a la izquierda y sin caracteres no numéricos o espacios.
-        """
         if dni is None:
             return ""
         dni_str = str(dni).strip()
-        # Filtrar caracteres si viniera formateado con puntos
         digits_only = "".join(ch for ch in dni_str if ch.isdigit())
         return digits_only if digits_only else dni_str
 
     @staticmethod
     def normalize_revista(revista: Optional[str]) -> str:
-        """
-        Normaliza la situación de revista al código estándar de tres letras (RN-02):
-        'TIT' (Titular), 'INT' (Interino / Provisional), 'SUP' (Suplente).
-        """
         if not revista:
             return REVISTA_TIT
 
@@ -415,27 +354,18 @@ class NormativeClassifier:
 
     @staticmethod
     def is_medical_license(status: str, observations: str = "") -> bool:
-        """
-        Determina si un registro corresponde a una Licencia por Enfermedad (RN-04 -> Cuadro DL-01).
-        """
         st_clean = (status or "").strip().lower()
         obs_clean = (observations or "").strip().lower()
 
-        # Si el estado es directamente "Licencia" y las observaciones refieren a salud
         if st_clean == "licencia":
             if not obs_clean:
-                # Por defecto normativo ante ausencia de detalle médico en licencia
                 return True
             return any(kw in obs_clean for kw in MEDICAL_KEYWORDS)
 
-        # Si en observaciones se menciona explícitamente salud o artículo médico
         return any(kw in obs_clean for kw in MEDICAL_KEYWORDS)
 
     @staticmethod
     def is_absence(status: str, observations: str = "") -> bool:
-        """
-        Determina si el registro es una inasistencia puntual (RN-06: solo 1 día).
-        """
         st_clean = (status or "").strip().lower()
         if any(kw in st_clean for kw in ("ausente", "falta", "inasistencia")):
             return True
@@ -448,9 +378,6 @@ class NormativeClassifier:
 
     @staticmethod
     def is_non_medical_license(status: str, observations: str = "") -> bool:
-        """
-        Determina si un registro corresponde a un permiso o licencia no médica (RN-05 -> Cuadro DL-02).
-        """
         if NormativeClassifier.is_medical_license(status, observations):
             return False
 
@@ -468,13 +395,6 @@ class NormativeClassifier:
 
     @staticmethod
     def classify_target_table(status: str, observations: str = "") -> str:
-        """
-        Clasifica un registro de asistencia en:
-        - 'DL-01': Cuadro DL-01 (Licencias por Enfermedad - RN-04)
-        - 'DL-02': Cuadro DL-02 (Inasistencias, Permisos y Licencias no médicas - RN-05)
-        - 'PRESENTE': Asistencia normal (no computa para DL-01 ni DL-02)
-        - 'IGNORAR': Sin registrar o estado desconocido
-        """
         st_clean = (status or "").strip().lower()
         if st_clean == "presente":
             return "PRESENTE"
@@ -488,43 +408,33 @@ class NormativeClassifier:
 
     @staticmethod
     def get_current_academic_year() -> int:
-        """Retorna el año calendario actual (RN-08)."""
         return datetime.now().year
 
     @staticmethod
     def get_default_office() -> int:
-        """Retorna el código oficial de oficina 1452 (RN-07)."""
         return DEFAULT_OFFICE_CODE
 
     @staticmethod
     def get_closed_status_codes() -> list[str]:
-        """Retorna el catálogo cerrado de marcas de asistencia (RF-08): PR, I, P, LIC, LT."""
         return ["PR", "I", "P", "LIC", "LT"]
 
     @staticmethod
     def get_master_catalog() -> list[dict]:
-        """Retorna el catálogo maestro completo de licencias y novedades (Hojas 1 a 6)."""
         return MASTER_LICENSE_CATALOG
 
     @staticmethod
     def get_article_details(search_key: str) -> Optional[dict]:
-        """
-        Busca los detalles de un artículo o código en el catálogo maestro (Hojas 1-6).
-        Autocompleta el código y deriva al cuadro correspondiente (IL-01 o IL-02 / DL-01 o DL-02).
-        """
         if not search_key:
             return None
         norm_key = str(search_key).lower().strip()
         clean_key = "".join(ch for ch in norm_key if ch.isalnum())
 
-        # 1. Coincidencia exacta
         for item in MASTER_LICENSE_CATALOG:
             clean_code = "".join(ch for ch in item["code"].lower() if ch.isalnum())
             clean_art = "".join(ch for ch in item["article"].lower() if ch.isalnum())
             if item["code"].lower() == norm_key or item["article"].lower() == norm_key or clean_code == clean_key or clean_art == clean_key:
                 return item
 
-        # 2. Coincidencia parcial
         for item in MASTER_LICENSE_CATALOG:
             clean_code = "".join(ch for ch in item["code"].lower() if ch.isalnum())
             clean_art = "".join(ch for ch in item["article"].lower() if ch.isalnum())
@@ -535,7 +445,6 @@ class NormativeClassifier:
                 (len(clean_art) >= 3 and clean_key.startswith(clean_art))):
                 return item
 
-        # 3. Fallback por clasificación médica o no médica
         is_med = NormativeClassifier.is_medical_license("Licencia", norm_key)
         return {
             "sheet": 1 if is_med else 3,
@@ -551,11 +460,6 @@ class NormativeClassifier:
 
     @staticmethod
     def classify_novelty(status: str, observation: str = "") -> dict:
-        """
-        Clasifica una novedad en IL-01 o IL-02 según las 6 hojas del catálogo maestro:
-        - Hoja 1 y 2 -> IL-01 (Licencias Médicas y Salud - RN-04)
-        - Hoja 3 a 6 -> IL-02 (Inasistencias, Permisos y Licencias Especiales - RN-05)
-        """
         text = f"{status or ''} {observation or ''}".strip()
         norm_status = (status or "").strip().upper()
 
@@ -582,7 +486,7 @@ class NormativeClassifier:
                 "target_cuadro": "IL-02",
                 "alias_cuadro": "DL-02",
                 "tipo": "Inasistencia (I)",
-                "can_group": False,  # RN-06: 1 solo día
+                "can_group": False,
                 "code": "I"
             }
 
@@ -615,16 +519,12 @@ class NormativeClassifier:
 
     @staticmethod
     def get_calendar_day_info(date_val: Union[date, str, datetime]) -> dict:
-        """
-        Determina si una fecha corresponde a un día inhábil escolar (feriado nacional,
-        asueto educativo, receso invernal o fin de semana) para la interfaz operativa (RF-10).
-        """
         if isinstance(date_val, str):
             parts = date_val.split("-") if "-" in date_val else date_val.split("/")
             if len(parts) == 3:
-                if len(parts[0]) == 4:  # YYYY-MM-DD
+                if len(parts[0]) == 4:
                     d_obj = date(int(parts[0]), int(parts[1]), int(parts[2]))
-                else:  # DD/MM/YYYY
+                else:
                     d_obj = date(int(parts[2]), int(parts[1]), int(parts[0]))
             else:
                 return {"is_non_working": False, "reason": None, "type": None, "is_weekend": False, "badge": None}
@@ -633,7 +533,6 @@ class NormativeClassifier:
         else:
             d_obj = date_val
 
-        # Fin de semana (5: Sábado, 6: Domingo)
         weekday = d_obj.weekday()
         is_weekend = (weekday in (5, 6))
 

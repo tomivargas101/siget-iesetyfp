@@ -23,7 +23,6 @@ class TeacherService:
                 )
             teachers = query.order_by(Teacher.last_name.asc(), Teacher.first_name.asc()).all()
             
-            # Map with active hours
             results = []
             for t in teachers:
                 active_hours = sum(d.hours_count for d in t.designations if d.is_active)
@@ -56,9 +55,6 @@ class TeacherService:
 
     @staticmethod
     def get_by_dni(dni: str):
-        """
-        Recupera un docente por su DNI almacenado como texto unívoco (RN-01).
-        """
         from models.normative import NormativeClassifier
         clean_dni = NormativeClassifier.normalize_dni(dni)
         session = get_db_session()
@@ -69,16 +65,11 @@ class TeacherService:
 
     @staticmethod
     def save(data: dict) -> tuple[bool, str]:
-        """
-        Guarda o actualiza los datos personales comunes de un docente (RN-01).
-        Los datos personales se almacenan una sola vez independientemente de sus designaciones.
-        """
         from models.validation import validate_dni, validate_cuil, validate_name, validate_legajo, validate_email, validate_max_weekly_hours
         session = get_db_session()
         try:
             t_id = data.get("id")
 
-            # Validaciones estrictas
             val_dni, clean_dni, err_dni = validate_dni(data.get("dni"))
             if not val_dni:
                 return False, err_dni
@@ -107,7 +98,6 @@ class TeacherService:
             if not val_hours:
                 return False, err_hours
 
-            # Validar unicidad DNI y Legajo (RN-01)
             dni_check = session.query(Teacher).filter(Teacher.dni == clean_dni)
             if t_id:
                 dni_check = dni_check.filter(Teacher.id != t_id)
@@ -162,10 +152,6 @@ class TeacherService:
 
     @staticmethod
     def toggle_active(teacher_id: int) -> tuple[bool, str]:
-        """
-        Aplica baja lógica o reactivación preservando el historial íntegro (RN-03).
-        Nunca elimina antecedentes históricos ni registros de asistencia vinculados.
-        """
         session = get_db_session()
         try:
             t = session.query(Teacher).filter(Teacher.id == teacher_id).first()
@@ -184,12 +170,6 @@ class TeacherService:
 
     @staticmethod
     def get_full_history(teacher_id: int) -> dict:
-        """
-        Recupera el historial completo de un docente (RN-01 a RN-03):
-        - Datos personales comunes (RN-01).
-        - Todas sus designaciones históricas y activas con situación de revista (RN-02).
-        - Suplencias vinculadas y registros de asistencia acumulados sin borrado lógico (RN-03).
-        """
         from database.schema import Designation, Substitution, Attendance
         session = get_db_session()
         try:

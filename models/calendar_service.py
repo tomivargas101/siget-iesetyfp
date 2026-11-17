@@ -1,13 +1,3 @@
-"""
-Servicio de Calendario Institucional del Profesorado para SIGET (Python / SQLAlchemy)
-Provee el historial cronológico y control de disponibilidad de los docentes:
-- Licencias médicas (Art. 114 a, 114 b)
-- Faltas y permisos particulares (Art. 115)
-- Designaciones activas y control de 30 horas semanales
-- Suplencias activas
-- Acumulado del ciclo lectivo y alertas de proximidad a topes estatutarios.
-"""
-
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date
 from database.connection import get_db_session
@@ -51,7 +41,6 @@ class TeacherCalendarServicePy:
             start = start_date or f"{now.year}-{str(now.month).zfill(2)}-01"
             end = end_date or f"{now.year}-{str(now.month).zfill(2)}-28"
 
-            # Designaciones activas
             desigs = session.query(Designation).filter(
                 Designation.teacher_id == teacher.id,
                 Designation.is_active == True
@@ -74,7 +63,6 @@ class TeacherCalendarServicePy:
                     "revista": d.revista
                 })
 
-            # Suplencias como titular
             tit_subs = session.query(Substitution).filter(
                 Substitution.titular_teacher_id == teacher.id
             ).order_by(Substitution.start_date.desc()).all()
@@ -93,7 +81,6 @@ class TeacherCalendarServicePy:
                     "isActive": bool(s.is_active)
                 })
 
-            # Suplencias como suplente
             sup_subs = session.query(Substitution).filter(
                 Substitution.suplente_teacher_id == teacher.id
             ).order_by(Substitution.start_date.desc()).all()
@@ -112,7 +99,6 @@ class TeacherCalendarServicePy:
                     "isActive": bool(s.is_active)
                 })
 
-            # Eventos de asistencia en el rango
             start_d = datetime.strptime(start, "%Y-%m-%d").date()
             end_d = datetime.strptime(end, "%Y-%m-%d").date()
 
@@ -151,7 +137,6 @@ class TeacherCalendarServicePy:
                     "observations": a.observations or ""
                 })
 
-            # Acumulados del año
             year_val = start_d.year
             year_atts = session.query(Attendance).filter(
                 Attendance.teacher_id == teacher.id,
@@ -183,7 +168,6 @@ class TeacherCalendarServicePy:
                 elif c.is_presence:
                     presentes += 1
 
-            # Disponibilidad
             avail_status = "Disponible"
             avail_badge = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
             if any(s["isActive"] for s in tit_list):

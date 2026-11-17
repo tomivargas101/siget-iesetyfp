@@ -23,7 +23,6 @@ class DesignationService:
 
             results = []
             for d in designations:
-                # Verificar si tiene suplencia activa vigente
                 active_sub = session.query(Substitution).filter(
                     Substitution.designation_id == d.id,
                     Substitution.is_active == True,
@@ -70,10 +69,6 @@ class DesignationService:
 
     @staticmethod
     def get_by_teacher_dni(dni: str, only_active: bool = False):
-        """
-        Recupera todas las designaciones de una persona a partir de su DNI (RN-01 y RN-02).
-        Permite consultar cargos múltiples y situaciones de revista diferenciadas (TIT, INT, SUP).
-        """
         from models.normative import NormativeClassifier
         clean_dni = NormativeClassifier.normalize_dni(dni)
         session = get_db_session()
@@ -101,9 +96,6 @@ class DesignationService:
 
     @staticmethod
     def get_history(teacher_id: int = None, subject_id: int = None):
-        """
-        Recupera el historial completo de designaciones (activas y dadas de baja lógica - RN-03).
-        """
         session = get_db_session()
         try:
             query = session.query(Designation).join(Subject).join(Teacher)
@@ -132,10 +124,6 @@ class DesignationService:
 
     @staticmethod
     def save_designation(data: dict) -> tuple[bool, str]:
-        """
-        Guarda o actualiza una designación validando previamente el tope de horas y compatibilidad horaria.
-        Soporta cargos y situación de revista por designación (RN-02).
-        """
         from models.normative import NormativeClassifier
         session = get_db_session()
         try:
@@ -148,7 +136,6 @@ class DesignationService:
             cargo = data.get("cargo")
             revista = NormativeClassifier.normalize_revista(data.get("revista")) if data.get("revista") else None
 
-            # 1. Validación de tope de horas cátedra
             is_cap_valid, curr_hs, max_hs, cap_msg = BusinessValidationService.validate_hours_cap(
                 teacher_id=teacher_id,
                 new_hours=hours,
@@ -158,7 +145,6 @@ class DesignationService:
             if not is_cap_valid:
                 return False, cap_msg
 
-            # 2. Validación de superposición horaria
             is_time_valid, time_msg = BusinessValidationService.validate_schedule_compatibility(
                 teacher_id=teacher_id,
                 day_of_week=day,
@@ -170,7 +156,6 @@ class DesignationService:
             if not is_time_valid:
                 return False, time_msg
 
-            # Guardar o actualizar
             if desig_id:
                 desig = session.query(Designation).filter(Designation.id == desig_id).first()
                 if not desig:
@@ -217,9 +202,6 @@ class DesignationService:
 
     @staticmethod
     def toggle_active(desig_id: int) -> tuple[bool, str]:
-        """
-        Baja lógica de designación: preserva el historial íntegro de la designación y de asistencias (RN-03).
-        """
         session = get_db_session()
         try:
             d = session.query(Designation).filter(Designation.id == desig_id).first()
@@ -275,7 +257,6 @@ class DesignationService:
             if not desig:
                 return False, "Designación no encontrada."
 
-            # Validar que el suplente no supere su tope de horas con esta suplencia
             is_cap_valid, curr, max_hs, cap_msg = BusinessValidationService.validate_hours_cap(
                 teacher_id=suplente_id,
                 new_hours=desig.hours_count,
@@ -284,7 +265,6 @@ class DesignationService:
             if not is_cap_valid:
                 return False, f"Docente suplente excede horas: {cap_msg}"
 
-            # Validar compatibilidad horaria para el suplente
             is_time_valid, time_msg = BusinessValidationService.validate_schedule_compatibility(
                 teacher_id=suplente_id,
                 day_of_week=desig.day_of_week,

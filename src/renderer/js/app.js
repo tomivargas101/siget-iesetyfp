@@ -2109,7 +2109,6 @@ function openTeacherModal(teacher = null) {
         const errText = document.getElementById('modal-teacher-error-text');
         const allInputs = [dniInput, legajoInput, lastNameInput, firstNameInput, cuilInput, emailInput, phoneInput, maxHoursInput];
 
-        // Sanitize DNI typing: only digits, max 8 chars
         if (dniInput) {
             dniInput.addEventListener('input', (e) => {
                 e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8);
@@ -2148,7 +2147,6 @@ function openTeacherModal(teacher = null) {
             const rawDni = dniInput ? dniInput.value.trim() : '';
             const cleanDni = rawDni.replace(/\D/g, '');
 
-            // 1. DNI Validation
             if (!rawDni) {
                 return showFieldError(dniInput, 'El DNI es un campo obligatorio.');
             }
@@ -2156,7 +2154,6 @@ function openTeacherModal(teacher = null) {
                 return showFieldError(dniInput, `El DNI debe contener 7 u 8 dígitos numéricos válidos (ej. 28456123). Se ingresó un valor incompleto o fuera de rango: "${rawDni}".`);
             }
 
-            // 2. Legajo Validation
             const legajoVal = legajoInput ? legajoInput.value.trim() : '';
             if (!legajoVal) {
                 return showFieldError(legajoInput, 'El número de Legajo es un campo obligatorio.');
@@ -2168,7 +2165,6 @@ function openTeacherModal(teacher = null) {
                 return showFieldError(legajoInput, 'El Legajo debe contener al menos un carácter alfanumérico.');
             }
 
-            // 3. Apellido Validation
             const lastNameVal = lastNameInput ? lastNameInput.value.trim() : '';
             if (!lastNameVal) {
                 return showFieldError(lastNameInput, 'El Apellido es un campo obligatorio.');
@@ -2187,7 +2183,6 @@ function openTeacherModal(teacher = null) {
                 return showFieldError(lastNameInput, `El valor ingresado para Apellido ("${lastNameVal}") no contiene vocales válidas.`);
             }
 
-            // 4. Nombre Validation
             const firstNameVal = firstNameInput ? firstNameInput.value.trim() : '';
             if (!firstNameVal) {
                 return showFieldError(firstNameInput, 'El Nombre es un campo obligatorio.');
@@ -2206,7 +2201,6 @@ function openTeacherModal(teacher = null) {
                 return showFieldError(firstNameInput, `El valor ingresado para Nombre ("${firstNameVal}") no contiene vocales válidas.`);
             }
 
-            // 5. CUIL Validation (si está provisto)
             const cuilVal = cuilInput ? cuilInput.value.trim() : '';
             if (cuilVal) {
                 const cuilDigits = cuilVal.replace(/\D/g, '');
@@ -2226,7 +2220,6 @@ function openTeacherModal(teacher = null) {
                 }
             }
 
-            // 6. Email Validation (si está provisto)
             const emailVal = emailInput ? emailInput.value.trim() : '';
             if (emailVal) {
                 if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(emailVal)) {
@@ -2234,7 +2227,6 @@ function openTeacherModal(teacher = null) {
                 }
             }
 
-            // 7. Phone Validation (si está provisto)
             const phoneVal = phoneInput ? phoneInput.value.trim() : '';
             if (phoneVal) {
                 if (!/^[0-9+()\s\-]{6,25}$/.test(phoneVal) || phoneVal.replace(/\D/g, '').length < 6) {
@@ -2242,7 +2234,6 @@ function openTeacherModal(teacher = null) {
                 }
             }
 
-            // 8. Max Weekly Hours
             const maxHoursVal = maxHoursInput ? parseInt(maxHoursInput.value, 10) : 30;
             if (isNaN(maxHoursVal) || maxHoursVal < 1 || maxHoursVal > 30) {
                 return showFieldError(maxHoursInput, 'El tope semanal institucional no puede superar las 30 horas cátedra (valor permitido: entre 1 y 30).');

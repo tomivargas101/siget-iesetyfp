@@ -1,8 +1,3 @@
-"""
-Servicio de Gestión de Usuarios y Credenciales con Guardas Jerárquicas para SIGET (Python / SQLAlchemy).
-Asegura que los roles operativos (Bedelía) no puedan modificar, eliminar ni alterar credenciales
-del rol administrativo y de gestión (Secretaría), garantizando la integridad de cuentas institucionales.
-"""
 
 from typing import Optional, List, Dict, Any, Tuple
 from database.connection import get_db_session, hash_password
@@ -13,10 +8,6 @@ from models.auth import CurrentSession, AuthService
 class UserService:
     @staticmethod
     def get_all() -> List[Dict[str, Any]]:
-        """
-        Retorna la lista completa de usuarios ordenada por jerarquía.
-        Requiere rol SECRETARIA con permiso USERS_VIEW.
-        """
         ok, msg = SecurityGuard.check_permission("USERS_VIEW")
         if not ok:
             return []
@@ -75,10 +66,6 @@ class UserService:
         security_question: str = "",
         security_answer: str = ""
     ) -> Tuple[bool, str, Optional[str]]:
-        """
-        Crea un nuevo usuario en la base de datos validando jerarquía de sesión.
-        """
-        # Si hay sesión iniciada, validar permisos de creación y jerarquía
         if CurrentSession.is_authenticated():
             ok, msg = SecurityGuard.check_permission("USERS_CREATE")
             if not ok:
@@ -107,9 +94,6 @@ class UserService:
         email: Optional[str] = None,
         is_active: Optional[bool] = None
     ) -> Tuple[bool, str]:
-        """
-        Actualiza datos de un usuario interceptando cualquier intento de rol inferior sobre rol superior.
-        """
         ok, msg = SecurityGuard.check_permission("USERS_UPDATE")
         if not ok:
             return False, msg
@@ -120,17 +104,14 @@ class UserService:
             if not target_user:
                 return False, "Usuario no encontrado."
 
-            # Guarda Jerárquica: ¿Puede el actor operar sobre este usuario?
             ok_h, msg_h = SecurityGuard.check_hierarchy(target_user.role, action="modificar usuario")
             if not ok_h:
                 return False, msg_h
 
-            # Evitar auto-desactivación del usuario en sesión
             actor = CurrentSession.user
             if actor and actor.id == user_id and is_active is False:
                 return False, "No puede desactivar su propia cuenta activa de sesión."
 
-            # Si cambia de rol, verificar que el actor pueda otorgar el nuevo rol
             if role:
                 norm_new_role = normalize_role(role)
                 if norm_new_role != normalize_role(target_user.role):
@@ -157,10 +138,6 @@ class UserService:
 
     @staticmethod
     def reset_password(user_id: int, new_password: str) -> Tuple[bool, str]:
-        """
-        Blanqueo / restablecimiento de contraseña protegido por guardas jerárquicas.
-        Impide que Bedelía blanquee contraseñas de Secretaría.
-        """
         ok, msg = SecurityGuard.check_permission("USERS_RESET_PASSWORD")
         if not ok:
             return False, msg
@@ -174,7 +151,6 @@ class UserService:
             if not target_user:
                 return False, "Usuario no encontrado."
 
-            # Guarda Jerárquica
             ok_h, msg_h = SecurityGuard.check_hierarchy(target_user.role, action="blanquear contraseña")
             if not ok_h:
                 return False, msg_h
@@ -195,9 +171,6 @@ class UserService:
 
     @staticmethod
     def toggle_active(user_id: int) -> Tuple[bool, str]:
-        """
-        Cambia el estado activo/inactivo (alta/baja lógica) de un usuario bajo guardas de seguridad.
-        """
         ok, msg = SecurityGuard.check_permission("USERS_TOGGLE_ACTIVE")
         if not ok:
             return False, msg
@@ -208,7 +181,6 @@ class UserService:
             if not target_user:
                 return False, "Usuario no encontrado."
 
-            # Guarda Jerárquica
             ok_h, msg_h = SecurityGuard.check_hierarchy(target_user.role, action="alterar estado de la cuenta")
             if not ok_h:
                 return False, msg_h
@@ -233,8 +205,5 @@ class UserService:
 
     @staticmethod
     def delete_user(user_id: int) -> Tuple[bool, str]:
-        """
-        Suprime o desactiva lógicamente una cuenta preservando la auditoría institucional.
-        """
         return UserService.toggle_active(user_id)
 

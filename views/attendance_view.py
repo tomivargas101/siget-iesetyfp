@@ -17,7 +17,6 @@ class AttendanceView(ctk.CTkFrame):
         self.refresh()
 
     def _build_ui(self):
-        # 1. Encabezado y Navegación de Fechas
         top_frame = ctk.CTkFrame(
             self,
             fg_color=Theme.BG_CARD,
@@ -27,7 +26,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         top_frame.pack(fill="x", padx=5, pady=(0, 15))
 
-        # Título y Descripción
         info_box = ctk.CTkFrame(top_frame, fg_color="transparent")
         info_box.pack(side="left", padx=20, pady=15)
 
@@ -45,7 +43,6 @@ class AttendanceView(ctk.CTkFrame):
             text_color=Theme.TEXT_SECONDARY
         ).pack(anchor="w", pady=(2, 0))
 
-        # Selector de Fecha
         date_box = ctk.CTkFrame(top_frame, fg_color="transparent")
         date_box.pack(side="right", padx=20, pady=15)
 
@@ -97,7 +94,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         btn_next.pack(side="left", padx=4)
 
-        # Banner de Notificación de Calendario Escolar y Días Inhábiles (RF-10)
         self.banner_calendar = ctk.CTkFrame(
             self,
             fg_color="#FEF3C7",
@@ -113,7 +109,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         self.lbl_calendar_notice.pack(side="left", padx=15, pady=8)
 
-        # 2. Tarjetas de Resumen Diario (KPIs)
         self.kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.kpi_frame.pack(fill="x", padx=5, pady=(0, 15))
         self.kpi_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="kpi_att")
@@ -144,7 +139,6 @@ class AttendanceView(ctk.CTkFrame):
             lbl_val.pack(anchor="w", padx=12, pady=(0, 8))
             self.kpi_labels[key] = lbl_val
 
-        # 3. Barra de Acciones y Filtros
         actions_bar = ctk.CTkFrame(
             self,
             fg_color=Theme.BG_CARD,
@@ -154,7 +148,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         actions_bar.pack(fill="x", padx=5, pady=(0, 12))
 
-        # Buscador
         self.entry_search = ctk.CTkEntry(
             actions_bar,
             placeholder_text="Buscar por docente o legajo...",
@@ -168,7 +161,6 @@ class AttendanceView(ctk.CTkFrame):
         self.entry_search.pack(side="left", padx=15, pady=10)
         self.entry_search.bind("<KeyRelease>", lambda e: self._filter_table())
 
-        # Filtro de Estado
         self.var_filter = ctk.StringVar(value="Todos")
         combo_filter = ctk.CTkComboBox(
             actions_bar,
@@ -184,7 +176,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         combo_filter.pack(side="left", padx=(0, 15), pady=10)
 
-        # Botones de Acción Operativa
         btn_mark_all = ctk.CTkButton(
             actions_bar,
             text="Marcar Todos Presentes",
@@ -209,7 +200,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         btn_save_all.pack(side="right", padx=(0, 6), pady=10)
 
-        # 4. Tabla Desplazable de Asistencias
         self.scroll_table = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_table.pack(fill="both", expand=True, padx=5, pady=0)
 
@@ -228,7 +218,6 @@ class AttendanceView(ctk.CTkFrame):
     def refresh(self):
         self.lbl_date.configure(text=self.current_date.strftime("%A %d/%m/%Y").capitalize())
         
-        # Validación y visualización de Calendario Escolar (RF-10)
         cal_info = NormativeClassifier.get_calendar_day_info(self.current_date)
         if cal_info["is_non_working"]:
             self.lbl_calendar_notice.configure(
@@ -250,12 +239,10 @@ class AttendanceView(ctk.CTkFrame):
         self.kpi_labels["licencias"].configure(text=str(summary["licencias"]))
 
     def _render_table(self):
-        # Limpiar filas existentes
         for child in self.scroll_table.winfo_children():
             child.destroy()
         self.row_widgets.clear()
 
-        # Encabezados de Columna estilo Excel elegante
         headers_frame = ctk.CTkFrame(
             self.scroll_table,
             fg_color=Theme.EXCEL_HEADER_BG,
@@ -286,16 +273,13 @@ class AttendanceView(ctk.CTkFrame):
             )
             lbl.pack(side="left", padx=6, pady=8)
 
-        # Filtrar registros
         query = self.entry_search.get().strip().lower()
         filter_st = self.var_filter.get()
 
         displayed = 0
         for r in self.records:
-            # Filtro texto
             if query and (query not in r["full_name"].lower() and query not in r["legajo"].lower() and query not in r["dni"]):
                 continue
-            # Filtro estado
             if filter_st != "Todos":
                 filter_code = filter_st.split()[0]
                 status_code = r["status"].split()[0] if r["status"] else ""
@@ -324,13 +308,11 @@ class AttendanceView(ctk.CTkFrame):
         )
         row.pack(fill="x", pady=3)
 
-        # Nombre y DNI
         name_box = ctk.CTkFrame(row, fg_color="transparent", width=240)
         name_box.pack(side="left", padx=6, pady=8)
         ctk.CTkLabel(name_box, text=r["full_name"], font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY, anchor="w").pack(anchor="w")
         ctk.CTkLabel(name_box, text=f"DNI: {r['dni']}", font=ctk.CTkFont(size=10), text_color=Theme.TEXT_MUTED, anchor="w").pack(anchor="w")
 
-        # Legajo
         ctk.CTkLabel(
             row,
             text=r["legajo"],
@@ -340,7 +322,6 @@ class AttendanceView(ctk.CTkFrame):
             anchor="center"
         ).pack(side="left", padx=6)
 
-        # Situación de Revista
         ctk.CTkLabel(
             row,
             text=r["revista"],
@@ -350,7 +331,6 @@ class AttendanceView(ctk.CTkFrame):
             anchor="center"
         ).pack(side="left", padx=6)
 
-        # Estado Asistencia (Combobox con catálogo cerrado institucional)
         raw_st = r["status"]
         if raw_st in ("PR", "Presente"):
             display_st = "PR (Presente)"
@@ -382,7 +362,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         combo_status.pack(side="left", padx=6)
 
-        # Horas
         entry_hours = ctk.CTkEntry(
             row,
             width=90,
@@ -396,7 +375,6 @@ class AttendanceView(ctk.CTkFrame):
         entry_hours.insert(0, str(r["hours"]))
         entry_hours.pack(side="left", padx=6)
 
-        # Botón Guardar Individual
         btn_save_row = ctk.CTkButton(
             row,
             text="Guardar",
@@ -410,7 +388,6 @@ class AttendanceView(ctk.CTkFrame):
         )
         btn_save_row.pack(side="left", padx=6)
 
-        # Guardar referencias
         self.row_widgets[tid] = {
             "var_status": var_status,
             "entry_hours": entry_hours,
