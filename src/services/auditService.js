@@ -108,7 +108,7 @@ class AuditService {
         }
     }
 
-    static async generateAuditPdf({ exportedBy = 'SECRETARÍA', search = '', category = '', outputDir = null } = {}) {
+    static async generateAuditPdf({ exportedBy = 'SECRETARÍA', search = '', category = '', outputDir = null, outputPath = null } = {}) {
         const path = require('path');
         const fs = require('fs');
 
@@ -121,12 +121,13 @@ class AuditService {
         const min = String(now.getMinutes()).padStart(2, '0');
 
         const outDirectory = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDirectory)) {
-            fs.mkdirSync(outDirectory, { recursive: true });
+        const defaultFileName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}_${hh}${min}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDirectory, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
         }
-
-        const fileName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}_${hh}${min}.pdf`;
-        const filePath = path.join(outDirectory, fileName);
 
         const rowsHtml = logs.map((log, idx) => {
             const bgClass = idx % 2 === 0 ? '#ffffff' : '#f8fafc';

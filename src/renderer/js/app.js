@@ -394,20 +394,37 @@ function setupEventListeners() {
     if (btnExportAuditPdf) {
         btnExportAuditPdf.addEventListener('click', async () => {
             try {
+                let outputPath = null;
+                if (window.sigetApi && window.sigetApi.dialog && window.sigetApi.dialog.showSaveDialog) {
+                    const now = new Date();
+                    const yyyy = now.getFullYear();
+                    const mm = String(now.getMonth() + 1).padStart(2, '0');
+                    const dd = String(now.getDate()).padStart(2, '0');
+                    const defaultName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}.pdf`;
+                    const saveRes = await window.sigetApi.dialog.showSaveDialog({
+                        title: 'Guardar Registro Oficial de Acciones (PDF)',
+                        defaultPath: defaultName,
+                        filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                    });
+                    if (saveRes.canceled || !saveRes.filePath) return;
+                    outputPath = saveRes.filePath;
+                }
+
                 showToast('Generando Registro Oficial de Acciones (PDF)...', 'info');
                 const search = auditSearchInput ? auditSearchInput.value.trim() : '';
                 const category = auditCategoryFilter ? auditCategoryFilter.value : 'ALL';
                 const res = await window.sigetApi.audit.exportPdf({
                     exportedBy: AppState.currentUser?.username || 'Bedelía / Secretaría',
                     search,
-                    category
+                    category,
+                    outputPath
                 });
                 if (res && res.success) {
-                    showToast(`PDF generado exitosamente: ${res.fileName}`, 'success');
+                    showToast(`PDF guardado exitosamente: ${res.fileName}`, 'success');
                     if (window.sigetApi.reports && window.sigetApi.reports.openFile) {
                         await window.sigetApi.reports.openFile(res.filePath);
                     }
-                } else {
+                } else if (!res?.canceled) {
                     showToast((res && res.message) || 'Error al exportar PDF de auditoría.', 'error');
                 }
             } catch (err) {
@@ -502,7 +519,7 @@ function setupEventListeners() {
                     if (window.sigetApi.reports && window.sigetApi.reports.openFile) {
                         await window.sigetApi.reports.openFile(res.filePath);
                     }
-                } else {
+                } else if (!res?.canceled) {
                     showToast((res && res.message) || 'Error al exportar Excel.', 'error');
                 }
             } catch (err) {
@@ -540,7 +557,7 @@ function setupEventListeners() {
                     if (window.sigetApi.reports && window.sigetApi.reports.openFile) {
                         await window.sigetApi.reports.openFile(res.filePath);
                     }
-                } else {
+                } else if (!res?.canceled) {
                     showToast((res && res.message) || 'Error al exportar PDF.', 'error');
                 }
             } catch (err) {
@@ -3410,33 +3427,41 @@ async function saveAllAttendanceRecords() {
         }
 
         if (saveSuccess) {
-            showToast('Generando y descargando archivo Excel del día...', 'info');
+            let outputPath = null;
+            if (window.sigetApi && window.sigetApi.dialog && window.sigetApi.dialog.showSaveDialog) {
+                const defaultName = `Parte_Diario_Docentes_${AppState.attendanceDate}.xlsx`;
+                const saveRes = await window.sigetApi.dialog.showSaveDialog({
+                    title: 'Guardar Parte Diario de Asistencias (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    showToast('Cambios guardados en base de datos. Exportación de Excel cancelada por el usuario.', 'info');
+                    await loadDailyAttendance();
+                    await loadDashboard();
+                    return;
+                }
+                outputPath = saveRes.filePath;
+            }
 
-            let exported = false;
+            showToast('Generando y guardando planilla Excel...', 'info');
+
             if (window.sigetApi && window.sigetApi.attendance && typeof window.sigetApi.attendance.exportDailyExcel === 'function') {
                 try {
-                    const excelRes = await window.sigetApi.attendance.exportDailyExcel(AppState.attendanceDate);
+                    const excelRes = await window.sigetApi.attendance.exportDailyExcel({ dateStr: AppState.attendanceDate, outputPath });
                     if (excelRes && excelRes.success) {
-                        exported = true;
                         showToast(`Planilla Excel del día guardada: ${excelRes.fileName}`, 'success');
-
-                        if (excelRes.base64) {
-                            triggerBrowserDownloadFromBase64(excelRes.base64, excelRes.fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                        }
 
                         if (window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
                             await window.sigetApi.reports.openFile(excelRes.filePath);
                         }
-                    } else {
-                        console.warn('[Attendance] No se pudo exportar Excel nativo:', excelRes?.message);
+                    } else if (excelRes && !excelRes.canceled) {
+                        showToast((excelRes && excelRes.message) || 'Error al exportar planilla Excel.', 'error');
                     }
                 } catch (exportErr) {
                     console.error('[Attendance] Error exportando Excel nativo:', exportErr);
+                    showToast('Error al exportar Excel: ' + exportErr.message, 'error');
                 }
-            }
-
-            if (!exported) {
-                generateAndDownloadDailyCsvFallback(AppState.attendanceDate, recordsToSave);
             }
 
             await loadDailyAttendance();
@@ -3611,7 +3636,7 @@ async function downloadPrintableDaily(format = 'pdf') {
             if (window.sigetApi?.reports?.openFile && res.filePath) {
                 await window.sigetApi.reports.openFile(res.filePath);
             }
-        } else {
+        } else if (!res?.canceled) {
             showToast((res && res.message) || `Error al generar Planilla Imprimible en ${formatLabel}.`, 'error');
         }
     } catch (err) {
@@ -5753,7 +5778,7 @@ async function handleExportTeacherPdf() {
             if (window.sigetApi && window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
                 await window.sigetApi.reports.openFile(res.filePath);
             }
-        } else {
+        } else if (!res?.canceled) {
             showToast((res && res.message) || 'Error al generar la Ficha Docente en PDF.', 'error');
         }
     } catch (err) {
@@ -5809,7 +5834,7 @@ async function handleExportTeacherExcel() {
             if (window.sigetApi && window.sigetApi.reports && typeof window.sigetApi.reports.openFile === 'function') {
                 await window.sigetApi.reports.openFile(res.filePath);
             }
-        } else {
+        } else if (!res?.canceled) {
             showToast((res && res.message) || 'Error al generar la Ficha Docente en Excel.', 'error');
         }
     } catch (err) {

@@ -7,7 +7,7 @@ const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
 
 class ReportService {
-    static async generateMonthlyWorkbook(year, month, outputDir = null) {
+    static async generateMonthlyWorkbook(year, month, outputDir = null, outputPath = null) {
         const yNum = Number(year);
         const mNum = Number(month);
         const mStr = String(mNum).padStart(2, '0');
@@ -236,12 +236,13 @@ class ReportService {
         ];
 
         const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
+        const defaultFileName = `Planilla_Estadistica_Mensual_${yNum}_${mStr}.xlsx`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(targetDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
         }
-
-        const fileName = `Planilla_Estadistica_Mensual_${yNum}_${mStr}.xlsx`;
-        const filePath = path.join(targetDir, fileName);
 
         await workbook.xlsx.writeFile(filePath);
 

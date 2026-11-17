@@ -657,7 +657,7 @@ class AttendanceService {
         }
     }
 
-    static async exportDailyExcel({ dateStr, outputDir = null }) {
+    static async exportDailyExcel({ dateStr, outputDir = null, outputPath = null }) {
         const db = getDatabase();
         const path = require('path');
         const fs = require('fs');
@@ -879,26 +879,39 @@ class AttendanceService {
             };
         }
 
-        const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-        }
+        let finalFilePath;
+        let finalFileName;
 
-        const fileName = `Parte_Diario_Docentes_${targetDate}.xlsx`;
-        const filePath = path.join(targetDir, fileName);
+        if (outputPath) {
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+            const parentDir = path.dirname(finalFilePath);
+            if (!fs.existsSync(parentDir)) {
+                fs.mkdirSync(parentDir, { recursive: true });
+            }
+            await workbook.xlsx.writeFile(finalFilePath);
+        } else {
+            const targetDir = outputDir || path.resolve(__dirname, '../../reportes');
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
 
-        let finalFilePath = filePath;
-        let finalFileName = fileName;
-        try {
-            await workbook.xlsx.writeFile(filePath);
-        } catch (writeErr) {
-            if (writeErr.code === 'EBUSY') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
-                finalFilePath = path.join(targetDir, finalFileName);
-                await workbook.xlsx.writeFile(finalFilePath);
-            } else {
-                throw writeErr;
+            const fileName = `Parte_Diario_Docentes_${targetDate}.xlsx`;
+            const filePath = path.join(targetDir, fileName);
+
+            finalFilePath = filePath;
+            finalFileName = fileName;
+            try {
+                await workbook.xlsx.writeFile(filePath);
+            } catch (writeErr) {
+                if (writeErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                    finalFilePath = path.join(targetDir, finalFileName);
+                    await workbook.xlsx.writeFile(finalFilePath);
+                } else {
+                    throw writeErr;
+                }
             }
         }
 

@@ -53,7 +53,7 @@ contextBridge.exposeInMainWorld('sigetApi', {
         receivePhysicalForm: (payload) => ipcRenderer.invoke('attendance:receivePhysicalForm', payload),
         parseJustificationFile: (payload) => ipcRenderer.invoke('attendance:parseJustificationFile', payload),
         getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr),
-        exportDailyExcel: (dateStr) => ipcRenderer.invoke('attendance:exportDailyExcel', dateStr),
+        exportDailyExcel: (params) => ipcRenderer.invoke('attendance:exportDailyExcel', params),
         exportPrintablePdf: (params) => ipcRenderer.invoke('attendance:exportPrintablePdf', params),
         exportPrintableExcel: (params) => ipcRenderer.invoke('attendance:exportPrintableExcel', params)
     },
@@ -96,7 +96,12 @@ contextBridge.exposeInMainWorld('sigetApi', {
 
     reports: {
         getPreview: (year, month) => ipcRenderer.invoke('reports:getPreview', { year, month }),
-        generateMonthly: (year, month) => ipcRenderer.invoke('reports:generateMonthly', { year, month }),
+        generateMonthly: (paramsOrYear, maybeMonth, maybeOutputPath) => {
+            if (typeof paramsOrYear === 'object') {
+                return ipcRenderer.invoke('reports:generateMonthly', paramsOrYear);
+            }
+            return ipcRenderer.invoke('reports:generateMonthly', { year: paramsOrYear, month: maybeMonth, outputPath: maybeOutputPath });
+        },
         openFile: (filePath) => ipcRenderer.invoke('reports:openFile', filePath)
     },
 

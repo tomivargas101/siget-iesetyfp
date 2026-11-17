@@ -167,7 +167,24 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportDailyExcel', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
-            const res = await AttendanceService.exportDailyExcel({ dateStr });
+            let outputPath = typeof params === 'object' ? params?.outputPath : null;
+
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const targetDate = dateStr || new Date().toISOString().split('T')[0];
+                const defaultName = `Parte_Diario_Docentes_${targetDate}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Parte Diario de Asistencias (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+
+            const res = await AttendanceService.exportDailyExcel({ dateStr, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
             console.error('[IPC attendance:exportDailyExcel] Error:', err);
@@ -178,7 +195,23 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportPrintablePdf', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
-            const outputPath = typeof params === 'object' ? params?.outputPath : null;
+            let outputPath = typeof params === 'object' ? params?.outputPath : null;
+
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const targetDate = dateStr || new Date().toISOString().split('T')[0];
+                const defaultName = `Planilla_Imprimible_Control_Diario_${targetDate}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Imprimible de Control Diario (PDF)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+
             const currentUser = AuthService.getCurrentUser();
             const res = await AttendanceService.exportPrintableDailyPdf({
                 dateStr,
@@ -195,7 +228,23 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportPrintableExcel', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
-            const outputPath = typeof params === 'object' ? params?.outputPath : null;
+            let outputPath = typeof params === 'object' ? params?.outputPath : null;
+
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const targetDate = dateStr || new Date().toISOString().split('T')[0];
+                const defaultName = `Planilla_Imprimible_Control_Diario_${targetDate}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Imprimible de Control Diario (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+
             const res = await AttendanceService.exportPrintableDailyExcel({ dateStr, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
@@ -276,18 +325,75 @@ function registerIpcHandlers() {
     });
 
     ipcMain.handle('calendar:exportMonthExcel', async (event, params) => {
-        return await TeacherCalendarService.exportMonthExcel(params);
+        try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const y = params?.year || new Date().getFullYear();
+                const m = String(params?.month || (new Date().getMonth() + 1)).padStart(2, '0');
+                const defaultName = `Planilla_Mensual_Docentes_${y}_${m}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Mensual Oficial (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            return await TeacherCalendarService.exportMonthExcel({ ...params, outputPath });
+        } catch (err) {
+            console.error('[IPC calendar:exportMonthExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('calendar:exportMonthPdf', async (event, params) => {
-        return await TeacherCalendarService.exportMonthPdf(params);
+        try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const y = params?.year || new Date().getFullYear();
+                const m = String(params?.month || (new Date().getMonth() + 1)).padStart(2, '0');
+                const defaultName = `Calendario_Academico_${y}_${m}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Calendario Institucional (PDF)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            return await TeacherCalendarService.exportMonthPdf({ ...params, outputPath });
+        } catch (err) {
+            console.error('[IPC calendar:exportMonthPdf] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('calendar:exportTeacherPdf', async (event, params) => {
         try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const defaultName = `Ficha_Docente_${params?.teacherId || 'ID'}_${params?.startDate || 'INI'}_${params?.endDate || 'FIN'}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Ficha Docente Oficial (PDF)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
             const currentUser = AuthService.getCurrentUser();
             const res = await TeacherCalendarService.exportTeacherRecordPdf({
                 ...params,
+                outputPath,
                 exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
             });
             return JSON.parse(JSON.stringify(res));
@@ -299,7 +405,21 @@ function registerIpcHandlers() {
 
     ipcMain.handle('calendar:exportTeacherExcel', async (event, params) => {
         try {
-            const res = await TeacherCalendarService.exportTeacherRecordExcel(params);
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const defaultName = `Ficha_Docente_${params?.teacherId || 'ID'}_${params?.startDate || 'INI'}_${params?.endDate || 'FIN'}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Ficha Docente Oficial (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            const res = await TeacherCalendarService.exportTeacherRecordExcel({ ...params, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
             console.error('[IPC calendar:exportTeacherExcel] Error:', err);
@@ -312,7 +432,31 @@ function registerIpcHandlers() {
     });
 
     ipcMain.handle('audit:exportPdf', async (event, params) => {
-        return await AuditService.generateAuditPdf(params);
+        try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const defaultName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Registro Oficial de Acciones (PDF)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            const res = await AuditService.generateAuditPdf({ ...params, outputPath });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC audit:exportPdf] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('dashboard:getStats', () => {
@@ -324,8 +468,29 @@ function registerIpcHandlers() {
         return AttendanceProcessor.processMonthlyRecords(Number(year), Number(month));
     });
 
-    ipcMain.handle('reports:generateMonthly', async (event, { year, month }) => {
-        return await ReportService.generateMonthlyWorkbook(year, month);
+    ipcMain.handle('reports:generateMonthly', async (event, params) => {
+        try {
+            const year = params?.year;
+            const month = params?.month;
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const defaultName = `Planilla_Estadistica_Mensual_${year}_${String(month).padStart(2, '0')}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Estadística Mensual (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            return await ReportService.generateMonthlyWorkbook(year, month, null, outputPath);
+        } catch (err) {
+            console.error('[IPC reports:generateMonthly] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('reports:openFile', async (event, filePath) => {
