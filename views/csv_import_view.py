@@ -1,8 +1,3 @@
-"""
-Vista de Carga Masiva por Archivos para SIGET (CustomTkinter)
-Permite la importación unificada de personal ("Datos del personal") y asistencias ("Asistencia"),
-con soporte dinámico para archivos Excel (.xlsx, .xls), Word (.docx, .doc), CSV y TXT.
-"""
 
 import os
 import customtkinter as ctk
@@ -13,7 +8,7 @@ from models.csv_import import CsvImportServicePy
 class CsvImportView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
-        self.explicit_mode = "auto"  # "auto", "personnel", "attendance"
+        self.explicit_mode = "auto"
         self.detected_mode = "personnel"
         self.csv_text = ""
         self.loaded_file_info = None
@@ -41,7 +36,6 @@ class CsvImportView(ctk.CTkFrame):
             text_color=Theme.TEXT_SECONDARY
         ).pack(anchor="w", pady=(2, 10))
 
-        # Selector Unificado de Tipo de Ingesta
         mode_box = ctk.CTkFrame(inner, fg_color=Theme.BG_SURFACE, corner_radius=8, border_width=1, border_color=Theme.BORDER)
         mode_box.pack(fill="x", pady=(0, 10), ipady=4)
 
@@ -90,7 +84,6 @@ class CsvImportView(ctk.CTkFrame):
         )
         self.btn_mode_att.pack(side="left")
 
-        # Selector y estado de archivo
         file_box = ctk.CTkFrame(inner, fg_color=Theme.BG_SURFACE, corner_radius=8, border_width=1, border_color=Theme.BORDER)
         file_box.pack(fill="x", pady=(0, 10))
 
@@ -132,7 +125,6 @@ class CsvImportView(ctk.CTkFrame):
         )
         btn_file.pack(side="left")
 
-        # Botones de acción
         btn_row = ctk.CTkFrame(inner, fg_color="transparent")
         btn_row.pack(fill="x")
 
@@ -161,7 +153,6 @@ class CsvImportView(ctk.CTkFrame):
         )
         self.btn_commit.pack(side="right")
 
-        # Resultados de validación
         self.res_frame = ctk.CTkFrame(self, fg_color=Theme.BG_CARD, corner_radius=10, border_width=1, border_color=Theme.BORDER)
         self.res_frame.pack(fill="both", expand=True, padx=16, pady=(4, 12))
 
@@ -234,7 +225,6 @@ class CsvImportView(ctk.CTkFrame):
             self.btn_clear.configure(state="normal")
             self.btn_preview.configure(state="normal")
 
-            # Ejecutar preview automático
             self._run_preview()
 
         except Exception as e:

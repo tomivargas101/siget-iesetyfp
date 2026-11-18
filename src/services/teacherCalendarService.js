@@ -1,22 +1,9 @@
-/**
- * Servicio de Calendario Institucional del Profesorado para SIGET
- * Permite visualizar de fecha a fecha el historial cronológico y la disponibilidad
- * completa de cada docente:
- * - Períodos de licencias médicas (Art. 114 a, 114 b, etc.)
- * - Inasistencias injustificadas y permisos particulares (Art. 115)
- * - Cátedras y designaciones activas (con control de 30 horas semanales)
- * - Suplencias vigentes (tanto cuando actúa como titular sustituido como cuando es suplente)
- * - Métricas acumuladas del ciclo lectivo y alertas de proximidad a topes estatutarios.
- */
-
 const { getDatabase } = require('../database/db');
 const { AttendanceService } = require('./attendanceService');
 const { NormativeService } = require('./normativeService');
+const { ResguardoBundleService } = require('./resguardoBundleService');
 
 class TeacherCalendarService {
-    /**
-     * Obtiene el cronograma y estado institucional detallado de un docente en un rango de fechas.
-     */
     static getTeacherTimeline({ teacherId, startDate = null, endDate = null }) {
         const db = getDatabase();
         const tid = Number(teacherId);
@@ -26,9 +13,8 @@ class TeacherCalendarService {
         }
 
         try {
-            // 1. Docente y carga horaria
             const teacher = db.prepare(`
-                SELECT 
+                SELECT
                     t.id, t.legajo, t.dni, t.cuil, t.first_name, t.last_name,
                     t.email, t.phone, t.revista, t.max_weekly_hours, t.is_active,
                     (SELECT COALESCE(SUM(hours_count), 0) FROM designations WHERE teacher_id = t.id AND is_active = 1) as active_hours
@@ -40,7 +26,6 @@ class TeacherCalendarService {
                 return { success: false, message: 'Docente no encontrado.' };
             }
 
-            // Fechas por defecto: mes corriente si no se especifican
             const now = new Date();
             const currentYear = now.getFullYear();
             const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
@@ -51,9 +36,8 @@ class TeacherCalendarService {
             const start = startDate || defaultStart;
             const end = endDate || defaultEnd;
 
-            // 2. Cátedras y Designaciones Activas
             const designations = db.prepare(`
-                SELECT 
+                SELECT
                     d.id, d.day_of_week, d.start_time, d.end_time, d.hours_count,
                     d.resolution_number, d.cargo, d.revista,
                     s.id as subject_id, s.name as subject_name, s.code as subject_code,
@@ -65,9 +49,8 @@ class TeacherCalendarService {
                 ORDER BY d.day_of_week, d.start_time
             `).all(tid);
 
-            // 3. Suplencias como Titular (donde este docente está de licencia y otro lo reemplaza)
             const titularSubstitutions = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number, sub.is_active,
                     s.name as subject_name,
                     sup.first_name as sup_first, sup.last_name as sup_last, sup.dni as sup_dni
@@ -90,9 +73,8 @@ class TeacherCalendarService {
                 isActive: Boolean(s.is_active)
             }));
 
-            // 4. Suplencias como Suplente (donde este docente cubre a otro)
             const suplenteSubstitutions = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number, sub.is_active,
                     s.name as subject_name,
                     tit.first_name as tit_first, tit.last_name as tit_last, tit.dni as tit_dni
@@ -115,9 +97,8 @@ class TeacherCalendarService {
                 isActive: Boolean(s.is_active)
             }));
 
-            // 5. Registros de Asistencia dentro del rango seleccionado
             const rawAttendances = db.prepare(`
-                SELECT 
+                SELECT
                     a.id, a.date, a.status, a.hours, a.observations,
                     d.id as designation_id, s.name as subject_name
                 FROM attendances a
@@ -163,7 +144,6 @@ class TeacherCalendarService {
                 };
             });
 
-            // 6. Cómputo Acumulado del Ciclo Lectivo Completo (para seguimiento de topes)
             const yearStr = start.substring(0, 4);
             const allYearAttendances = db.prepare(`
                 SELECT date, status, observations
@@ -172,7 +152,6 @@ class TeacherCalendarService {
                 ORDER BY date ASC
             `).all(tid, yearStr);
 
-            // Deduplicar días para no contar doble si hubiera más de una cátedra el mismo día
             const seenDays = new Set();
             let yearInasistencias = 0;
             let yearPermisos = 0;
@@ -192,7 +171,6 @@ class TeacherCalendarService {
                 else if (c.isPresence) yearPresentes++;
             }
 
-            // Determinar estado actual de disponibilidad
             let availabilityStatus = 'Disponible';
             let availabilityBadge = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
 
@@ -271,10 +249,6 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Obtiene una panorámica institucional de ausentismo y licencias de todos los docentes
-     * en un rango de fechas o mes específico.
-     */
     static getInstitutionalOverview({ startDate = null, endDate = null } = {}) {
         const db = getDatabase();
         try {
@@ -283,9 +257,8 @@ class TeacherCalendarService {
             const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
             const end = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-            // Suplencias activas institucionales
             const activeSubs = db.prepare(`
-                SELECT 
+                SELECT
                     sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
                     s.name as subject_name,
                     tit.first_name as tit_first, tit.last_name as tit_last,
@@ -308,9 +281,8 @@ class TeacherCalendarService {
                 resolution: s.resolution_number
             }));
 
-            // Docentes con licencias o inasistencias en el rango
             const leaves = db.prepare(`
-                SELECT 
+                SELECT
                     a.id, a.date, a.status, a.hours, a.observations,
                     t.id as teacher_id, t.first_name, t.last_name, t.dni, t.legajo
                 FROM attendances a
@@ -345,10 +317,6 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Retorna la matriz completa mensual de asistencias, licencias, feriados y jornadas institucionales
-     * para el calendario interactivo en tiempo real y la vista planilla 1..31.
-     */
     static getMonthMatrix({ year, month } = {}) {
         const db = getDatabase();
         try {
@@ -364,7 +332,6 @@ class TeacherCalendarService {
             ];
             const monthName = monthNames[m - 1] || `Mes ${m}`;
 
-            // Docentes activos
             const teachers = db.prepare(`
                 SELECT id, legajo, dni, first_name, last_name, revista,
                        (SELECT COALESCE(SUM(hours_count), 0) FROM designations WHERE teacher_id = teachers.id AND is_active = 1) as hours
@@ -373,7 +340,6 @@ class TeacherCalendarService {
                 ORDER BY last_name, first_name
             `).all();
 
-            // Asistencias del mes
             const monthAttendances = db.prepare(`
                 SELECT a.id, a.teacher_id, a.date, a.status, a.hours, a.observations,
                        t.first_name, t.last_name, t.dni, t.legajo
@@ -383,7 +349,6 @@ class TeacherCalendarService {
                 ORDER BY a.date ASC, t.last_name ASC
             `).all(`${prefix}%`);
 
-            // Suplencias activas en el mes
             const monthSubs = db.prepare(`
                 SELECT sub.id, sub.license_reason, sub.start_date, sub.end_date, sub.resolution_number,
                        s.name as subject_name,
@@ -397,7 +362,6 @@ class TeacherCalendarService {
                 WHERE (sub.start_date <= ? AND (sub.end_date >= ? OR sub.end_date IS NULL)) AND sub.is_active = 1
             `).all(`${prefix}-${String(daysInMonth).padStart(2, '0')}`, `${prefix}-01`);
 
-            // Mapeo por día
             const dayEventsMap = new Map();
             for (let d = 1; d <= daysInMonth; d++) {
                 dayEventsMap.set(d, []);
@@ -409,7 +373,6 @@ class TeacherCalendarService {
                 }
             }
 
-            // Días del mes con información de feriados y jornadas institucionales
             const days = [];
             const dayShortNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -427,8 +390,6 @@ class TeacherCalendarService {
                 let ltCount = 0;
                 const leaves = [];
 
-                // Si no hay asistencias cargadas en la BD para un día hábil regular,
-                // asignamos la planta activa como presentes por defecto (evita días en 0)
                 if (attsOnDay.length === 0 && !dayInfo.isNonWorking && dayOfWeek !== 0 && dayOfWeek !== 6) {
                     prCount = teachers.length || 8;
                 }
@@ -491,7 +452,6 @@ class TeacherCalendarService {
                     }
                 }
 
-                // Suplencias activas en esta fecha específica
                 const activeSubsOnDay = monthSubs.filter(sub => {
                     return sub.start_date <= dStr && (!sub.end_date || sub.end_date >= dStr);
                 }).map(sub => ({
@@ -513,7 +473,6 @@ class TeacherCalendarService {
                     suplenteLegajo: sub.sup_legajo || 'S/L'
                 }));
 
-                // Docentes presentes en la jornada
                 const presentTeachers = [];
                 const leaveTeacherIds = new Set(leaves.map(l => l.teacherId));
 
@@ -599,7 +558,6 @@ class TeacherCalendarService {
                 });
             }
 
-            // Construcción de la matriz docente (Planilla Oficial 1..31)
             const teachersMatrix = teachers.map(t => {
                 const dayMap = {};
                 let totPr = 0;
@@ -684,10 +642,7 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Exporta la grilla completa del mes en un archivo Excel oficial con todas las novedades.
-     */
-    static async exportMonthExcel({ year, month, outputDir = null }) {
+    static async exportMonthExcel({ year, month, outputDir = null, outputPath = null }) {
         const path = require('path');
         const fs = require('fs');
         const ExcelJS = require('exceljs');
@@ -696,10 +651,11 @@ class TeacherCalendarService {
         if (!matrix.success) throw new Error(matrix.message);
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        const fileName = `Planilla_Mensual_Docentes_${matrix.year}_${matrix.monthStr}.xlsx`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Planilla_Mensual_Docentes_${matrix.year}_${matrix.monthStr}.xlsx`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'SIGET - Sistema Integral de Gestión Educativa Terciaria';
@@ -708,24 +664,34 @@ class TeacherCalendarService {
         const sheet = workbook.addWorksheet(`Asistencia ${matrix.monthName} ${matrix.year}`);
         sheet.views = [{ showGridLines: true }];
 
-        // Título institucional
         sheet.mergeCells(1, 1, 1, matrix.daysInMonth + 9);
         const title = sheet.getCell(1, 1);
-        title.value = `SIGET - INSTITUTO DE EDUCACIÓN SUPERIOR • PLANILLA MENSUAL DE ASISTENCIA Y NOVEDADES`;
-        title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+        title.value = `IESETyFP • PLANILLA MENSUAL DE ASISTENCIA Y NOVEDADES`;
+        title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+        title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         title.alignment = { horizontal: 'center', vertical: 'middle' };
+        title.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
         sheet.getRow(1).height = 28;
 
         sheet.mergeCells(2, 1, 2, matrix.daysInMonth + 9);
         const subtitle = sheet.getCell(2, 1);
         subtitle.value = `PERÍODO: ${matrix.monthName.toUpperCase()} ${matrix.year} • GENERADO: ${new Date().toLocaleDateString('es-AR')}`;
-        subtitle.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF8A6F0E' } };
-        subtitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        subtitle.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF334155' } };
+        subtitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         subtitle.alignment = { horizontal: 'center', vertical: 'middle' };
+        subtitle.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
         sheet.getRow(2).height = 22;
 
-        // Encabezados
         const headers = ['Legajo', 'Docente (Apellido y Nombres)', 'DNI', 'Revista'];
         for (let d = 1; d <= matrix.daysInMonth; d++) {
             headers.push(String(d));
@@ -733,11 +699,19 @@ class TeacherCalendarService {
         headers.push('PR', 'I', 'P', 'LIC', 'LT');
 
         sheet.getRow(4).values = headers;
-        sheet.getRow(4).font = { name: 'Segoe UI', size: 9, bold: true };
+        sheet.getRow(4).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
         sheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(4).height = 24;
+        sheet.getRow(4).eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
 
-        // Anchos
         sheet.getColumn(1).width = 11;
         sheet.getColumn(2).width = 28;
         sheet.getColumn(3).width = 12;
@@ -751,7 +725,6 @@ class TeacherCalendarService {
         sheet.getColumn(matrix.daysInMonth + 8).width = 6;
         sheet.getColumn(matrix.daysInMonth + 9).width = 6;
 
-        // Filas de docentes
         matrix.teachersMatrix.forEach((t, idx) => {
             const rowNum = 5 + idx;
             const rowVals = [t.legajo, t.fullName, t.dni, t.revista];
@@ -766,7 +739,6 @@ class TeacherCalendarService {
             row.height = 18;
             row.font = { name: 'Segoe UI', size: 9 };
 
-            // Colorear celdas de asistencia
             for (let d = 1; d <= matrix.daysInMonth; d++) {
                 const colIdx = 4 + d;
                 const cell = row.getCell(colIdx);
@@ -799,16 +771,42 @@ class TeacherCalendarService {
 
         let finalFilePath = filePath;
         let finalFileName = fileName;
-        try {
-            await workbook.xlsx.writeFile(filePath);
-        } catch (writeErr) {
-            if (writeErr.code === 'EBUSY') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
-                finalFilePath = path.join(outDir, finalFileName);
-                await workbook.xlsx.writeFile(finalFilePath);
-            } else {
-                throw writeErr;
+        const attachments = ResguardoBundleService.getAttachmentsForMonth(matrix.year, matrix.monthStr);
+        const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+        if (isZip) {
+            const os = require('os');
+            const tempExcel = path.join(os.tmpdir(), `Planilla_Mensual_${matrix.year}_${matrix.monthStr}_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(tempExcel);
+            await ResguardoBundleService.createResguardoZipBundle({
+                reportFilePath: tempExcel,
+                certificateFiles: attachments,
+                zipOutputPath: path.resolve(outputPath)
+            });
+            try { fs.unlinkSync(tempExcel); } catch (_) { }
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+        } else {
+            try {
+                await workbook.xlsx.writeFile(filePath);
+            } catch (writeErr) {
+                if (writeErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    await workbook.xlsx.writeFile(finalFilePath);
+                } else {
+                    throw writeErr;
+                }
+            }
+
+            if (attachments.length > 0 && outputPath) {
+                const companionZip = finalFilePath.replace(/\.xlsx$/i, '_Paquete_Resguardo.zip');
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: finalFilePath,
+                    certificateFiles: attachments,
+                    zipOutputPath: companionZip
+                });
             }
         }
 
@@ -820,21 +818,32 @@ class TeacherCalendarService {
         };
     }
 
-    /**
-     * Exporta el calendario y novedades del mes en un documento oficial PDF.
-     */
-    static async exportMonthPdf({ year, month, outputDir = null, exportedBy = 'SECRETARÍA' }) {
+    static async exportMonthPdf({ year, month, outputDir = null, outputPath = null, exportedBy = 'SECRETARÍA' }) {
         const path = require('path');
         const fs = require('fs');
+
+        let logoBase64 = '';
+        try {
+            const logoPath = path.resolve(__dirname, '../../assets/logo_iesetyfp.jpg');
+            if (fs.existsSync(logoPath)) {
+                logoBase64 = fs.readFileSync(logoPath).toString('base64');
+            } else {
+                const altPath = path.resolve(__dirname, '../renderer/assets/logo_iesetyfp.jpg');
+                if (fs.existsSync(altPath)) {
+                    logoBase64 = fs.readFileSync(altPath).toString('base64');
+                }
+            }
+        } catch (_) {}
 
         const matrix = this.getMonthMatrix({ year, month });
         if (!matrix.success) throw new Error(matrix.message);
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        const fileName = `Calendario_Academico_${matrix.year}_${matrix.monthStr}.pdf`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Calendario_Academico_${matrix.year}_${matrix.monthStr}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const allLeaves = [];
         matrix.days.forEach(d => {
@@ -873,27 +882,35 @@ class TeacherCalendarService {
     <title>Calendario Académico y Reporte de Novedades - ${matrix.monthName} ${matrix.year}</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; background: #fff; }
-        .header { border-bottom: 2px solid #b45309; padding-bottom: 12px; margin-bottom: 14px; }
+        .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; }
+        .inst-sub { font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; }
         .inst-title { font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
-        .doc-title { font-size: 17px; font-weight: 900; color: #b45309; margin: 4px 0; }
+        .doc-title { font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
         .meta-grid { display: flex; justify-content: space-between; font-size: 10.5px; color: #64748b; background: #f8fafc; padding: 6px 10px; border-radius: 6px; }
         .kpi-boxes { display: flex; gap: 10px; margin: 12px 0; }
         .kpi-box { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
         .kpi-val { font-size: 16px; font-weight: bold; }
         .kpi-lbl { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #0f172a; color: #f8fafc; font-size: 9.5px; font-weight: 700; text-transform: uppercase; padding: 6px; text-align: left; }
+        th { background: #f1f5f9; color: #0f172a; font-size: 9.5px; font-weight: 800; text-transform: uppercase; padding: 6px; text-align: left; border: 1px solid #94a3b8; }
         th.center { text-align: center; }
+        td { border: 1px solid #cbd5e1; }
         .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 9px; color: #64748b; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="inst-title">Instituto de Educación Superior Técnica y Formación Profesional</div>
-        <div class="doc-title">CALENDARIO ACADÉMICO MENSUAL Y REPORTE DE NOVEDADES</div>
-        <div class="meta-grid">
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" style="width: 60px; height: auto;" alt="IESETyFP">` : ''}
+            <div>
+                <div class="inst-sub">IESETyFP (Instituto de Educación Superior Educación Técnica y Formación Profesional) — Resistencia, Chaco</div>
+                <div class="inst-title">INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL</div>
+                <div class="doc-title">CALENDARIO ACADÉMICO MENSUAL Y REPORTE DE NOVEDADES</div>
+            </div>
+        </div>
+        <div style="text-align: right; font-size: 9.5px; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
             <div><strong>Período:</strong> ${matrix.monthName.toUpperCase()} ${matrix.year}</div>
-            <div><strong>Generado por:</strong> ${escapeCalXml(exportedBy)} • ${new Date().toLocaleDateString('es-AR')}</div>
+            <div><strong>Generado por:</strong> ${escapeCalXml(exportedBy)}</div>
             <div><strong>Total Docentes Planta:</strong> ${matrix.stats.totalTeachers}</div>
         </div>
     </div>
@@ -1004,12 +1021,7 @@ class TeacherCalendarService {
         }
     }
 
-    /**
-     * Exporta la Ficha Docente completa en formato Excel (.xlsx).
-     * Incluye datos personales, revista, carga horaria, límites anuales estatutarios,
-     * cátedras y horarios asignados, suplencias en curso y la línea de tiempo de novedades.
-     */
-    static async exportTeacherRecordExcel({ teacherId, startDate = null, endDate = null, outputDir = null }) {
+    static async exportTeacherRecordExcel({ teacherId, startDate = null, endDate = null, outputDir = null, outputPath = null }) {
         const path = require('path');
         const fs = require('fs');
         const ExcelJS = require('exceljs');
@@ -1030,11 +1042,12 @@ class TeacherCalendarService {
         const m = timeline.annualMetrics || {};
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
         const safeLegajo = (t.legajo || t.dni || 'DOC').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const fileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.xlsx`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.xlsx`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'SIGET - IESETYFP';
@@ -1044,29 +1057,37 @@ class TeacherCalendarService {
         const sheet = workbook.addWorksheet(sheetName);
         sheet.views = [{ showGridLines: true }];
 
-        // Fila 1: Encabezado Institucional Principal
         sheet.mergeCells('A1:G1');
         const header1 = sheet.getCell('A1');
-        header1.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
-        header1.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        header1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        header1.value = 'IESETyFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
+        header1.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+        header1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         header1.alignment = { horizontal: 'center', vertical: 'middle' };
+        header1.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
         sheet.getRow(1).height = 28;
 
-        // Fila 2: Subtítulo de Ficha Docente
         sheet.mergeCells('A2:G2');
         const header2 = sheet.getCell('A2');
         const nowStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
         header2.value = `FICHA INSTITUCIONAL DE DOCENTE • CONTROL ESTATUTARIO Y CRONOGRAMA ACADÉMICO • EMISIÓN: ${nowStr}`;
-        header2.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } };
-        header2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        header2.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF334155' } };
+        header2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         header2.alignment = { horizontal: 'center', vertical: 'middle' };
+        header2.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
         sheet.getRow(2).height = 22;
 
-        // Fila 3: Espaciador
         sheet.getRow(3).height = 8;
 
-        // Anchos de Columna
         sheet.getColumn(1).width = 16;
         sheet.getColumn(2).width = 30;
         sheet.getColumn(3).width = 16;
@@ -1077,19 +1098,23 @@ class TeacherCalendarService {
 
         let rowIdx = 4;
 
-        // Helper para secciones
         const addSectionHeader = (title) => {
             sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
             const cell = sheet.getCell(`A${rowIdx}`);
             cell.value = title;
-            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
             cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
             sheet.getRow(rowIdx).height = 24;
             rowIdx++;
         };
 
-        // 1. DATOS DEL DOCENTE
         addSectionHeader('I. DATOS DEL DOCENTE Y CARGA HORARIA');
         const rTeacher1 = sheet.getRow(rowIdx++);
         rTeacher1.values = ['Docente:', t.fullName, 'DNI:', t.dni, 'Legajo:', t.legajo || 'S/L', ''];
@@ -1110,9 +1135,8 @@ class TeacherCalendarService {
         rTeacher3.font = { name: 'Segoe UI', size: 9 };
         rTeacher3.getCell(1).font = { name: 'Segoe UI', size: 9, bold: true };
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 2. SEGUIMIENTO ANUAL DE LÍMITES
         addSectionHeader(`II. SEGUIMIENTO ANUAL DE LÍMITES Y TOPES ESTATUTARIOS (CICLO ${m.cycleYear || new Date().getFullYear()})`);
         const rKpiH = sheet.getRow(rowIdx++);
         rKpiH.values = ['Inasistencias (I)', 'Permisos (Art. 115)', 'Licencias Médicas (Art. 114 a)', 'Largo Tratamiento', '', '', ''];
@@ -1129,14 +1153,21 @@ class TeacherCalendarService {
         ];
         rKpiV.font = { name: 'Segoe UI', size: 9, bold: true };
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 3. CÁTEDRAS ASIGNADAS
         addSectionHeader('III. CÁTEDRAS, CARRERAS Y HORARIOS ASIGNADOS');
         const rDesigH = sheet.getRow(rowIdx++);
         rDesigH.values = ['Materia / Espacio Curricular', 'Código', 'Carrera', 'Día y Horario', 'Carga Horaria', 'Revista', 'Resolución'];
-        rDesigH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        rDesigH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+        rDesigH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        rDesigH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        rDesigH.eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
 
         if (desigs.length === 0) {
             const rEmpty = sheet.getRow(rowIdx++);
@@ -1158,14 +1189,21 @@ class TeacherCalendarService {
             });
         }
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 4. SUPLENCIAS
         addSectionHeader('IV. SUPLENCIAS EN CURSO (TITULAR / SUPLENTE)');
         const rSubH = sheet.getRow(rowIdx++);
         rSubH.values = ['Rol', 'Materia / Cátedra', 'Docente Asociado', 'DNI Asociado', 'Período', 'Motivo / Causa', 'Resolución'];
-        rSubH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        rSubH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+        rSubH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        rSubH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        rSubH.eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
 
         if (allSubs.length === 0) {
             const rEmpty = sheet.getRow(rowIdx++);
@@ -1187,14 +1225,21 @@ class TeacherCalendarService {
             });
         }
 
-        rowIdx++; // Espacio
+        rowIdx++;
 
-        // 5. LÍNEA DE TIEMPO / ASISTENCIAS Y NOVEDADES EN EL PERÍODO
         addSectionHeader(`V. CRONOGRAMA DE ASISTENCIAS Y NOVEDADES EN EL PERÍODO (${period.startDate} al ${period.endDate})`);
         const rEvH = sheet.getRow(rowIdx++);
         rEvH.values = ['Fecha', 'Estado / Marca', 'Horas', 'Cátedra / Espacio Curricular', 'Observaciones / Motivo', '', ''];
-        rEvH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        rEvH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+        rEvH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        rEvH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        rEvH.eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
 
         if (events.length === 0) {
             const rEmpty = sheet.getRow(rowIdx++);
@@ -1218,7 +1263,6 @@ class TeacherCalendarService {
         }
 
         rowIdx++;
-        // Footer oficial
         sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
         const footCell = sheet.getCell(`A${rowIdx}`);
         footCell.value = `SIGET • IESETYFP • REPORTE OFICIAL DE FICHA DOCENTE • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA Y SECRETARÍA`;
@@ -1228,16 +1272,42 @@ class TeacherCalendarService {
 
         let finalFilePath = filePath;
         let finalFileName = fileName;
-        try {
-            await workbook.xlsx.writeFile(filePath);
-        } catch (writeErr) {
-            if (writeErr.code === 'EBUSY') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
-                finalFilePath = path.join(outDir, finalFileName);
-                await workbook.xlsx.writeFile(finalFilePath);
-            } else {
-                throw writeErr;
+        const attachments = ResguardoBundleService.getAttachmentsForTeacher(teacherId, period.startDate, period.endDate);
+        const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+        if (isZip) {
+            const os = require('os');
+            const tempExcel = path.join(os.tmpdir(), `Ficha_Docente_${safeLegajo}_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(tempExcel);
+            await ResguardoBundleService.createResguardoZipBundle({
+                reportFilePath: tempExcel,
+                certificateFiles: attachments,
+                zipOutputPath: path.resolve(outputPath)
+            });
+            try { fs.unlinkSync(tempExcel); } catch (_) { }
+            finalFilePath = path.resolve(outputPath);
+            finalFileName = path.basename(finalFilePath);
+        } else {
+            try {
+                await workbook.xlsx.writeFile(filePath);
+            } catch (writeErr) {
+                if (writeErr.code === 'EBUSY') {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    finalFileName = fileName.replace('.xlsx', `_${timestamp}.xlsx`);
+                    finalFilePath = path.join(outDir, finalFileName);
+                    await workbook.xlsx.writeFile(finalFilePath);
+                } else {
+                    throw writeErr;
+                }
+            }
+
+            if (attachments.length > 0 && outputPath) {
+                const companionZip = finalFilePath.replace(/\.xlsx$/i, '_Paquete_Resguardo.zip');
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: finalFilePath,
+                    certificateFiles: attachments,
+                    zipOutputPath: companionZip
+                });
             }
         }
         const buffer = await workbook.xlsx.writeBuffer();
@@ -1252,12 +1322,22 @@ class TeacherCalendarService {
         };
     }
 
-    /**
-     * Exporta la Ficha Docente completa en formato PDF formal.
-     */
-    static async exportTeacherRecordPdf({ teacherId, startDate = null, endDate = null, outputDir = null, exportedBy = 'SECRETARÍA' }) {
+    static async exportTeacherRecordPdf({ teacherId, startDate = null, endDate = null, outputDir = null, outputPath = null, exportedBy = 'SECRETARÍA' }) {
         const path = require('path');
         const fs = require('fs');
+
+        let logoBase64 = '';
+        try {
+            const logoPath = path.resolve(__dirname, '../../assets/logo_iesetyfp.jpg');
+            if (fs.existsSync(logoPath)) {
+                logoBase64 = fs.readFileSync(logoPath).toString('base64');
+            } else {
+                const altPath = path.resolve(__dirname, '../renderer/assets/logo_iesetyfp.jpg');
+                if (fs.existsSync(altPath)) {
+                    logoBase64 = fs.readFileSync(altPath).toString('base64');
+                }
+            }
+        } catch (_) {}
 
         const timeline = this.getTeacherTimeline({ teacherId, startDate, endDate });
         if (!timeline || !timeline.success) {
@@ -1275,11 +1355,12 @@ class TeacherCalendarService {
         const m = timeline.annualMetrics || {};
 
         const outDir = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
         const safeLegajo = (t.legajo || t.dni || 'DOC').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const fileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.pdf`;
-        const filePath = path.join(outDir, fileName);
+        const defaultFileName = `Ficha_Docente_${safeLegajo}_${period.startDate}_${period.endDate}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDir, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const desigsRows = desigs.map(d => `
             <tr>
@@ -1323,30 +1404,36 @@ class TeacherCalendarService {
     <title>Ficha Docente Institucional - ${escapeCalXml(t.fullName)}</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; background: #fff; font-size: 10px; }
-        .header { border-bottom: 2px solid #b45309; padding-bottom: 10px; margin-bottom: 12px; }
+        .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+        .inst-sub { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; }
         .inst-title { font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
-        .doc-title { font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
+        .doc-title { font-size: 15px; font-weight: 900; color: #b45309; margin: 3px 0; }
         .meta-grid { display: flex; justify-content: space-between; font-size: 10px; color: #334155; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .kpi-boxes { display: flex; gap: 8px; margin: 10px 0; }
         .kpi-box { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
         .kpi-val { font-size: 14px; font-weight: bold; }
         .kpi-lbl { font-size: 8.5px; text-transform: uppercase; color: #64748b; font-weight: bold; }
-        .section-title { font-size: 10.5px; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; }
+        .section-title { font-size: 10.5px; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; color: #0f172a; border-bottom: 1px solid #94a3b8; padding-bottom: 2px; }
         table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9.5px; }
-        th { background: #1e293b; color: #fff; font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 5px; text-align: left; }
+        th { background: #f1f5f9; color: #0f172a; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 5px; text-align: left; border: 1px solid #94a3b8; }
         th.center { text-align: center; }
-        td { border-bottom: 1px solid #e2e8f0; }
+        td { border: 1px solid #cbd5e1; }
         .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="inst-title">Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETYFP)</div>
-        <div class="doc-title">FICHA OFICIAL DE DOCENTE • CRONOGRAMA Y CONTROL ESTATUTARIO</div>
-        <div class="meta-grid">
-            <div><strong>Docente:</strong> ${escapeCalXml(t.fullName)} (Leg. ${escapeCalXml(t.legajo || 'S/L')} • DNI ${escapeCalXml(t.dni)})</div>
-            <div><strong>Revista:</strong> ${escapeCalXml(t.revista || 'Titular')} • <strong>Carga:</strong> ${t.activeHours} / ${t.maxWeeklyHours || 30} hs</div>
-            <div><strong>Período:</strong> ${period.startDate} al ${period.endDate} • <strong>Emisión:</strong> ${nowStr}</div>
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" style="width: 55px; height: auto;" alt="IESETyFP">` : ''}
+            <div>
+                <div class="inst-sub">IESETyFP (Instituto de Educación Superior Educación Técnica y Formación Profesional) — Resistencia, Chaco</div>
+                <div class="inst-title">INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL</div>
+                <div class="doc-title">FICHA OFICIAL DE DOCENTE • CRONOGRAMA Y CONTROL ESTATUTARIO</div>
+            </div>
+        </div>
+        <div style="text-align: right; font-size: 9px; color: #475569; background: #f8fafc; padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <div><strong>Emisión:</strong> ${nowStr}</div>
+            <div><strong>Generado por:</strong> ${escapeCalXml(exportedBy)}</div>
         </div>
     </div>
 
@@ -1456,16 +1543,42 @@ class TeacherCalendarService {
             }
             let finalFilePath = filePath;
             let finalFileName = fileName;
-            try {
-                fs.writeFileSync(filePath, pdfBuffer);
-            } catch (wErr) {
-                if (wErr.code === 'EBUSY') {
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
-                    finalFilePath = path.join(outDir, finalFileName);
-                    fs.writeFileSync(finalFilePath, pdfBuffer);
-                } else {
-                    throw wErr;
+            const attachments = ResguardoBundleService.getAttachmentsForTeacher(teacherId, period.startDate, period.endDate);
+            const isZip = Boolean(outputPath && outputPath.toLowerCase().endsWith('.zip'));
+
+            if (isZip) {
+                const os = require('os');
+                const tempPdf = path.join(os.tmpdir(), `Ficha_Docente_${safeLegajo}_${Date.now()}.pdf`);
+                fs.writeFileSync(tempPdf, pdfBuffer);
+                await ResguardoBundleService.createResguardoZipBundle({
+                    reportFilePath: tempPdf,
+                    certificateFiles: attachments,
+                    zipOutputPath: path.resolve(outputPath)
+                });
+                try { fs.unlinkSync(tempPdf); } catch (_) { }
+                finalFilePath = path.resolve(outputPath);
+                finalFileName = path.basename(finalFilePath);
+            } else {
+                try {
+                    fs.writeFileSync(filePath, pdfBuffer);
+                } catch (wErr) {
+                    if (wErr.code === 'EBUSY') {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        finalFileName = fileName.replace('.pdf', `_${timestamp}.pdf`);
+                        finalFilePath = path.join(outDir, finalFileName);
+                        fs.writeFileSync(finalFilePath, pdfBuffer);
+                    } else {
+                        throw wErr;
+                    }
+                }
+
+                if (attachments.length > 0 && outputPath) {
+                    const companionZip = finalFilePath.replace(/\.pdf$/i, '_Paquete_Resguardo.zip');
+                    await ResguardoBundleService.createResguardoZipBundle({
+                        reportFilePath: finalFilePath,
+                        certificateFiles: attachments,
+                        zipOutputPath: companionZip
+                    });
                 }
             }
 
@@ -1520,7 +1633,7 @@ function escapeCalXml(unsafe) {
 function createCalendarFallbackPdf(title, lines) {
     const safeTitle = (title || 'CALENDARIO ACADEMICO').replace(/[\(\)\\]/g, '');
     const cleanLines = (lines || []).slice(0, 35).map(l => String(l).substring(0, 95).replace(/[\(\)\\]/g, ''));
-    
+
     let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
     cleanLines.forEach((line, idx) => {
         const y = 750 - (idx * 20);

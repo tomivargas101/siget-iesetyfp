@@ -23,7 +23,6 @@ class TeacherService:
                 )
             teachers = query.order_by(Teacher.last_name.asc(), Teacher.first_name.asc()).all()
             
-            # Map with active hours
             results = []
             for t in teachers:
                 active_hours = sum(d.hours_count for d in t.designations if d.is_active)
@@ -56,9 +55,6 @@ class TeacherService:
 
     @staticmethod
     def get_by_dni(dni: str):
-        """
-        Recupera un docente por su DNI almacenado como texto unívoco (RN-01).
-        """
         from models.normative import NormativeClassifier
         clean_dni = NormativeClassifier.normalize_dni(dni)
         session = get_db_session()
@@ -69,18 +65,39 @@ class TeacherService:
 
     @staticmethod
     def save(data: dict) -> tuple[bool, str]:
-        """
-        Guarda o actualiza los datos personales comunes de un docente (RN-01).
-        Los datos personales se almacenan una sola vez independientemente de sus designaciones.
-        """
-        from models.normative import NormativeClassifier
+        from models.validation import validate_dni, validate_cuil, validate_name, validate_legajo, validate_email, validate_max_weekly_hours
         session = get_db_session()
         try:
             t_id = data.get("id")
-            clean_dni = NormativeClassifier.normalize_dni(data["dni"])
-            clean_legajo = str(data["legajo"]).strip()
-            
-            # Validar unicidad DNI y Legajo (RN-01)
+
+            val_dni, clean_dni, err_dni = validate_dni(data.get("dni"))
+            if not val_dni:
+                return False, err_dni
+
+            val_leg, clean_legajo, err_leg = validate_legajo(data.get("legajo"))
+            if not val_leg:
+                return False, err_leg
+
+            val_ln, clean_last_name, err_ln = validate_name(data.get("last_name"), "Apellido")
+            if not val_ln:
+                return False, err_ln
+
+            val_fn, clean_first_name, err_fn = validate_name(data.get("first_name"), "Nombre")
+            if not val_fn:
+                return False, err_fn
+
+            val_cuil, clean_cuil, err_cuil = validate_cuil(data.get("cuil"), clean_dni)
+            if not val_cuil:
+                return False, err_cuil
+
+            val_email, clean_email, err_email = validate_email(data.get("email"), False)
+            if not val_email:
+                return False, err_email
+
+            val_hours, clean_max_hours, err_hours = validate_max_weekly_hours(data.get("max_weekly_hours", 30))
+            if not val_hours:
+                return False, err_hours
+
             dni_check = session.query(Teacher).filter(Teacher.dni == clean_dni)
             if t_id:
                 dni_check = dni_check.filter(Teacher.id != t_id)
@@ -99,26 +116,26 @@ class TeacherService:
                     return False, "Docente no encontrado para actualizar."
                 teacher.legajo = clean_legajo
                 teacher.dni = clean_dni
-                teacher.cuil = str(data.get("cuil")).strip() if data.get("cuil") else None
-                teacher.first_name = str(data["first_name"]).strip()
-                teacher.last_name = str(data["last_name"]).strip()
-                teacher.email = str(data.get("email")).strip() if data.get("email") else None
+                teacher.cuil = clean_cuil if clean_cuil else None
+                teacher.first_name = clean_first_name
+                teacher.last_name = clean_last_name
+                teacher.email = clean_email if clean_email else None
                 teacher.phone = str(data.get("phone")).strip() if data.get("phone") else None
                 teacher.revista = data.get("revista", "Titular")
-                teacher.max_weekly_hours = int(data.get("max_weekly_hours", 30))
+                teacher.max_weekly_hours = clean_max_hours
                 teacher.is_active = data.get("is_active", True)
                 action = "ACTUALIZAR_DOCENTE"
             else:
                 teacher = Teacher(
                     legajo=clean_legajo,
                     dni=clean_dni,
-                    cuil=str(data.get("cuil")).strip() if data.get("cuil") else None,
-                    first_name=str(data["first_name"]).strip(),
-                    last_name=str(data["last_name"]).strip(),
-                    email=str(data.get("email")).strip() if data.get("email") else None,
+                    cuil=clean_cuil if clean_cuil else None,
+                    first_name=clean_first_name,
+                    last_name=clean_last_name,
+                    email=clean_email if clean_email else None,
                     phone=str(data.get("phone")).strip() if data.get("phone") else None,
                     revista=data.get("revista", "Titular"),
-                    max_weekly_hours=int(data.get("max_weekly_hours", 30)),
+                    max_weekly_hours=clean_max_hours,
                     is_active=data.get("is_active", True)
                 )
                 session.add(teacher)
@@ -135,10 +152,6 @@ class TeacherService:
 
     @staticmethod
     def toggle_active(teacher_id: int) -> tuple[bool, str]:
-        """
-        Aplica baja lógica o reactivación preservando el historial íntegro (RN-03).
-        Nunca elimina antecedentes históricos ni registros de asistencia vinculados.
-        """
         session = get_db_session()
         try:
             t = session.query(Teacher).filter(Teacher.id == teacher_id).first()
@@ -157,12 +170,6 @@ class TeacherService:
 
     @staticmethod
     def get_full_history(teacher_id: int) -> dict:
-        """
-        Recupera el historial completo de un docente (RN-01 a RN-03):
-        - Datos personales comunes (RN-01).
-        - Todas sus designaciones históricas y activas con situación de revista (RN-02).
-        - Suplencias vinculadas y registros de asistencia acumulados sin borrado lógico (RN-03).
-        """
         from database.schema import Designation, Substitution, Attendance
         session = get_db_session()
         try:

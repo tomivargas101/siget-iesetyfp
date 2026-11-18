@@ -1,19 +1,3 @@
-"""
-Componente de Tabla Profesional Estilo Planilla Excel para CustomTkinter (SIGET).
-
-Características principales:
-- Desplazamiento bidireccional fluido: Barras de desplazamiento vertical y horizontal (CTkScrollbar).
-- Responsive con Pesos Proporcionales (grid weights) y Ancho Mínimo de Seguridad (min_width):
-  En pantallas grandes se expande al 100% sin dejar huecos; en pantallas compactas habilita
-  scroll horizontal garantizando que NINGUNA columna o texto se corte o quede oculto.
-- Estética Excel Institucional:
-  * Encabezados contrastados en Azul Pizarra/Carbón corporativo (#1E3A5F / #1A2536).
-  * Tipografía nítida en blanco de alto contraste.
-  * Filas alternadas (Zebra striping) con divisores sutiles de celda.
-  * Micro-interacción de hover sutil sobre las filas.
-  * Compatibilidad total con Modo Claro y Modo Oscuro institucional.
-- Soporte de scroll con la rueda del ratón (MouseWheel vertical y Shift+MouseWheel horizontal).
-"""
 
 import tkinter as tk
 import customtkinter as ctk
@@ -27,15 +11,12 @@ class ExcelTableFrame(ctk.CTkFrame):
         self.row_widgets = []
         self.header_frame = None
 
-        # Configuración del Grid del contenedor principal
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # Canvas para scroll bidireccional
         self.canvas = tk.Canvas(self, highlightthickness=0, bd=0)
         self.canvas.grid(row=0, column=0, sticky="nsew")
 
-        # Barras de scroll CustomTkinter (Vertical y Horizontal)
         self.v_scrollbar = ctk.CTkScrollbar(
             self,
             orientation="vertical",
@@ -57,45 +38,37 @@ class ExcelTableFrame(ctk.CTkFrame):
             yscrollcommand=self.v_scrollbar.set
         )
 
-        # Frame contenedor interno dentro del Canvas
         self.inner_frame = ctk.CTkFrame(self.canvas, fg_color="transparent", corner_radius=0)
         self.canvas_window = self.canvas.create_window((0, 0), window=self.inner_frame, anchor="nw")
 
-        # Vinculación de eventos de redimensionamiento
         self.inner_frame.bind("<Configure>", self._on_inner_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Soporte de MouseWheel en el canvas y el inner frame
         self.bind_scroll(self.canvas)
         self.bind_scroll(self.inner_frame)
 
         self._update_theme_colors()
 
     def _on_canvas_configure(self, event):
-        """Ajusta el ancho del canvas_window asegurando respetar el ancho mínimo y expandir al 100%."""
         canvas_w = event.width
         target_w = max(canvas_w, self.min_width)
         self.canvas.itemconfig(self.canvas_window, width=target_w)
         self._update_theme_colors()
 
     def _on_inner_configure(self, event=None):
-        """Actualiza la región de scroll con el bounding box total del contenido."""
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _update_theme_colors(self):
-        """Adapta el color de fondo del Canvas nativo al tema activo (Claro u Oscuro)."""
         mode = ctk.get_appearance_mode()
         bg_color = Theme.BG_WINDOW[1] if mode == "Dark" else Theme.BG_WINDOW[0]
         self.canvas.configure(bg=bg_color)
 
     def bind_scroll(self, widget):
-        """Vincula recursivamente el scroll del ratón vertical y horizontal al widget dado."""
         widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
         widget.bind("<Shift-MouseWheel>", self._on_shift_mousewheel, add="+")
 
     def _on_mousewheel(self, event):
         if self.canvas.winfo_exists():
-            # En Windows cada muesca es delta 120
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _on_shift_mousewheel(self, event):
@@ -103,10 +76,6 @@ class ExcelTableFrame(ctk.CTkFrame):
             self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def set_columns(self, column_configs):
-        """
-        Define la estructura de columnas de la tabla.
-        column_configs: lista de tuplas (título, weight, min_width) o dicts con esas claves.
-        """
         self.column_configs = []
         for col in column_configs:
             if isinstance(col, (list, tuple)):
@@ -127,7 +96,6 @@ class ExcelTableFrame(ctk.CTkFrame):
             })
 
     def render_header(self):
-        """Construye y visualiza la cabecera institucional estilo Excel."""
         if self.header_frame:
             self.header_frame.destroy()
 
@@ -160,7 +128,6 @@ class ExcelTableFrame(ctk.CTkFrame):
             )
             lbl.pack(side="left", fill="both", expand=True)
 
-            # Divisor vertical institucional sutil excepto en la última columna
             if idx < len(self.column_configs) - 1:
                 divider = ctk.CTkFrame(
                     self.header_frame,
@@ -175,13 +142,6 @@ class ExcelTableFrame(ctk.CTkFrame):
         self.bind_scroll(self.header_frame)
 
     def create_row(self, row_idx):
-        """
-        Crea un frame de fila con estilos de Excel profesional:
-        - Zebra striping (filas pares e impares)
-        - Bordes sutiles de celda
-        - Efecto hover interactivo
-        - Mismos pesos de columnas que la cabecera
-        """
         is_even = (row_idx % 2 == 0)
         bg_color = Theme.EXCEL_ROW_EVEN if is_even else Theme.EXCEL_ROW_ODD
 
@@ -194,7 +154,6 @@ class ExcelTableFrame(ctk.CTkFrame):
         )
         row_frame.pack(fill="x", padx=4, pady=2)
 
-        # Configurar las columnas con pesos idénticos a la cabecera
         for idx, col in enumerate(self.column_configs):
             row_frame.grid_columnconfigure(
                 idx,
@@ -202,7 +161,6 @@ class ExcelTableFrame(ctk.CTkFrame):
                 minsize=col["min_width"]
             )
 
-        # Efecto hover interactivo
         def _on_enter(e):
             try:
                 row_frame.configure(fg_color=Theme.EXCEL_ROW_HOVER)
@@ -223,7 +181,6 @@ class ExcelTableFrame(ctk.CTkFrame):
         return row_frame
 
     def add_cell(self, row_frame, col_idx, widget=None, padx=(10, 6), pady=8, sticky="nsew"):
-        """Inserta o posiciona un contenedor/widget en la columna correspondiente de la fila."""
         container = ctk.CTkFrame(row_frame, fg_color="transparent")
         container.grid(row=0, column=col_idx, sticky=sticky, padx=padx, pady=pady)
         self.bind_scroll(container)
@@ -234,7 +191,6 @@ class ExcelTableFrame(ctk.CTkFrame):
         return container
 
     def show_empty_message(self, message):
-        """Muestra un mensaje claro y centrado cuando la tabla no contiene filas."""
         empty_box = ctk.CTkFrame(
             self.inner_frame,
             fg_color=Theme.BG_CARD,
@@ -255,7 +211,6 @@ class ExcelTableFrame(ctk.CTkFrame):
         self.row_widgets.append(empty_box)
 
     def clear_rows(self):
-        """Elimina únicamente las filas de datos y conserva la cabecera."""
         for w in self.row_widgets:
             try:
                 w.destroy()
@@ -266,7 +221,6 @@ class ExcelTableFrame(ctk.CTkFrame):
         self.canvas.xview_moveto(0)
 
     def clear_all(self):
-        """Elimina todos los widgets dentro del inner_frame (cabecera y filas)."""
         self.clear_rows()
         if self.header_frame:
             try:

@@ -36,7 +36,6 @@ class TeacherModal(ctk.CTkToplevel):
         form = ctk.CTkFrame(self, fg_color="transparent")
         form.pack(fill="both", expand=True, padx=35)
 
-        # Campos: Legajo y DNI
         row1 = ctk.CTkFrame(form, fg_color="transparent")
         row1.pack(fill="x", pady=5)
         
@@ -52,14 +51,12 @@ class TeacherModal(ctk.CTkToplevel):
         self.entry_dni = ctk.CTkEntry(f_dni, placeholder_text="Sin puntos", fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
         self.entry_dni.pack(fill="x", pady=(2, 0))
 
-        # Campo: CUIL
         f_cuil = ctk.CTkFrame(form, fg_color="transparent")
         f_cuil.pack(fill="x", pady=5)
         ctk.CTkLabel(f_cuil, text="CUIL:", font=ctk.CTkFont(size=11, weight="bold"), text_color=Theme.TEXT_SECONDARY).pack(anchor="w")
         self.entry_cuil = ctk.CTkEntry(f_cuil, placeholder_text="20-12345678-9", fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
         self.entry_cuil.pack(fill="x", pady=(2, 0))
 
-        # Campos: Apellido y Nombre
         row2 = ctk.CTkFrame(form, fg_color="transparent")
         row2.pack(fill="x", pady=5)
 
@@ -75,7 +72,6 @@ class TeacherModal(ctk.CTkToplevel):
         self.entry_first_name = ctk.CTkEntry(f_nom, fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
         self.entry_first_name.pack(fill="x", pady=(2, 0))
 
-        # Campos: Email y Teléfono
         row3 = ctk.CTkFrame(form, fg_color="transparent")
         row3.pack(fill="x", pady=5)
 
@@ -91,7 +87,6 @@ class TeacherModal(ctk.CTkToplevel):
         self.entry_phone = ctk.CTkEntry(f_tel, fg_color=Theme.BG_INPUT, border_color=Theme.BORDER_INPUT, text_color=Theme.TEXT_PRIMARY)
         self.entry_phone.pack(fill="x", pady=(2, 0))
 
-        # Situación de Revista y Tope de Horas
         row4 = ctk.CTkFrame(form, fg_color="transparent")
         row4.pack(fill="x", pady=5)
 
@@ -109,7 +104,6 @@ class TeacherModal(ctk.CTkToplevel):
         self.entry_max_hours.insert(0, "30")
         self.entry_max_hours.pack(fill="x", pady=(2, 0))
 
-        # Rellenar datos si es edición
         if self.teacher_data:
             self.entry_legajo.insert(0, self.teacher_data["legajo"])
             self.entry_dni.insert(0, self.teacher_data["dni"])
@@ -125,7 +119,6 @@ class TeacherModal(ctk.CTkToplevel):
             self.entry_max_hours.delete(0, "end")
             self.entry_max_hours.insert(0, str(self.teacher_data.get("max_hours", 30)))
 
-        # Botones de Acción
         btn_box = ctk.CTkFrame(self, fg_color="transparent")
         btn_box.pack(fill="x", padx=35, pady=(20, 25))
 
@@ -195,7 +188,6 @@ class TeachersView(ctk.CTkFrame):
         self.refresh()
 
     def _build_ui(self):
-        # Tabs de Navegación del Módulo Unificado de Docentes
         self.tabview = ctk.CTkTabview(
             self,
             fg_color="transparent",
@@ -211,29 +203,18 @@ class TeachersView(ctk.CTkFrame):
         self.tab_attendance = self.tabview.add("Asistencias")
         self.tab_calendar = self.tabview.add("Calendario")
 
-        # ---------------------------------------------------------
-        # TAB 1: PLANTA FUNCIONAL Y LEGAJOS DOCENTES
-        # ---------------------------------------------------------
         self._build_teachers_tab()
 
-        # ---------------------------------------------------------
-        # TAB 2: CONTROL DIARIO DE ASISTENCIAS
-        # ---------------------------------------------------------
         self._build_attendance_tab()
 
-        # ---------------------------------------------------------
-        # TAB 3: CALENDARIO INSTITUCIONAL DEL PROFESORADO
-        # ---------------------------------------------------------
         self._build_calendar_tab()
 
-        # Selección de solapa inicial si se solicitó expresamente
         if self.default_tab in ("attendance", "asistencias"):
             self.tabview.set("Asistencias")
         elif self.default_tab in ("calendar", "calendario"):
             self.tabview.set("Calendario")
 
     def _build_teachers_tab(self):
-        # Barra de herramientas superior
         toolbar = ctk.CTkFrame(
             self.tab_teachers,
             fg_color=Theme.BG_CARD,
@@ -243,7 +224,6 @@ class TeachersView(ctk.CTkFrame):
         )
         toolbar.pack(fill="x", pady=(0, 15))
 
-        # Buscador
         ctk.CTkLabel(
             toolbar,
             text="Buscar:",
@@ -263,7 +243,6 @@ class TeachersView(ctk.CTkFrame):
         self.entry_search.pack(side="left", padx=5, pady=12)
         self.entry_search.bind("<KeyRelease>", lambda e: self.refresh())
 
-        # Filtro Revista
         ctk.CTkLabel(
             toolbar,
             text="Revista:",
@@ -286,7 +265,6 @@ class TeachersView(ctk.CTkFrame):
         )
         self.combo_filter.pack(side="left", padx=5)
 
-        # Botón Nuevo Docente
         self.btn_new = ctk.CTkButton(
             toolbar,
             text="Nuevo Docente",
@@ -299,7 +277,6 @@ class TeachersView(ctk.CTkFrame):
         )
         self.btn_new.pack(side="right", padx=15, pady=12)
 
-        # Tabla estilo Excel con scroll bidireccional
         self.teachers_table = ExcelTableFrame(self.tab_teachers, min_width=1080)
         self.teachers_table.pack(fill="both", expand=True, pady=5)
 
@@ -346,7 +323,6 @@ class TeachersView(ctk.CTkFrame):
         for idx, t in enumerate(teachers):
             row = self.teachers_table.create_row(idx)
 
-            # Legajo
             l_box = self.teachers_table.add_cell(row, 0)
             ctk.CTkLabel(
                 l_box,
@@ -356,7 +332,6 @@ class TeachersView(ctk.CTkFrame):
                 anchor="center"
             ).pack(fill="x", anchor="center")
 
-            # Docente
             d_box = self.teachers_table.add_cell(row, 1)
             ctk.CTkLabel(
                 d_box,
@@ -373,7 +348,6 @@ class TeachersView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # DNI
             dni_box = self.teachers_table.add_cell(row, 2)
             ctk.CTkLabel(
                 dni_box,
@@ -383,7 +357,6 @@ class TeachersView(ctk.CTkFrame):
                 anchor="center"
             ).pack(fill="x", anchor="center")
 
-            # Revista Badge
             rev_box = self.teachers_table.add_cell(row, 3)
             rev_colors = {
                 "Titular": ("#DCFCE7", "#065F46"),
@@ -407,7 +380,6 @@ class TeachersView(ctk.CTkFrame):
                 text_color=txt_col
             ).pack(padx=8, pady=2)
 
-            # Carga Horaria (Activa / Tope)
             h_box = self.teachers_table.add_cell(row, 4)
             act_h = t["active_hours"]
             max_h = t["max_hours"]
@@ -421,7 +393,6 @@ class TeachersView(ctk.CTkFrame):
                 anchor="w"
             ).pack(fill="x", anchor="w")
 
-            # Estado
             st_box = self.teachers_table.add_cell(row, 5)
             status_txt = "Activo" if t["is_active"] else "Inactivo"
             status_bg = Theme.SUCCESS_BG if t["is_active"] else Theme.DANGER_BG
@@ -441,7 +412,6 @@ class TeachersView(ctk.CTkFrame):
                 text_color=status_col
             ).pack(padx=6, pady=2)
 
-            # Acciones
             actions_box = self.teachers_table.add_cell(row, 6)
             btn_edit = ctk.CTkButton(
                 actions_box,

@@ -32,7 +32,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
             text_color=Theme.TEXT_PRIMARY
         ).pack(pady=(20, 15))
 
-        # Selector de Motor
         frame_engine = ctk.CTkFrame(self, fg_color="transparent")
         frame_engine.pack(fill="x", padx=30, pady=5)
         ctk.CTkLabel(frame_engine, text="Motor de Base de Datos:", width=140, anchor="w", text_color=Theme.TEXT_SECONDARY).pack(side="left")
@@ -51,7 +50,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         )
         self.combo_engine.pack(side="right")
 
-        # Host
         self.frame_host = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_host.pack(fill="x", padx=30, pady=5)
         ctk.CTkLabel(self.frame_host, text="Host / Servidor:", width=140, anchor="w", text_color=Theme.TEXT_SECONDARY).pack(side="left")
@@ -59,7 +57,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         self.entry_host.insert(0, str(self.cfg.get("host", "localhost")))
         self.entry_host.pack(side="right")
 
-        # Puerto
         self.frame_port = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_port.pack(fill="x", padx=30, pady=5)
         ctk.CTkLabel(self.frame_port, text="Puerto:", width=140, anchor="w", text_color=Theme.TEXT_SECONDARY).pack(side="left")
@@ -67,7 +64,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         self.entry_port.insert(0, str(self.cfg.get("port", 3306)))
         self.entry_port.pack(side="right")
 
-        # Nombre de Base de Datos
         self.frame_db = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_db.pack(fill="x", padx=30, pady=5)
         ctk.CTkLabel(self.frame_db, text="Nombre de BD:", width=140, anchor="w", text_color=Theme.TEXT_SECONDARY).pack(side="left")
@@ -75,7 +71,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         self.entry_db.insert(0, str(self.cfg.get("database", "siget_db")))
         self.entry_db.pack(side="right")
 
-        # Usuario
         self.frame_user = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_user.pack(fill="x", padx=30, pady=5)
         ctk.CTkLabel(self.frame_user, text="Usuario:", width=140, anchor="w", text_color=Theme.TEXT_SECONDARY).pack(side="left")
@@ -83,7 +78,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         self.entry_user.insert(0, str(self.cfg.get("user", "root")))
         self.entry_user.pack(side="right")
 
-        # Contraseña
         self.frame_pass = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_pass.pack(fill="x", padx=30, pady=5)
         ctk.CTkLabel(self.frame_pass, text="Contraseña:", width=140, anchor="w", text_color=Theme.TEXT_SECONDARY).pack(side="left")
@@ -91,7 +85,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
         self.entry_pass.insert(0, str(self.cfg.get("password", "")))
         self.entry_pass.pack(side="right")
 
-        # Botones
         frame_btn = ctk.CTkFrame(self, fg_color="transparent")
         frame_btn.pack(fill="x", padx=30, pady=(25, 10))
 
@@ -179,11 +172,6 @@ class DatabaseConfigDialog(ctk.CTkToplevel):
             )
 
 class LoginWindow(ctk.CTk):
-    """
-    Ventana de Autenticación Institucional para SIGET.
-    Inicia en Modo Claro por defecto con soporte completo para alternancia y paleta oficial
-    basada en el logotipo del instituto (Carbón y Dorado Mostaza).
-    """
     def __init__(self, on_login_success=None):
         super().__init__()
         self.on_login_success = on_login_success
@@ -198,7 +186,6 @@ class LoginWindow(ctk.CTk):
         apply_window_icon(self)
         self.configure(fg_color=Theme.BG_WINDOW)
 
-        # Configurar protocolo de cerrado seguro
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._center_window()
@@ -239,22 +226,17 @@ class LoginWindow(ctk.CTk):
         self.geometry(f"{width}x{height}+{x}+{y}")
 
     def _build_ui(self):
-        # Contenedor Principal en 2 Columnas
         self.grid_columnconfigure(0, weight=4)
         self.grid_columnconfigure(1, weight=5)
         self.grid_rowconfigure(0, weight=1)
 
-        # =====================================================
-        # PANEL IZQUIERDO: Branding Institucional (Carbón Grafito)
-        # =====================================================
         self.left_panel = ctk.CTkFrame(
             self,
             corner_radius=0,
-            fg_color="#181818"  # Carbón profundo institucional
+            fg_color="#181818"
         )
         self.left_panel.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
 
-        # Cargar Logotipo Oficial
         logo_path = get_asset_path("logo_transparent.png")
         if not os.path.exists(logo_path):
             logo_path = get_asset_path("logo.png")
@@ -272,7 +254,7 @@ class LoginWindow(ctk.CTk):
             self.left_panel,
             text="INSTITUTO DE EDUCACIÓN SUPERIOR",
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
-            text_color=Theme.GOLD_ACCENT  # Dorado institucional del logo oficial (#E0C45D)
+            text_color=Theme.GOLD_ACCENT
         )
         lbl_brand_badge.pack(anchor="w", padx=35, pady=(0, 4))
 
@@ -294,7 +276,6 @@ class LoginWindow(ctk.CTk):
         )
         lbl_app_desc.pack(anchor="w", padx=35, pady=(0, 20))
 
-        # Características destacadas (Sin emojis, con punto dorado)
         features = [
             "Control de Planta Funcional y Legajos",
             "Validación de Tope de Horas Cátedra",
@@ -321,7 +302,6 @@ class LoginWindow(ctk.CTk):
                 anchor="w"
             ).pack(side="left", padx=4)
 
-        # Pie del panel izquierdo
         lbl_version = ctk.CTkLabel(
             self.left_panel,
             text="Versión 1.0.0 Enterprise • PyInstaller Ready",
@@ -330,9 +310,6 @@ class LoginWindow(ctk.CTk):
         )
         lbl_version.pack(side="bottom", pady=18)
 
-        # =====================================================
-        # PANEL DERECHO: Formulario de Acceso Institucional
-        # =====================================================
         self.right_panel = ctk.CTkFrame(
             self,
             corner_radius=0,
@@ -340,7 +317,6 @@ class LoginWindow(ctk.CTk):
         )
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
 
-        # Encabezado Formulario
         header_frame = ctk.CTkFrame(self.right_panel, fg_color="transparent")
         header_frame.pack(fill="x", padx=45, pady=(35, 15))
 
@@ -358,7 +334,6 @@ class LoginWindow(ctk.CTk):
             text_color=Theme.TEXT_SECONDARY
         ).pack(anchor="w", pady=(4, 0))
 
-        # Campo: Usuario
         form_frame = ctk.CTkFrame(self.right_panel, fg_color="transparent")
         form_frame.pack(fill="x", padx=45, pady=6)
 
@@ -381,7 +356,6 @@ class LoginWindow(ctk.CTk):
         self.entry_username.pack(fill="x", pady=(0, 12))
         self.entry_username.bind("<Return>", lambda e: self.entry_password.focus())
 
-        # Campo: Contraseña
         ctk.CTkLabel(
             form_frame,
             text="Contraseña:",
@@ -417,7 +391,6 @@ class LoginWindow(ctk.CTk):
         )
         self.btn_toggle_pass.pack(side="right", padx=(8, 0))
 
-        # Mensaje de error/estado
         self.lbl_status = ctk.CTkLabel(
             self.right_panel,
             text="",
@@ -426,7 +399,6 @@ class LoginWindow(ctk.CTk):
         )
         self.lbl_status.pack(padx=45, pady=(2, 4), anchor="w")
 
-        # Botón Iniciar Sesión (Dorado Institucional)
         self.btn_login = ctk.CTkButton(
             self.right_panel,
             text="Ingresar a SIGET",
@@ -439,7 +411,6 @@ class LoginWindow(ctk.CTk):
         )
         self.btn_login.pack(fill="x", padx=45, pady=(4, 6))
 
-        # Enlace sutil para Registro / Creación de Cuenta
         self.btn_register_link = ctk.CTkButton(
             self.right_panel,
             text="¿No tienes cuenta? Registrarse / Crear Cuenta",
@@ -452,7 +423,6 @@ class LoginWindow(ctk.CTk):
         )
         self.btn_register_link.pack(fill="x", padx=45, pady=(0, 8))
 
-        # Accesos Rápidos de Prueba (Rector / Bedel)
         demo_frame = ctk.CTkFrame(
             self.right_panel,
             fg_color=Theme.BG_CARD_SUB,
@@ -496,7 +466,6 @@ class LoginWindow(ctk.CTk):
         )
         self.btn_fill_bedel.pack(side="right", expand=True, fill="x", padx=(4, 0))
 
-        # Barra inferior: Estado de BD y Configuración
         bottom_bar = ctk.CTkFrame(self.right_panel, fg_color="transparent")
         bottom_bar.pack(side="bottom", fill="x", padx=45, pady=18)
 
@@ -524,7 +493,6 @@ class LoginWindow(ctk.CTk):
         btn_db_settings.pack(side="right")
 
     def _quick_login(self, u, p):
-        """Llena las credenciales de prueba y ejecuta la validación inmediata del usuario."""
         self._set_credentials(u, p)
         self._handle_login()
 
@@ -618,7 +586,6 @@ class LoginWindow(ctk.CTk):
             self.on_login_success(user)
 
     def _check_first_run_on_startup(self):
-        """Si la base de datos de usuarios está vacía, activa obligatoriamente la Configuración Inicial de Secretaría."""
         try:
             status = AuthService.check_first_run()
             if status.get("is_first_run"):
@@ -627,7 +594,6 @@ class LoginWindow(ctk.CTk):
             print(f"[SIGET] Advertencia al comprobar first-run: {e}")
 
     def _open_register(self, is_first_run=False):
-        """Abre la ventana modal de registro institucional."""
         def on_reg_success(username):
             self.entry_username.delete(0, "end")
             self.entry_username.insert(0, username)

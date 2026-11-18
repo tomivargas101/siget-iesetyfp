@@ -1,9 +1,4 @@
-/**
- * Registro Centralizado de Handlers IPC para Electron (Main Process)
- * Provee comunicación segura y no bloqueante para el proceso Renderer.
- */
-
-const { ipcMain, dialog, shell } = require('electron');
+const { ipcMain, dialog, shell, BrowserWindow } = require('electron');
 const { AuthService } = require('../services/authService');
 const { UserService } = require('../services/userService');
 const { TeacherService } = require('../services/teacherService');
@@ -16,9 +11,6 @@ const { ReportService } = require('../services/reportService');
 const { AuditService } = require('../services/auditService');
 
 function registerIpcHandlers() {
-    // -------------------------------------------------------------
-    // AUTENTICACIÓN, REGISTRO INICIAL Y RECUPERACIÓN OFFLINE
-    // -------------------------------------------------------------
     ipcMain.handle('auth:checkFirstRun', () => {
         return AuthService.checkFirstRun();
     });
@@ -55,9 +47,6 @@ function registerIpcHandlers() {
         return AuthService.recoverByMasterKey(username, masterKey, newPassword);
     });
 
-    // -------------------------------------------------------------
-    // GESTIÓN DE USUARIOS Y ROLES (SECRETARÍA ADMINISTRATIVA)
-    // -------------------------------------------------------------
     ipcMain.handle('users:getAll', () => {
         return UserService.getAllUsers();
     });
@@ -82,9 +71,6 @@ function registerIpcHandlers() {
         return UserService.toggleUserActive(id);
     });
 
-    // -------------------------------------------------------------
-    // DOCENTES Y LEGAJOS (RN-01, RN-02)
-    // -------------------------------------------------------------
     ipcMain.handle('teachers:getAll', (event, filters) => {
         return TeacherService.getAll(filters);
     });
@@ -105,9 +91,6 @@ function registerIpcHandlers() {
         return TeacherService.delete(id);
     });
 
-    // -------------------------------------------------------------
-    // CÁTEDRAS, DESIGNACIONES Y SUPLENCIAS (RN-02, RN-03)
-    // -------------------------------------------------------------
     ipcMain.handle('designations:getAll', (event, filters) => {
         return DesignationService.getAll(filters);
     });
@@ -156,9 +139,6 @@ function registerIpcHandlers() {
         return DesignationService.getSubjectsByCareer(careerId);
     });
 
-    // -------------------------------------------------------------
-    // CONTROL DIARIO DE ASISTENCIAS
-    // -------------------------------------------------------------
     ipcMain.handle('attendance:getDaily', (event, dateStr) => {
         return AttendanceService.getDailyRecords(dateStr);
     });
@@ -187,7 +167,27 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportDailyExcel', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
-            const res = await AttendanceService.exportDailyExcel({ dateStr });
+            let outputPath = typeof params === 'object' ? params?.outputPath : null;
+
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const targetDate = dateStr || new Date().toISOString().split('T')[0];
+                const defaultName = `Parte_Diario_Docentes_${targetDate}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Parte Diario de Asistencias (Excel)',
+                    defaultPath: defaultName,
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+
+            const res = await AttendanceService.exportDailyExcel({ dateStr, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
             console.error('[IPC attendance:exportDailyExcel] Error:', err);
@@ -198,9 +198,30 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportPrintablePdf', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
+            let outputPath = typeof params === 'object' ? params?.outputPath : null;
+
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const targetDate = dateStr || new Date().toISOString().split('T')[0];
+                const defaultName = `Planilla_Imprimible_Control_Diario_${targetDate}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Imprimible de Control Diario (PDF)',
+                    defaultPath: defaultName,
+                    filters: [
+                        { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+
             const currentUser = AuthService.getCurrentUser();
             const res = await AttendanceService.exportPrintableDailyPdf({
                 dateStr,
+                outputPath,
                 exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
             });
             return JSON.parse(JSON.stringify(res));
@@ -213,7 +234,27 @@ function registerIpcHandlers() {
     ipcMain.handle('attendance:exportPrintableExcel', async (event, params) => {
         try {
             const dateStr = typeof params === 'string' ? params : (params?.dateStr || params?.date);
-            const res = await AttendanceService.exportPrintableDailyExcel({ dateStr });
+            let outputPath = typeof params === 'object' ? params?.outputPath : null;
+
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const targetDate = dateStr || new Date().toISOString().split('T')[0];
+                const defaultName = `Planilla_Imprimible_Control_Diario_${targetDate}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Imprimible de Control Diario (Excel)',
+                    defaultPath: defaultName,
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+
+            const res = await AttendanceService.exportPrintableDailyExcel({ dateStr, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
             console.error('[IPC attendance:exportPrintableExcel] Error:', err);
@@ -221,9 +262,6 @@ function registerIpcHandlers() {
         }
     });
 
-    // -------------------------------------------------------------
-    // CATÁLOGO MAESTRO NORMATIVO (IL-01 / IL-02)
-    // -------------------------------------------------------------
     ipcMain.handle('normative:getMasterCatalog', () => {
         const { NormativeService } = require('../services/normativeService');
         return NormativeService.getMasterCatalog();
@@ -239,9 +277,6 @@ function registerIpcHandlers() {
         return NormativeService.getCalendarDayInfo(dateStr);
     });
 
-    // -------------------------------------------------------------
-    // IMPORTACIÓN MASIVA CSV Y FORMATOS UNIVERSALES (PERSONAL Y ASISTENCIAS)
-    // -------------------------------------------------------------
     ipcMain.handle('csv:parseUniversalFile', async (event, { fileBufferBase64, fileName, explicitType }) => {
         const fileBuffer = fileBufferBase64 ? Buffer.from(fileBufferBase64, 'base64') : Buffer.alloc(0);
         return await CsvImportService.parseUniversalFile({ fileBuffer, fileName, explicitType });
@@ -263,9 +298,6 @@ function registerIpcHandlers() {
         return CsvImportService.importAttendance(csvText);
     });
 
-    // -------------------------------------------------------------
-    // CALENDARIO INSTITUCIONAL DEL PROFESORADO
-    // -------------------------------------------------------------
     ipcMain.handle('calendar:getTeacherTimeline', (event, params) => {
         const res = TeacherCalendarService.getTeacherTimeline(params);
         return JSON.parse(JSON.stringify(res));
@@ -302,18 +334,81 @@ function registerIpcHandlers() {
     });
 
     ipcMain.handle('calendar:exportMonthExcel', async (event, params) => {
-        return await TeacherCalendarService.exportMonthExcel(params);
+        try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const y = params?.year || new Date().getFullYear();
+                const m = String(params?.month || (new Date().getMonth() + 1)).padStart(2, '0');
+                const defaultName = `Planilla_Mensual_Docentes_${y}_${m}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Mensual Oficial (Excel)',
+                    defaultPath: defaultName,
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            return await TeacherCalendarService.exportMonthExcel({ ...params, outputPath });
+        } catch (err) {
+            console.error('[IPC calendar:exportMonthExcel] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('calendar:exportMonthPdf', async (event, params) => {
-        return await TeacherCalendarService.exportMonthPdf(params);
+        try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const y = params?.year || new Date().getFullYear();
+                const m = String(params?.month || (new Date().getMonth() + 1)).padStart(2, '0');
+                const defaultName = `Calendario_Academico_${y}_${m}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Calendario Institucional (PDF)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            return await TeacherCalendarService.exportMonthPdf({ ...params, outputPath });
+        } catch (err) {
+            console.error('[IPC calendar:exportMonthPdf] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('calendar:exportTeacherPdf', async (event, params) => {
         try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const defaultName = `Ficha_Docente_${params?.teacherId || 'ID'}_${params?.startDate || 'INI'}_${params?.endDate || 'FIN'}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Ficha Docente Oficial (PDF)',
+                    defaultPath: defaultName,
+                    filters: [
+                        { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
             const currentUser = AuthService.getCurrentUser();
             const res = await TeacherCalendarService.exportTeacherRecordPdf({
                 ...params,
+                outputPath,
                 exportedBy: currentUser ? `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() : 'Bedelía'
             });
             return JSON.parse(JSON.stringify(res));
@@ -325,7 +420,24 @@ function registerIpcHandlers() {
 
     ipcMain.handle('calendar:exportTeacherExcel', async (event, params) => {
         try {
-            const res = await TeacherCalendarService.exportTeacherRecordExcel(params);
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const defaultName = `Ficha_Docente_${params?.teacherId || 'ID'}_${params?.startDate || 'INI'}_${params?.endDate || 'FIN'}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Ficha Docente Oficial (Excel)',
+                    defaultPath: defaultName,
+                    filters: [
+                        { name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] },
+                        { name: 'Paquete de Resguardo con Certificados (*.zip)', extensions: ['zip'] }
+                    ]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            const res = await TeacherCalendarService.exportTeacherRecordExcel({ ...params, outputPath });
             return JSON.parse(JSON.stringify(res));
         } catch (err) {
             console.error('[IPC calendar:exportTeacherExcel] Error:', err);
@@ -333,34 +445,70 @@ function registerIpcHandlers() {
         }
     });
 
-    // -------------------------------------------------------------
-    // REGISTRO OFICIAL DE AUDITORÍA Y TRAZABILIDAD
-    // -------------------------------------------------------------
     ipcMain.handle('audit:getAll', (event, params) => {
         return AuditService.getAllLogs(params);
     });
 
     ipcMain.handle('audit:exportPdf', async (event, params) => {
-        return await AuditService.generateAuditPdf(params);
+        try {
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const defaultName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}.pdf`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Registro Oficial de Acciones (PDF)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Documento PDF (*.pdf)', extensions: ['pdf'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            const res = await AuditService.generateAuditPdf({ ...params, outputPath });
+            return JSON.parse(JSON.stringify(res));
+        } catch (err) {
+            console.error('[IPC audit:exportPdf] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
-    // -------------------------------------------------------------
-    // DASHBOARD Y ESTADÍSTICAS
-    // -------------------------------------------------------------
     ipcMain.handle('dashboard:getStats', () => {
         return DashboardService.getStats();
     });
 
-    // -------------------------------------------------------------
-    // REPORTES Y PLANILLAS OFICIALES (EXCEL)
-    // -------------------------------------------------------------
     ipcMain.handle('reports:getPreview', async (event, { year, month }) => {
         const { AttendanceProcessor } = require('../services/attendanceProcessor');
         return AttendanceProcessor.processMonthlyRecords(Number(year), Number(month));
     });
 
-    ipcMain.handle('reports:generateMonthly', async (event, { year, month }) => {
-        return await ReportService.generateMonthlyWorkbook(year, month);
+    ipcMain.handle('reports:generateMonthly', async (event, params) => {
+        try {
+            const year = params?.year;
+            const month = params?.month;
+            let outputPath = params?.outputPath;
+            if (!outputPath) {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const defaultName = `Planilla_Estadistica_Mensual_${year}_${String(month).padStart(2, '0')}.xlsx`;
+                const saveRes = await dialog.showSaveDialog(win, {
+                    title: 'Guardar Planilla Estadística Mensual (Excel)',
+                    defaultPath: defaultName,
+                    filters: [{ name: 'Libro de Excel (*.xlsx)', extensions: ['xlsx'] }]
+                });
+                if (saveRes.canceled || !saveRes.filePath) {
+                    return { success: false, canceled: true, message: 'Exportación cancelada por el usuario.' };
+                }
+                outputPath = saveRes.filePath;
+            }
+            return await ReportService.generateMonthlyWorkbook(year, month, null, outputPath);
+        } catch (err) {
+            console.error('[IPC reports:generateMonthly] Error:', err);
+            return { success: false, message: err.message };
+        }
     });
 
     ipcMain.handle('reports:openFile', async (event, filePath) => {
@@ -371,11 +519,13 @@ function registerIpcHandlers() {
         return { success: false, message: 'Ruta no válida' };
     });
 
-    // -------------------------------------------------------------
-    // DIÁLOGOS NATIVOS
-    // -------------------------------------------------------------
     ipcMain.handle('dialog:showMessage', async (event, options) => {
         return await dialog.showMessageBox(options);
+    });
+
+    ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await dialog.showSaveDialog(win, options);
     });
 }
 

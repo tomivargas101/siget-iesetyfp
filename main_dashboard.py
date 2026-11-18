@@ -2,7 +2,6 @@ import sys
 import os
 from pathlib import Path
 
-# Asegurar directorio raíz en sys.path
 BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
@@ -21,11 +20,6 @@ from views.attendance_view import AttendanceView
 from views.login_view import DatabaseConfigDialog
 
 class MainDashboardWindow(ctk.CTk):
-    """
-    Ventana del Dashboard Principal de SIGET construida con CustomTkinter.
-    Implementa la identidad institucional basada en el logotipo oficial (Carbón y Dorado Mostaza).
-    Diseño 100% corporativo sin emojis, con soporte de inicio en Modo Claro por defecto y alternancia a Modo Oscuro.
-    """
     def __init__(self, user=None, on_logout=None):
         super().__init__()
         self.on_logout = on_logout
@@ -48,16 +42,12 @@ class MainDashboardWindow(ctk.CTk):
         self.geometry("1280x820")
         self.minsize(1050, 700)
 
-        # Aplicar icono oficial de la aplicación
         apply_window_icon(self)
 
-        # Aplicar color de fondo responsivo al frame raíz
         self.configure(fg_color=Theme.BG_WINDOW)
 
-        # Configurar protocolo de cerrado seguro de la ventana
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # Centrar en pantalla
         self.update_idletasks()
         width = 1280
         height = 820
@@ -90,13 +80,10 @@ class MainDashboardWindow(ctk.CTk):
             pass
 
     def _build_ui(self):
-        self.grid_columnconfigure(0, weight=0)  # Barra lateral fija
-        self.grid_columnconfigure(1, weight=1)  # Área de contenido
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # =====================================================
-        # 1. BARRA LATERAL (SIDEBAR) CORPORATIVA
-        # =====================================================
         self.sidebar = ctk.CTkFrame(
             self,
             width=270,
@@ -108,7 +95,6 @@ class MainDashboardWindow(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
 
-        # Branding Institucional con Logotipo Oficial
         brand_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         brand_box.pack(fill="x", padx=18, pady=(20, 15))
 
@@ -144,7 +130,6 @@ class MainDashboardWindow(ctk.CTk):
         )
         lbl_sublogo.pack(anchor="w")
 
-        # Tarjeta del Usuario y Rol
         user = CurrentSession.user
         is_secretaria = CurrentSession.is_secretaria()
 
@@ -166,7 +151,6 @@ class MainDashboardWindow(ctk.CTk):
             justify="left"
         ).pack(anchor="w", padx=12, pady=(10, 2))
 
-        # Rol Badge resaltado con Dorado Institucional (#E0C45D)
         role_name = "SECRETARÍA / GESTIÓN" if is_secretaria else "BEDELÍA / OPERATIVO"
         badge_bg = ("#2B2B2B", "#1A1A1A")
         badge_fg = Theme.GOLD_ACCENT
@@ -182,7 +166,6 @@ class MainDashboardWindow(ctk.CTk):
         )
         badge_role.pack(anchor="w", padx=12, pady=(0, 10))
 
-        # Menú de Navegación diferenciado según el rol (Sin Emojis)
         self.nav_buttons = {}
         nav_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         nav_box.pack(fill="x", padx=12, pady=5)
@@ -220,31 +203,9 @@ class MainDashboardWindow(ctk.CTk):
             btn.pack(fill="x", pady=2)
             self.nav_buttons[key] = btn
 
-        # =====================================================
-        # Pie del Sidebar: Switch Tema y Cerrar Sesión
-        # =====================================================
         bottom_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         bottom_box.pack(side="bottom", fill="x", padx=16, pady=20)
 
-        # Switch interactivo de Modo Oscuro ubicado exactamente arriba del botón rojo de Cerrar Sesión
-        current_mode = ctk.get_appearance_mode()
-        self.switch_theme = ctk.CTkSwitch(
-            bottom_box,
-            text="Modo Oscuro",
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-            text_color=Theme.TEXT_SECONDARY,
-            progress_color=Theme.GOLD,
-            command=self._toggle_theme,
-            onvalue="Dark",
-            offvalue="Light"
-        )
-        if current_mode == "Dark":
-            self.switch_theme.select()
-        else:
-            self.switch_theme.deselect()
-        self.switch_theme.pack(anchor="w", padx=2, pady=(0, 12))
-
-        # Botón rojo institucional de Cerrar Sesión
         btn_logout = ctk.CTkButton(
             bottom_box,
             text="Cerrar Sesión",
@@ -258,9 +219,6 @@ class MainDashboardWindow(ctk.CTk):
         )
         btn_logout.pack(fill="x")
 
-        # =====================================================
-        # 2. CONTENIDO PRINCIPAL
-        # =====================================================
         self.content_area = ctk.CTkFrame(
             self,
             corner_radius=0,
@@ -268,7 +226,6 @@ class MainDashboardWindow(ctk.CTk):
         )
         self.content_area.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
 
-        # Barra Superior de Estado y Título con Línea Acento Dorado
         self.top_bar = ctk.CTkFrame(
             self.content_area,
             height=62,
@@ -280,7 +237,6 @@ class MainDashboardWindow(ctk.CTk):
         self.top_bar.pack(fill="x", side="top")
         self.top_bar.pack_propagate(False)
 
-        # Franja sutil institucional dorada en la parte superior
         gold_line = ctk.CTkFrame(self.top_bar, height=3, fg_color=Theme.GOLD, corner_radius=0)
         gold_line.pack(side="top", fill="x")
 
@@ -304,7 +260,6 @@ class MainDashboardWindow(ctk.CTk):
         )
         self.lbl_top_info.pack(side="right")
 
-        # Contenedor para Vistas Dinámicas
         self.view_container = ctk.CTkFrame(self.content_area, fg_color="transparent")
         self.view_container.pack(fill="both", expand=True, padx=25, pady=20)
 
@@ -313,17 +268,14 @@ class MainDashboardWindow(ctk.CTk):
             DatabaseConfigDialog(self, on_saved=self._on_db_config_saved)
             return
 
-        # Mapeo de botón activo (si se solicita attendance o calendar desde accesos directos, resalta Docentes)
         active_key = "teachers" if view_name in ("attendance", "calendar") else view_name
 
-        # Actualizar resaltado de botón activo en la barra lateral con paleta institucional
         for key, btn in self.nav_buttons.items():
             if key == active_key:
                 btn.configure(fg_color=Theme.NAV_ACTIVE_BG, text_color=Theme.NAV_ACTIVE_TEXT)
             else:
                 btn.configure(fg_color="transparent", text_color=Theme.NAV_TEXT)
 
-        # Destruir vista anterior
         if self.current_view:
             try:
                 self.current_view.destroy()
@@ -331,7 +283,6 @@ class MainDashboardWindow(ctk.CTk):
                 pass
             self.current_view = None
 
-        # Título dinámico sin emojis
         titles = {
             "dashboard": "Panel de Control y Estadísticas Globales" if CurrentSession.is_secretaria() else "Panel Operativo de Bedelía",
             "teachers": "Gestión Integral de Docentes: Planta Funcional y Asistencias",
@@ -343,17 +294,14 @@ class MainDashboardWindow(ctk.CTk):
         }
         self.lbl_view_title.configure(text=titles.get(view_name, "SIGET"))
 
-        # Instanciar vista correspondiente con protección de resiliencia LAN
         try:
             if view_name == "dashboard":
                 self.current_view = DashboardView(self.view_container, on_navigate=self.show_view)
             elif view_name == "teachers":
                 self.current_view = TeachersView(self.view_container)
             elif view_name == "attendance":
-                # Abre el módulo de docentes directamente posicionado en Asistencias
                 self.current_view = TeachersView(self.view_container, default_tab="attendance")
             elif view_name == "calendar":
-                # Abre el módulo de docentes directamente posicionado en Calendario
                 self.current_view = TeachersView(self.view_container, default_tab="calendar")
             elif view_name == "csv_import":
                 self.current_view = CsvImportView(self.view_container)
@@ -377,9 +325,7 @@ class MainDashboardWindow(ctk.CTk):
         self.show_view("dashboard")
 
     def _toggle_theme(self):
-        """Altera fluidamente entre Modo Oscuro institucional y Modo Claro limpio."""
-        mode = self.switch_theme.get()
-        ctk.set_appearance_mode(mode)
+        ctk.set_appearance_mode("Dark")
         self.update_idletasks()
 
     def _confirm_logout(self):
@@ -392,24 +338,21 @@ class MainDashboardWindow(ctk.CTk):
                 self.on_logout()
 
     def _on_close(self):
-        """Maneja el cierre de la ventana con la X."""
         self.logout_requested = False
         self.withdraw()
         self.destroy()
 
-# Alias de compatibilidad
 MainWindow = MainDashboardWindow
 
 if __name__ == "__main__":
     from database.config import load_config
     from database.connection import init_db
 
-    ctk.set_appearance_mode("Light")
+    ctk.set_appearance_mode("Dark")
     ctk.set_default_color_theme("blue")
     cfg = load_config()
     init_db(cfg)
 
-    # Iniciar con Secretaría para prueba si no hay sesión
     if not CurrentSession.is_authenticated():
         AuthService.login("secretaria", "secretaria123")
 

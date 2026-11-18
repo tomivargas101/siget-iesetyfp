@@ -7,10 +7,6 @@ from models.auth import CurrentSession, AuthService
 class AttendanceService:
     @staticmethod
     def get_daily_records(target_date: date = None):
-        """
-        Retorna la lista de docentes activos con su estado de asistencia para target_date.
-        Si aún no tienen registro para ese día, devuelve estado 'Sin Registrar'.
-        """
         if target_date is None:
             target_date = date.today()
 
@@ -41,9 +37,6 @@ class AttendanceService:
 
     @staticmethod
     def save_record(teacher_id: int, target_date: date, status: str, hours: int = 4, observations: str = "", registered_by: str = None) -> tuple[bool, str]:
-        """
-        Guarda o actualiza la asistencia de un docente para la fecha especificada.
-        """
         session = get_db_session()
         try:
             if not registered_by:
@@ -91,9 +84,6 @@ class AttendanceService:
 
     @staticmethod
     def mark_all_present(target_date: date = None, registered_by: str = None) -> tuple[bool, str]:
-        """
-        Marca automáticamente a todos los docentes activos que estén 'Sin Registrar' como 'Presente'.
-        """
         if target_date is None:
             target_date = date.today()
 
@@ -133,9 +123,6 @@ class AttendanceService:
 
     @staticmethod
     def get_summary(target_date: date = None) -> dict:
-        """
-        Retorna resumen estadístico de la asistencia del día.
-        """
         if target_date is None:
             target_date = date.today()
 
@@ -168,10 +155,6 @@ class AttendanceService:
         designation_id: Optional[int] = None,
         registered_by: Optional[str] = None
     ) -> tuple[bool, str, int]:
-        """
-        Registra un rango de días continuos de asistencia/licencia para un docente.
-        Garantiza la trazabilidad día por día para el posterior procesamiento con Pandas.
-        """
         if end_date < start_date:
             return False, "La fecha de fin no puede ser anterior a la de inicio.", 0
 
@@ -224,12 +207,9 @@ class AttendanceService:
 
     @staticmethod
     def get_history(teacher_id: Optional[int] = None, start_date: Optional[date] = None, end_date: Optional[date] = None) -> list[dict]:
-        """
-        Recupera el historial de registros de asistencia respetando RN-03 (sin borrado físico).
-        """
         session = get_db_session()
         try:
-            query = session.query(Attendance).join(Teacher)
+            query = session.query(Attendance).join(Teacher, Attendance.teacher_id == Teacher.id)
             if teacher_id:
                 query = query.filter(Attendance.teacher_id == teacher_id)
             if start_date:
@@ -258,9 +238,6 @@ class AttendanceService:
 
     @staticmethod
     def get_processed_monthly(month: int, year: Optional[int] = None, career_id: Optional[int] = None):
-        """
-        Acceso directo al procesamiento de DataFrames DL-01 y DL-02 para el mes analizado.
-        """
         from models.attendance_processor import AttendanceProcessor
         return AttendanceProcessor.process_monthly_attendance(month=month, year=year, career_id=career_id)
 

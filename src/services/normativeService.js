@@ -1,14 +1,4 @@
-/**
- * Catálogo y Clasificador Normativo Institucional para SIGET (RN-01 a RN-08)
- * Reglas de negocio para personal docente, novedades de asistencia y cuadros mensuales IL-01 e IL-02.
- * Basado en el Documento de Requerimientos Institucionales Versión 2.0.
- */
-
-// ==============================================================================
-// CATÁLOGO MAESTRO DE LICENCIAS Y NOVEDADES (HOJAS 1 A 6)
-// ==============================================================================
 const MASTER_LICENSE_CATALOG = [
-    // --- HOJA 1: Licencias Médicas de Corto Tratamiento / Afección Común (Cuadro IL-01) ---
     {
         sheet: 1,
         sheetName: 'Hoja 1: Enfermedad Corto Tratamiento',
@@ -40,7 +30,6 @@ const MASTER_LICENSE_CATALOG = [
         maxDaysAnnual: 20
     },
 
-    // --- HOJA 2: Licencias Médicas de Largo Tratamiento y Riesgos de Trabajo (Cuadro IL-01) ---
     {
         sheet: 2,
         sheetName: 'Hoja 2: Largo Tratamiento y ART',
@@ -72,7 +61,6 @@ const MASTER_LICENSE_CATALOG = [
         maxDaysAnnual: null
     },
 
-    // --- HOJA 3: Inasistencias y Permisos Particulares (Cuadro IL-02) ---
     {
         sheet: 3,
         sheetName: 'Hoja 3: Inasistencias y Permisos',
@@ -101,7 +89,7 @@ const MASTER_LICENSE_CATALOG = [
         name: 'Razones Particulares / Asuntos Personales (P)',
         targetCuadro: 'IL-02',
         isMedical: false,
-        maxDaysAnnual: 6 // Tope estatutario anual
+        maxDaysAnnual: 6
     },
     {
         sheet: 3,
@@ -114,7 +102,6 @@ const MASTER_LICENSE_CATALOG = [
         maxDaysAnnual: 6
     },
 
-    // --- HOJA 4: Licencias por Maternidad, Paternidad y Familia (Cuadro IL-02) ---
     {
         sheet: 4,
         sheetName: 'Hoja 4: Maternidad y Familia',
@@ -156,7 +143,6 @@ const MASTER_LICENSE_CATALOG = [
         maxDaysAnnual: null
     },
 
-    // --- HOJA 5: Licencias por Duelo, Matrimonio y Eventos Familiares (Cuadro IL-02) ---
     {
         sheet: 5,
         sheetName: 'Hoja 5: Duelo y Matrimonio',
@@ -198,7 +184,6 @@ const MASTER_LICENSE_CATALOG = [
         maxDaysAnnual: 2
     },
 
-    // --- HOJA 6: Licencias Especiales, Exámenes, Perfeccionamiento y Gremial (Cuadro IL-02) ---
     {
         sheet: 6,
         sheetName: 'Hoja 6: Exámenes y Licencias Especiales',
@@ -266,9 +251,6 @@ const ABSENCE_KEYWORDS = [
     'inasistencia', 'falta', 'ausente', 'no asistió', 'no asistio', 'sin aviso', 'con aviso'
 ];
 
-// ==============================================================================
-// CALENDARIO ESCOLAR INSTITUCIONAL Y FERIADOS (RF-10)
-// ==============================================================================
 const ACADEMIC_CALENDAR_HOLIDAYS = [
     { date: '01-01', name: 'Año Nuevo', type: 'Feriado Nacional Inamovible' },
     { date: '03-24', name: 'Día Nacional de la Memoria por la Verdad y la Justicia', type: 'Feriado Nacional Inamovible' },
@@ -278,7 +260,6 @@ const ACADEMIC_CALENDAR_HOLIDAYS = [
     { date: '06-17', name: 'Paso a la Inmortalidad del Gral. Don Martín Miguel de Güemes', type: 'Feriado Nacional' },
     { date: '06-20', name: 'Paso a la Inmortalidad del Gral. Manuel Belgrano (Día de la Bandera)', type: 'Feriado Nacional Inamovible' },
     { date: '07-09', name: 'Día de la Independencia', type: 'Feriado Nacional Inamovible' },
-    // Receso Escolar de Invierno (Julio institucional)
     { date: '07-13', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
     { date: '07-14', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
     { date: '07-15', name: 'Receso Escolar de Invierno', type: 'Receso Invernal Institucional' },
@@ -299,19 +280,13 @@ const ACADEMIC_CALENDAR_HOLIDAYS = [
     { date: '12-25', name: 'Navidad', type: 'Feriado Nacional Inamovible' }
 ];
 
-const INSTITUTIONAL_OFFICE = 1452; // RN-07: Código oficial
+const INSTITUTIONAL_OFFICE = 1452;
 
 class NormativeService {
-    /**
-     * Retorna el catálogo maestro completo de licencias y novedades.
-     */
     static getMasterCatalog() {
         return MASTER_LICENSE_CATALOG;
     }
 
-    /**
-     * RN-01: Normaliza el DNI a string puro, preservando ceros iniciales y removiendo puntos.
-     */
     static normalizeDni(dni) {
         if (dni === null || dni === undefined) return '';
         let cleaned = String(dni).trim().replace(/\./g, '').replace(/,/g, '');
@@ -319,27 +294,21 @@ class NormativeService {
         return cleaned;
     }
 
-    /**
-     * Busca los detalles de un artículo o código en el catálogo maestro.
-     * Autocompleta el código y deriva al cuadro correspondiente (IL-01 o IL-02).
-     */
     static getArticleDetails(searchKey) {
         if (!searchKey) return null;
         const normKey = String(searchKey).toLowerCase().trim();
         const cleanKey = normKey.replace(/[^a-z0-9]/g, '');
 
-        // 1. Coincidencia exacta por código o artículo
         const exact = MASTER_LICENSE_CATALOG.find(item => {
             const cleanCode = item.code.toLowerCase().replace(/[^a-z0-9]/g, '');
             const cleanArt = item.article.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return item.code.toLowerCase() === normKey || 
+            return item.code.toLowerCase() === normKey ||
                    item.article.toLowerCase() === normKey ||
                    cleanCode === cleanKey ||
                    cleanArt === cleanKey;
         });
         if (exact) return exact;
 
-        // 2. Coincidencia parcial o por prefijo (ej: 114-A-1 -> 114A)
         const partial = MASTER_LICENSE_CATALOG.find(item => {
             const cleanCode = item.code.toLowerCase().replace(/[^a-z0-9]/g, '');
             const cleanArt = item.article.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -351,7 +320,6 @@ class NormativeService {
         });
         if (partial) return partial;
 
-        // 3. Si no está explícito en catálogo, clasificar por heurística
         const isMed = this.isMedicalLicense(normKey);
         return {
             sheet: isMed ? 1 : 3,
@@ -365,10 +333,6 @@ class NormativeService {
         };
     }
 
-    /**
-     * RN-04: Determina si una novedad o motivo corresponde al Cuadro IL-01 / DL-01 (Salud).
-     * Hojas 1 y 2 del catálogo maestro.
-     */
     static isMedicalLicense(text) {
         if (!text) return false;
         const normalized = String(text).toLowerCase();
@@ -376,7 +340,7 @@ class NormativeService {
             return true;
         }
         const clean = normalized.replace(/[^a-z0-9]/g, '');
-        if (clean.includes('114a') || clean.includes('114b') || clean.includes('114c') || 
+        if (clean.includes('114a') || clean.includes('114b') || clean.includes('114c') ||
             clean.includes('art47') || clean.includes('art48') || clean.includes('art70')) {
             return true;
         }
@@ -386,9 +350,6 @@ class NormativeService {
         });
     }
 
-    /**
-     * RN-06: Determina si el texto corresponde a una inasistencia (regla estricta 1 solo día).
-     */
     static isAbsence(text) {
         if (!text) return false;
         const normalized = String(text).toLowerCase();
@@ -396,14 +357,10 @@ class NormativeService {
         return ABSENCE_KEYWORDS.some(kw => normalized.includes(kw));
     }
 
-    /**
-     * Clasifica un registro de novedad en IL-01 o IL-02 según Hojas 1-6 del catálogo maestro.
-     */
     static classifyNovelty(status, observation = '') {
         const text = `${status || ''} ${observation || ''}`.trim();
         const normStatus = (status || '').trim().toUpperCase();
 
-        // Estado explícito LT (Largo tratamiento) -> IL-01 (Hoja 2)
         if (normStatus === 'LT') {
             return {
                 targetCuadro: 'IL-01',
@@ -414,7 +371,6 @@ class NormativeService {
             };
         }
 
-        // Estado explícito P (Permiso) -> IL-02 (Hoja 3)
         if (normStatus === 'P') {
             return {
                 targetCuadro: 'IL-02',
@@ -425,18 +381,16 @@ class NormativeService {
             };
         }
 
-        // Estado explícito I (Inasistencia) -> IL-02 (Hoja 3)
         if (normStatus === 'I' || (!this.isMedicalLicense(text) && this.isAbsence(text))) {
             return {
                 targetCuadro: 'IL-02',
                 aliasCuadro: 'DL-02',
                 tipo: 'Inasistencia (I)',
-                canGroupConsecutiveDays: false, // RN-06: 1 solo día
+                canGroupConsecutiveDays: false,
                 code: 'I'
             };
         }
 
-        // Comprobación contra Catálogo Maestro (Hojas 1-2 estrictamente a IL-01)
         const details = this.getArticleDetails(text) || this.getArticleDetails(status);
         if (details && (details.sheet === 1 || details.sheet === 2 || details.isMedical || details.targetCuadro === 'IL-01')) {
             return {
@@ -448,7 +402,6 @@ class NormativeService {
             };
         }
 
-        // Licencias Médicas (Hojas 1-2) por heurística -> IL-01
         if (normStatus === 'LIC' || this.isMedicalLicense(text)) {
             return {
                 targetCuadro: 'IL-01',
@@ -459,7 +412,6 @@ class NormativeService {
             };
         }
 
-        // Otras licencias (Hojas 3-6) -> IL-02
         return {
             targetCuadro: 'IL-02',
             aliasCuadro: 'DL-02',
@@ -469,9 +421,6 @@ class NormativeService {
         };
     }
 
-    /**
-     * Formatea fecha YYYY-MM-DD a DD/MM/YYYY (RN-07)
-     */
     static formatDate(dateStr) {
         if (!dateStr) return '';
         if (typeof dateStr === 'string' && dateStr.includes('-')) {
@@ -500,17 +449,10 @@ class NormativeService {
         return ['PR', 'I', 'P', 'LIC', 'LT'];
     }
 
-    /**
-     * Retorna todos los feriados y asuetos del calendario académico escolar (RF-10).
-     */
     static getCalendarHolidays() {
         return ACADEMIC_CALENDAR_HOLIDAYS;
     }
 
-    /**
-     * Determina si una fecha corresponde a un día inhábil escolar (feriado, asueto, receso invernal o fin de semana)
-     * para propósitos visuales y organizativos en la interfaz de carga (RF-10).
-     */
     static getCalendarDayInfo(dateStr) {
         if (!dateStr) {
             return { isNonWorking: false, reason: null, type: null, isWeekend: false, badge: null };
@@ -523,7 +465,7 @@ class NormativeService {
         const m = Number(parts[1]);
         const d = Number(parts[2]);
         const dt = new Date(y, m - 1, d);
-        const dayOfWeek = dt.getDay(); // 0: Domingo, 6: Sábado
+        const dayOfWeek = dt.getDay();
         const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const mmdd = `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
@@ -540,7 +482,6 @@ class NormativeService {
             };
         }
 
-        // Consultar jornadas institucionales configuradas en BD (sin clases)
         try {
             const { getDatabase } = require('../database/db');
             const db = getDatabase();
@@ -582,9 +523,6 @@ class NormativeService {
         };
     }
 
-    /**
-     * Retorna todas las jornadas institucionales configuradas
-     */
     static getInstitutionalDays(year = null, month = null) {
         try {
             const { getDatabase } = require('../database/db');
@@ -602,11 +540,15 @@ class NormativeService {
         }
     }
 
-    /**
-     * Registra o actualiza una jornada institucional (día sin clases)
-     */
     static saveInstitutionalDay({ date, name, type = 'jornada', username = 'SECRETARÍA' }) {
         try {
+            const { ValidationService } = require('./validationService');
+            const dateVal = ValidationService.validateDate(date, 'Fecha de jornada');
+            if (!dateVal.isValid) return { success: false, message: dateVal.message };
+            if (!name || String(name).trim().length < 3) {
+                return { success: false, message: 'El nombre de la jornada institucional debe contener al menos 3 caracteres.' };
+            }
+
             const { getDatabase } = require('../database/db');
             const db = getDatabase();
             const now = new Date().toISOString();
@@ -618,18 +560,15 @@ class NormativeService {
                     type = excluded.type,
                     created_by = excluded.created_by,
                     created_at = excluded.created_at
-            `).run(date, name.trim(), type || 'jornada', username, now);
+            `).run(dateVal.cleanDate, name.trim(), type || 'jornada', username, now);
 
-            return { success: true, message: `Jornada institucional guardada para ${date}.` };
+            return { success: true, message: `Jornada institucional guardada para ${dateVal.cleanDate}.` };
         } catch (e) {
             console.error('[NormativeService] Error guardando jornada institucional:', e.message);
             return { success: false, message: e.message };
         }
     }
 
-    /**
-     * Elimina una jornada institucional
-     */
     static deleteInstitutionalDay(date) {
         try {
             const { getDatabase } = require('../database/db');

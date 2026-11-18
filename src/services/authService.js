@@ -1,27 +1,14 @@
-/**
- * Servicio de Autenticación, Registro Inicial y Recuperación Offline para SIGET
- * Implementa:
- * - First-Run Setup (Configuración inicial de cuenta maestra Rector)
- * - Generación de Master Recovery Key de rescate
- * - Pregunta de seguridad con respuesta hasheada
- * - Recuperación offline por pregunta o clave maestra
- * - Autenticación segura con bcryptjs
- */
-
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
+const { ValidationService } = require('./validationService');
 
 let currentUser = null;
 
 class AuthService {
-    /**
-     * Genera una Clave Maestra de Rescate con formato institucional:
-     * SIGET-XXXX-XXXX-XXXX-XXXX (alfanumérico de alta entropía)
-     */
     static generateMasterRecoveryKey() {
-        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // Excluye 0, O, 1, I para evitar ambigüedades
+        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
         const generateChunk = (len = 4) => {
             const bytes = crypto.randomBytes(len);
             let chunk = '';
@@ -34,10 +21,6 @@ class AuthService {
         return `SIGET-${generateChunk(4)}-${generateChunk(4)}-${generateChunk(4)}-${generateChunk(4)}`;
     }
 
-    /**
-     * Comprueba si la aplicación se ejecuta por primera vez
-     * (sin usuarios o sin cuenta activa de Secretaría)
-     */
     static checkFirstRun() {
         const db = getDatabase();
         try {
@@ -51,7 +34,6 @@ class AuthService {
                 return { isFirstRun: true, reason: 'NO_ACTIVE_SECRETARIA' };
             }
 
-            // Asegurar que la cuenta de Secretaría tenga pregunta y clave maestra si es base previa
             this.ensureDefaultSecurityForSeededSecretaria();
 
             return { isFirstRun: false, count: userCount };
@@ -61,10 +43,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Configuración Inicial Obligatoria (First-Run Setup)
-     * Crea la cuenta maestra de Secretaría con contraseña, pregunta de seguridad y Master Key.
-     */
     static async firstRunSetup({ fullName, username, password, securityQuestion, securityAnswer, email = '' }) {
         const db = getDatabase();
         try {
@@ -75,15 +53,22 @@ class AuthService {
                 };
             }
 
-            if (password.length < 6) {
-                return { success: false, message: 'La contraseña de Secretaría debe tener al menos 6 caracteres.' };
-            }
+            const uVal = ValidationService.validateUsername(username);
+            if (!uVal.isValid) return { success: false, message: uVal.message };
+            const cleanUsername = uVal.cleanUsername;
 
-            const cleanUsername = username.trim().toLowerCase();
+            const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+            if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+            const passVal = ValidationService.validatePassword(password, 6);
+            if (!passVal.isValid) return { success: false, message: passVal.message };
+
+            const emailVal = ValidationService.validateEmail(email, false);
+            if (!emailVal.isValid) return { success: false, message: emailVal.message };
+
             const passwordHash = bcrypt.hashSync(password, 12);
             const answerHash = bcrypt.hashSync(securityAnswer.trim().toLowerCase(), 10);
 
-            // Generar Master Recovery Key
             const masterRecoveryKey = this.generateMasterRecoveryKey();
             const recoveryKeyHash = bcrypt.hashSync(masterRecoveryKey, 10);
 
@@ -98,8 +83,8 @@ class AuthService {
             `).run(
                 cleanUsername,
                 passwordHash,
-                fullName.trim(),
-                email ? email.trim() : null,
+                nameVal.cleanName,
+                emailVal.cleanEmail,
                 securityQuestion.trim(),
                 answerHash,
                 masterRecoveryKey,
@@ -135,10 +120,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Registro institucional de nueva cuenta de usuario
-     * Permite alta con selección de rol institucional: Secretaría o Bedelía
-     */
     static async registerUser({
         fullName,
         username,
@@ -152,9 +133,18 @@ class AuthService {
             return { success: false, message: 'Todos los campos obligatorios deben ser completados.' };
         }
 
-        if (password.length < 6) {
-            return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
-        }
+        const uVal = ValidationService.validateUsername(username);
+        if (!uVal.isValid) return { success: false, message: uVal.message };
+        const cleanUsername = uVal.cleanUsername;
+
+        const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+        if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+        const passVal = ValidationService.validatePassword(password, 6);
+        if (!passVal.isValid) return { success: false, message: passVal.message };
+
+        const emailVal = ValidationService.validateEmail(email, false);
+        if (!emailVal.isValid) return { success: false, message: emailVal.message };
 
         const VALID_ROLES = ['SECRETARIA', 'BEDEL'];
         const normalizedRole = AuthService.normalizeRole(role);
@@ -164,7 +154,6 @@ class AuthService {
 
         const db = getDatabase();
         try {
-            const cleanUsername = username.trim().toLowerCase();
             const existing = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
             if (existing) {
                 return { success: false, message: `El nombre de usuario '${cleanUsername}' ya está registrado.` };
@@ -191,9 +180,9 @@ class AuthService {
             `).run(
                 cleanUsername,
                 passwordHash,
-                fullName.trim(),
+                nameVal.cleanName,
                 normalizedRole,
-                email ? email.trim() : null,
+                emailVal.cleanEmail,
                 securityQuestion.trim(),
                 answerHash,
                 masterRecoveryKey,
@@ -222,9 +211,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Garantiza que la cuenta de Secretaría existente en la base tenga pregunta y Master Key configurada
-     */
     static ensureDefaultSecurityForSeededSecretaria() {
         const db = getDatabase();
         try {
@@ -244,7 +230,6 @@ class AuthService {
                 `).run(answerHash, defaultKey, keyHash, sec.id);
             }
         } catch (e) {
-            // No interrumpir si falla
         }
     }
 
@@ -256,9 +241,6 @@ class AuthService {
         return 'BEDEL';
     }
 
-    /**
-     * Inicio de Sesión Institucional
-     */
     static async login(username, password) {
         if (!username || !password) {
             return { success: false, message: 'Ingrese usuario y contraseña.' };
@@ -268,16 +250,15 @@ class AuthService {
         try {
             const cleanUser = username.trim();
             let user = db.prepare(`
-                SELECT id, username, password_hash, full_name, role, email, is_active 
-                FROM users 
+                SELECT id, username, password_hash, full_name, role, email, is_active
+                FROM users
                 WHERE username = ? COLLATE NOCASE
             `).get(cleanUser);
 
-            // Flexibilidad institucional: si ingresan 'secretario', buscar 'secretaria'
             if (!user && cleanUser.toLowerCase() === 'secretario') {
                 user = db.prepare(`
-                    SELECT id, username, password_hash, full_name, role, email, is_active 
-                    FROM users 
+                    SELECT id, username, password_hash, full_name, role, email, is_active
+                    FROM users
                     WHERE username = 'secretaria' COLLATE NOCASE
                 `).get();
             }
@@ -295,7 +276,6 @@ class AuthService {
                 return { success: false, message: 'Usuario o contraseña incorrectos.' };
             }
 
-            // Actualizar último inicio de sesión
             const now = AuditService.getArgentinaTimestamp();
             db.prepare('UPDATE users SET last_login = ? WHERE id = ?').run(now, user.id);
 
@@ -345,9 +325,6 @@ class AuthService {
         return currentUser && currentUser.role === 'BEDEL';
     }
 
-    /**
-     * Obtiene la pregunta de seguridad configurada para un usuario
-     */
     static getSecurityQuestion(username) {
         if (!username || !username.trim()) {
             return { success: false, message: 'Ingrese el nombre de usuario.' };
@@ -356,8 +333,8 @@ class AuthService {
         const db = getDatabase();
         try {
             const user = db.prepare(`
-                SELECT id, username, security_question, role 
-                FROM users 
+                SELECT id, username, security_question, role
+                FROM users
                 WHERE username = ? COLLATE NOCASE AND is_active = 1
             `).get(username.trim());
 
@@ -384,9 +361,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Recuperación Offline mediante Respuesta a la Pregunta de Seguridad
-     */
     static recoverBySecurityAnswer(username, answer, newPassword) {
         if (!username || !answer || !newPassword) {
             return { success: false, message: 'Complete todos los campos requeridos.' };
@@ -399,8 +373,8 @@ class AuthService {
         const db = getDatabase();
         try {
             const user = db.prepare(`
-                SELECT id, username, security_answer_hash 
-                FROM users 
+                SELECT id, username, security_answer_hash
+                FROM users
                 WHERE username = ? COLLATE NOCASE AND is_active = 1
             `).get(username.trim());
 
@@ -435,9 +409,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Recuperación Offline mediante Clave Maestra de Rescate (Master Recovery Key)
-     */
     static recoverByMasterKey(username, masterKey, newPassword) {
         if (!username || !masterKey || !newPassword) {
             return { success: false, message: 'Complete todos los campos requeridos.' };
@@ -450,8 +421,8 @@ class AuthService {
         const db = getDatabase();
         try {
             const user = db.prepare(`
-                SELECT id, username, role, recovery_key, recovery_key_hash 
-                FROM users 
+                SELECT id, username, role, recovery_key, recovery_key_hash
+                FROM users
                 WHERE username = ? COLLATE NOCASE AND is_active = 1
             `).get(username.trim());
 
@@ -462,7 +433,6 @@ class AuthService {
             const cleanKeyInput = masterKey.trim().toUpperCase();
             let isValidKey = false;
 
-            // Comparar contra recovery_key_hash o recovery_key plano
             if (user.recovery_key && cleanKeyInput === user.recovery_key.toUpperCase()) {
                 isValidKey = true;
             } else if (user.recovery_key_hash && bcrypt.compareSync(cleanKeyInput, user.recovery_key_hash)) {
@@ -476,7 +446,6 @@ class AuthService {
                 };
             }
 
-            // Rotar automáticamente la Clave Maestra de Rescate por seguridad
             const newMasterRecoveryKey = this.generateMasterRecoveryKey();
             const newKeyHash = bcrypt.hashSync(newMasterRecoveryKey, 10);
             const newPasswordHash = bcrypt.hashSync(newPassword, 12);

@@ -1,14 +1,8 @@
-/**
- * Servicio de Auditoría y Trazabilidad Institucional para SIGET
- * Garantiza marcas de tiempo explícitas en Hora Local de Argentina (GMT-3, America/Argentina/Buenos_Aires).
- */
-
 const { getDatabase } = require('../database/db');
 
 class AuditService {
     static getArgentinaTimestamp() {
         const d = new Date();
-        // Usar formato ISO local para America/Argentina/Buenos_Aires
         const formatter = new Intl.DateTimeFormat('sv-SE', {
             timeZone: 'America/Argentina/Buenos_Aires',
             year: 'numeric',
@@ -19,7 +13,6 @@ class AuditService {
             second: '2-digit',
             hour12: false
         });
-        // sv-SE devuelve YYYY-MM-DD HH:mm:ss
         return formatter.format(d).replace(' ', 'T');
     }
 
@@ -56,9 +49,6 @@ class AuditService {
         }
     }
 
-    /**
-     * Retorna todos los registros de auditoría con filtrado avanzado por texto y categoría.
-     */
     static getAllLogs({ search = '', category = '', limit = 1000 } = {}) {
         try {
             const db = getDatabase();
@@ -118,12 +108,22 @@ class AuditService {
         }
     }
 
-    /**
-     * Genera un informe oficial en PDF con todo el historial de eventos del sistema para archivo institucional.
-     */
-    static async generateAuditPdf({ exportedBy = 'SECRETARÍA', search = '', category = '', outputDir = null } = {}) {
+    static async generateAuditPdf({ exportedBy = 'SECRETARÍA', search = '', category = '', outputDir = null, outputPath = null } = {}) {
         const path = require('path');
         const fs = require('fs');
+
+        let logoBase64 = '';
+        try {
+            const logoPath = path.resolve(__dirname, '../../assets/logo_iesetyfp.jpg');
+            if (fs.existsSync(logoPath)) {
+                logoBase64 = fs.readFileSync(logoPath).toString('base64');
+            } else {
+                const altPath = path.resolve(__dirname, '../renderer/assets/logo_iesetyfp.jpg');
+                if (fs.existsSync(altPath)) {
+                    logoBase64 = fs.readFileSync(altPath).toString('base64');
+                }
+            }
+        } catch (_) {}
 
         const logs = this.getAllLogs({ search, category, limit: 1500 });
         const now = new Date();
@@ -134,12 +134,13 @@ class AuditService {
         const min = String(now.getMinutes()).padStart(2, '0');
 
         const outDirectory = outputDir || path.resolve(__dirname, '../../reportes');
-        if (!fs.existsSync(outDirectory)) {
-            fs.mkdirSync(outDirectory, { recursive: true });
+        const defaultFileName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}_${hh}${min}.pdf`;
+        const filePath = outputPath ? path.resolve(outputPath) : path.join(outDirectory, defaultFileName);
+        const fileName = path.basename(filePath);
+        const targetDir = path.dirname(filePath);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
         }
-
-        const fileName = `Registro_Auditoria_SIGET_${yyyy}${mm}${dd}_${hh}${min}.pdf`;
-        const filePath = path.join(outDirectory, fileName);
 
         const rowsHtml = logs.map((log, idx) => {
             const bgClass = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
@@ -161,23 +162,31 @@ class AuditService {
     <title>Registro Oficial de Auditoría - SIGET</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; background: #fff; }
-        .header { border-bottom: 2px solid #b45309; padding-bottom: 12px; margin-bottom: 16px; }
-        .inst-title { font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
-        .doc-title { font-size: 18px; font-weight: 900; color: #b45309; margin: 4px 0; }
+        .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+        .inst-sub { font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .inst-title { font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
+        .doc-title { font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
         .meta-grid { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; }
         table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-        th { background: #0f172a; color: #f8fafc; font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 8px; text-align: left; }
+        th { background: #f1f5f9; color: #0f172a; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 8px; text-align: left; border: 1px solid #94a3b8; }
         th.center { text-align: center; }
+        td { border: 1px solid #cbd5e1; }
         .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #cbd5e1; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
         .seal { font-size: 9px; font-weight: bold; color: #b45309; border: 1px dashed #b45309; padding: 4px 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="inst-title">Instituto de Educación Superior Técnica y Formación Profesional</div>
-        <div class="doc-title">REGISTRO OFICIAL DE AUDITORÍA Y TRAZABILIDAD INSTITUCIONAL</div>
-        <div class="meta-grid">
-            <div><strong>Emisión:</strong> ${dd}/${mm}/${yyyy} ${hh}:${min} hs (Hora Oficial Argentina GMT-3)</div>
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" style="width: 55px; height: auto;" alt="IESETyFP">` : ''}
+            <div>
+                <div class="inst-sub">IESETyFP (Instituto de Educación Superior Educación Técnica y Formación Profesional) — Resistencia, Chaco</div>
+                <div class="inst-title">INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL</div>
+                <div class="doc-title">REGISTRO OFICIAL DE AUDITORÍA Y TRAZABILIDAD INSTITUCIONAL</div>
+            </div>
+        </div>
+        <div style="text-align: right; font-size: 10px; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <div><strong>Emisión:</strong> ${dd}/${mm}/${yyyy} ${hh}:${min} hs</div>
             <div><strong>Generado por:</strong> ${escapeXml(exportedBy)}</div>
             <div><strong>Total de Eventos:</strong> ${logs.length} registros auditados</div>
         </div>
@@ -207,7 +216,6 @@ class AuditService {
 
         let pdfBuffer;
         try {
-            // Si estamos dentro del entorno Electron
             if (process.versions && process.versions.electron) {
                 const { BrowserWindow } = require('electron');
                 const win = new BrowserWindow({
@@ -242,7 +250,6 @@ class AuditService {
             };
         } catch (err) {
             console.error('[AuditService] Error generando PDF de auditoría:', err);
-            // Intentar con fallback si falló printToPDF
             try {
                 const fallbackBuffer = createFallbackPdf(
                     'REGISTRO OFICIAL DE AUDITORIA - SIGET',
@@ -280,8 +287,8 @@ function escapeXml(unsafe) {
 function createFallbackPdf(title, lines) {
     const safeTitle = (title || 'DOCUMENTO INSTITUCIONAL SIGET').replace(/[\(\)\\]/g, '');
     const cleanLines = (lines || []).slice(0, 35).map(l => String(l).substring(0, 95).replace(/[\(\)\\]/g, ''));
-    
-    let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
+
+        let content = `BT /F1 14 Tf 40 790 Td (${safeTitle}) Tj ET\n`;
     cleanLines.forEach((line, idx) => {
         const y = 750 - (idx * 20);
         content += `BT /F1 8 Tf 40 ${y} Td (${line}) Tj ET\n`;

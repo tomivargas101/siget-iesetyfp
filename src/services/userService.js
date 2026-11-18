@@ -1,12 +1,8 @@
-/**
- * Servicio de Gestión de Usuarios y Roles Secundarios para SIGET
- * Permite a Rector administrar perfiles (Bedeles, Secretarios) y blanquear contraseñas.
- */
-
 const bcrypt = require('bcryptjs');
 const { getDatabase } = require('../database/db');
 const { AuditService } = require('./auditService');
 const { AuthService } = require('./authService');
+const { ValidationService } = require('./validationService');
 
 const VALID_ROLES = ['SECRETARIA', 'BEDEL'];
 
@@ -21,9 +17,7 @@ function normalizeRole(role) {
 function canManageTargetRole(actorRole, targetRole) {
     const normActor = normalizeRole(actorRole);
     const normTarget = normalizeRole(targetRole);
-    // Solo Secretaría puede administrar usuarios
     if (normActor !== 'SECRETARIA') return false;
-    // Secretaría administra Bedelía
     return normTarget === 'BEDEL';
 }
 
@@ -32,18 +26,18 @@ class UserService {
         const db = getDatabase();
         try {
             const rows = db.prepare(`
-                SELECT 
+                SELECT
                     id, username, full_name, role, email, is_active,
                     created_at, last_login, security_question,
                     (recovery_key IS NOT NULL OR recovery_key_hash IS NOT NULL) as has_recovery_key
                 FROM users
-                ORDER BY 
-                    CASE role 
-                        WHEN 'SECRETARIA' THEN 1 
-                        WHEN 'SECRETARIO' THEN 1 
-                        WHEN 'BEDEL' THEN 2 
-                        ELSE 3 
-                    END, 
+                ORDER BY
+                    CASE role
+                        WHEN 'SECRETARIA' THEN 1
+                        WHEN 'SECRETARIO' THEN 1
+                        WHEN 'BEDEL' THEN 2
+                        ELSE 3
+                    END,
                     full_name ASC
             `).all();
 
@@ -98,18 +92,24 @@ class UserService {
                 return { success: false, message: 'Usuario, Nombre Completo y Contraseña son obligatorios.' };
             }
 
-            const cleanUsername = username.trim().toLowerCase();
-            const normalizedRole = normalizeRole(role);
+            const uVal = ValidationService.validateUsername(username);
+            if (!uVal.isValid) return { success: false, message: uVal.message };
+            const cleanUsername = uVal.cleanUsername;
 
+            const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+            if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+            const passVal = ValidationService.validatePassword(password, 6);
+            if (!passVal.isValid) return { success: false, message: passVal.message };
+
+            const emailVal = ValidationService.validateEmail(email, false);
+            if (!emailVal.isValid) return { success: false, message: emailVal.message };
+
+            const normalizedRole = normalizeRole(role);
             if (!VALID_ROLES.includes(normalizedRole)) {
                 return { success: false, message: `Rol no válido. La estructura institucional admite únicamente: Secretaría o Bedelía.` };
             }
 
-            if (password.length < 6) {
-                return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
-            }
-
-            // Comprobar si el nombre de usuario ya existe
             const exists = db.prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
             if (exists) {
                 return { success: false, message: `El usuario '${cleanUsername}' ya se encuentra registrado.` };
@@ -171,7 +171,6 @@ class UserService {
             }
 
             const currentUser = AuthService.getCurrentUser();
-            // Evitar que la secretaría se deshabilite a sí misma
             if (currentUser && currentUser.id === id && !isActive) {
                 return { success: false, message: 'No puede desactivar su propia cuenta activa de Secretaría.' };
             }
@@ -179,6 +178,12 @@ class UserService {
             if (currentUser && currentUser.role !== 'SECRETARIA') {
                 return { success: false, message: 'Acceso denegado: Se requiere rol de Secretaría para modificar usuarios.' };
             }
+
+            const nameVal = ValidationService.validatePersonName(fullName, 'Nombre Completo');
+            if (!nameVal.isValid) return { success: false, message: nameVal.message };
+
+            const emailVal = ValidationService.validateEmail(email, false);
+            if (!emailVal.isValid) return { success: false, message: emailVal.message };
 
             const normalizedRole = normalizeRole(role || user.role);
             if (!VALID_ROLES.includes(normalizedRole)) {
@@ -193,9 +198,9 @@ class UserService {
                     is_active = ?
                 WHERE id = ?
             `).run(
-                fullName.trim(),
+                nameVal.cleanName,
                 normalizedRole,
-                email ? email.trim() : null,
+                emailVal.cleanEmail,
                 isActive ? 1 : 0,
                 id
             );
@@ -214,9 +219,6 @@ class UserService {
         }
     }
 
-    /**
-     * Blanqueo / Restablecimiento inmediato de contraseña por parte de Secretaría
-     */
     static resetPassword(userId, newPassword) {
         const db = getDatabase();
         try {

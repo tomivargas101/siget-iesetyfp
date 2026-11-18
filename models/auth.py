@@ -67,10 +67,6 @@ class CurrentSession:
 class AuthService:
     @staticmethod
     def login(username: str, password: str):
-        """
-        Valida credenciales contra la BD con bcrypt y registra auditoría.
-        Retorna (True, UserDTO) si es exitoso, (False, error_message) si falla.
-        """
         if not username or not password:
             return False, "Por favor complete usuario y contraseña."
 
@@ -86,11 +82,9 @@ class AuthService:
             if not check_password(password, user.password_hash):
                 return False, "Usuario o contraseña incorrectos."
 
-            # Actualizar último acceso con hora local de Argentina (GMT-3)
             local_now = get_argentina_now()
             user.last_login = local_now
             
-            # Registrar log de auditoría con hora local
             audit = AuditLog(
                 user_id=user.id,
                 username=user.username,
@@ -152,7 +146,6 @@ class AuthService:
 
     @staticmethod
     def generate_master_recovery_key() -> str:
-        """Genera una llave maestra de rescate offline con formato SIGET-XXXX-XXXX-XXXX-XXXX."""
         chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
         def chunk():
             return "".join(secrets.choice(chars) for _ in range(4))
@@ -160,7 +153,6 @@ class AuthService:
 
     @staticmethod
     def check_first_run() -> dict:
-        """Verifica si la base de datos de usuarios está vacía o sin Secretaría activa."""
         session = get_db_session()
         try:
             total_users = session.query(User).filter(User.is_active == True).count()
@@ -185,11 +177,6 @@ class AuthService:
         security_question: str = "",
         security_answer: str = ""
     ):
-        """
-        Registra una nueva cuenta institucional en la base de datos.
-        Hashea la contraseña y respuesta de seguridad con bcrypt.
-        Si el rol es SECRETARIA, genera una Master Recovery Key alfanumérica única.
-        """
         if not full_name or not username or not password or not security_question or not security_answer:
             return False, "Todos los campos obligatorios deben completarse.", None
         if len(password) < 6:

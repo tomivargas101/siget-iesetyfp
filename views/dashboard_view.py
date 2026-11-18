@@ -13,10 +13,6 @@ class DashboardView(ctk.CTkScrollableFrame):
         self._build_ui()
 
     def _load_data(self):
-        """
-        Carga los datos asegurando extraer valores simples dentro de la sesión activa
-        para evitar DetachedInstanceError al cerrar la sesión de SQLAlchemy.
-        """
         session = get_db_session()
         try:
             self.total_teachers = session.query(Teacher).filter(Teacher.is_active == True).count()
@@ -29,7 +25,6 @@ class DashboardView(ctk.CTkScrollableFrame):
             self.total_designations = len(designations)
             self.total_weekly_hours = sum(d.hours_count for d in designations)
 
-            # Suplencias activas mapeadas a DTOs para evitar detached lazy load
             raw_subs = session.query(Substitution).filter(
                 Substitution.is_active == True,
                 Substitution.end_date >= date.today()
@@ -45,7 +40,6 @@ class DashboardView(ctk.CTkScrollableFrame):
                     "end_date_str": s.end_date.strftime("%d/%m/%Y") if s.end_date else "-"
                 })
 
-            # Auditoría reciente
             raw_audits = session.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(8).all()
             self.recent_audits = []
             for a in raw_audits:
@@ -56,7 +50,6 @@ class DashboardView(ctk.CTkScrollableFrame):
                     "details": a.details or ""
                 })
 
-            # Docentes cercanos al tope (ej. >= 24 hs de 30 hs)
             teachers = session.query(Teacher).filter(Teacher.is_active == True).all()
             self.near_cap_teachers = []
             for t in teachers:
@@ -71,7 +64,6 @@ class DashboardView(ctk.CTkScrollableFrame):
                         "max_hours": t.max_weekly_hours
                     })
 
-            # Datos Operativos para Bedel: Asistencia de hoy
             today = date.today()
             today_atts = session.query(Attendance).filter(Attendance.date == today).all()
             self.today_presentes = sum(1 for a in today_atts if a.status == "Presente")
@@ -86,7 +78,6 @@ class DashboardView(ctk.CTkScrollableFrame):
         user = CurrentSession.user
         is_secretaria = CurrentSession.is_secretaria()
 
-        # 1. Saludo y Encabezado de Rol
         role_label = "Secretaría (Gestión Administrativa, Cátedras y Reportes)" if is_secretaria else "Bedelía (Operativa Diaria de Asistencias y Calendario)"
 
         header_frame = ctk.CTkFrame(
@@ -115,7 +106,6 @@ class DashboardView(ctk.CTkScrollableFrame):
             text_color=Theme.TEXT_SECONDARY
         ).pack(anchor="w", pady=(4, 0))
 
-        # 2. Tarjetas Métricas KPI diferenciadas por rol
         kpi_container = ctk.CTkFrame(self, fg_color="transparent")
         kpi_container.pack(fill="x", pady=(0, 20))
         kpi_container.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="kpi")
@@ -169,7 +159,6 @@ class DashboardView(ctk.CTkScrollableFrame):
                 text_color=Theme.TEXT_MUTED
             ).pack(anchor="w", padx=15, pady=(2, 14))
 
-        # 3. Paneles Secundarios adaptados al Rol
         cols_frame = ctk.CTkFrame(self, fg_color="transparent")
         cols_frame.pack(fill="both", expand=True, pady=(0, 20))
         cols_frame.grid_columnconfigure((0, 1), weight=1, uniform="sub")
@@ -179,14 +168,12 @@ class DashboardView(ctk.CTkScrollableFrame):
         else:
             self._build_bedel_panels(cols_frame)
 
-        # 4. Sección adicional: Auditoría para Secretaría o Acciones rápidas para Bedel
         if is_secretaria:
             self._build_audit_section()
         else:
             self._build_quick_actions_bar()
 
     def _build_secretaria_panels(self, parent):
-        # Columna Izquierda: Alertas de Tope Horario Normativo
         left_sub = ctk.CTkFrame(
             parent,
             fg_color=Theme.BG_CARD,
@@ -246,7 +233,6 @@ class DashboardView(ctk.CTkScrollableFrame):
                 text_color=Theme.SUCCESS_TEXT
             ).pack(anchor="w", padx=20, pady=15)
 
-        # Columna Derecha: Suplencias y Licencias Activas
         right_sub = ctk.CTkFrame(
             parent,
             fg_color=Theme.BG_CARD,
@@ -299,7 +285,6 @@ class DashboardView(ctk.CTkScrollableFrame):
             ).pack(anchor="w", padx=20, pady=15)
 
     def _build_bedel_panels(self, parent):
-        # Columna Izquierda: Estado de Asistencia Operativa de Hoy
         left_sub = ctk.CTkFrame(
             parent,
             fg_color=Theme.BG_CARD,
@@ -325,25 +310,21 @@ class DashboardView(ctk.CTkScrollableFrame):
         )
         att_stats_box.pack(fill="x", padx=15, pady=8)
 
-        # Fila Presentes
         row_p = ctk.CTkFrame(att_stats_box, fg_color="transparent")
         row_p.pack(fill="x", padx=12, pady=6)
         ctk.CTkLabel(row_p, text="Docentes Presentes:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY).pack(side="left")
         ctk.CTkLabel(row_p, text=str(self.today_presentes), font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.SUCCESS_TEXT).pack(side="right")
 
-        # Fila Ausentes
         row_a = ctk.CTkFrame(att_stats_box, fg_color="transparent")
         row_a.pack(fill="x", padx=12, pady=6)
         ctk.CTkLabel(row_a, text="Docentes Ausentes:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY).pack(side="left")
         ctk.CTkLabel(row_a, text=str(self.today_ausentes), font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.DANGER_TEXT).pack(side="right")
 
-        # Fila Licencias
         row_l = ctk.CTkFrame(att_stats_box, fg_color="transparent")
         row_l.pack(fill="x", padx=12, pady=6)
         ctk.CTkLabel(row_l, text="En Licencia / Dispensa:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY).pack(side="left")
         ctk.CTkLabel(row_l, text=str(self.today_licencias), font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.WARNING_TEXT).pack(side="right")
 
-        # Fila Pendientes
         row_s = ctk.CTkFrame(att_stats_box, fg_color="transparent")
         row_s.pack(fill="x", padx=12, pady=6)
         ctk.CTkLabel(row_s, text="Sin Registrar / Pendientes:", font=ctk.CTkFont(size=12, weight="bold"), text_color=Theme.TEXT_PRIMARY).pack(side="left")
@@ -361,7 +342,6 @@ class DashboardView(ctk.CTkScrollableFrame):
         )
         btn_go_att.pack(fill="x", padx=15, pady=(10, 15))
 
-        # Columna Derecha: Inscripciones y Alumnos Recientes
         right_sub = ctk.CTkFrame(
             parent,
             fg_color=Theme.BG_CARD,

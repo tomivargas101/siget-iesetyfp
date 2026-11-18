@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +11,7 @@
     <!-- Estilos institucionales de la aplicación -->
     <link rel="stylesheet" href="css/app.css">
 </head>
-<body class="bg-slate-50 dark:bg-[#18181B] text-slate-800 dark:text-zinc-100 antialiased h-screen overflow-hidden flex flex-col">
+<body class="dark dark-mode bg-[#18181B] text-zinc-100 antialiased h-screen overflow-hidden flex flex-col" data-theme="dark">
 
     <!-- ==================================================================== -->
     <!-- 1. PANTALLA DE INICIO DE SESIÓN (LOGIN MODAL / OVERLAY) -->
@@ -584,20 +584,8 @@
                 </nav>
             </div>
 
-            <!-- Footer del Sidebar: Switch Tema y Salir -->
+            <!-- Footer del Sidebar: Salir -->
             <div class="p-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
-                <!-- Switch interactivo de Modo Oscuro -->
-                <div class="flex items-center justify-between px-1 py-0.5">
-                    <label for="theme-switch" class="text-xs font-bold text-slate-600 dark:text-zinc-300 flex items-center space-x-2 cursor-pointer select-none">
-                        <i data-lucide="moon" class="w-4 h-4 text-slate-400 dark:text-gold"></i>
-                        <span>Modo Oscuro</span>
-                    </label>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="theme-switch" class="sr-only peer">
-                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gold"></div>
-                    </label>
-                </div>
-
                 <!-- Botón rojo institucional de Cerrar Sesión -->
                 <button id="btn-logout" class="w-full flex items-center justify-center space-x-2 py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-xs transition">
                     <i data-lucide="power" class="w-4 h-4"></i>

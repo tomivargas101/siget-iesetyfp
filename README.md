@@ -1,259 +1,190 @@
 # SIGET - Sistema Integral de Gestión Educativa Terciaria
 ### Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETyFP)
 
-[![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![GUI](https://img.shields.io/badge/GUI-CustomTkinter%20v5%2B-blueviolet.svg)](https://github.com/TomSchimansky/CustomTkinter)
-[![ORM](https://img.shields.io/badge/ORM-SQLAlchemy%202.0%2B-red.svg)](https://www.sqlalchemy.org/)
-[![Database](https://img.shields.io/badge/Database-SQLite%20%7C%20MySQL%20LAN-orange.svg)](https://www.mysql.com/)
-[![Security](https://img.shields.io/badge/Security-bcrypt%20Hashes-success.svg)](https://pypi.org/project/bcrypt/)
+[![Electron Version](https://img.shields.io/badge/Electron-35.x-47848F.svg)](https://www.electronjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B%20%7C%2022%2B-339933.svg)](https://nodejs.org/)
+[![Database](https://img.shields.io/badge/Database-SQLite%20(WAL%20Mode)-orange.svg)](https://www.sqlite.org/)
+[![CSS](https://img.shields.io/badge/CSS-Tailwind%20CSS%203.4-38B2AC.svg)](https://tailwindcss.com/)
+[![Security](https://img.shields.io/badge/Security-bcrypt%20Hashes-success.svg)](https://github.com/dcodeIO/bcrypt.js)
+[![License](https://img.shields.io/badge/Institucional-IESETyFP-gold.svg)](#)
 
-**SIGET** es una aplicación de escritorio corporativa y de misión crítica desarrollada para la administración académica, funcional y operativa de institutos de educación superior técnica. Diseñada bajo una arquitectura cliente ligera y desacoplada (**Python + CustomTkinter**), centraliza el control de planta funcional, designaciones de cátedras, cobertura formal de suplencias, control de asistencia diaria docente y matrícula estudiantil bajo estrictas normativas institucionales.
-
----
-
-## 📋 Guía Rápida de Instalación y Prueba (Para la Cátedra)
-
-Esta sección permite poner en marcha y evaluar el sistema en **menos de 3 minutos** en cualquier puesto de trabajo con Windows, Linux o macOS.
-
-### Paso 1: Clonar el Repositorio
-```bash
-git clone https://github.com/tomivargas101/siget-iesetyfp.git
-cd siget-iesetyfp
-```
-*(o ubicarse en la carpeta raíz del proyecto `siget` descargada).*
+**SIGET** es una aplicación de escritorio corporativa y de misión crítica desarrollada específicamente para la administración académica, funcional y operativa de institutos de educación superior técnica terciaria. Centraliza el control de planta funcional docente, cátedras y designaciones multi-día, cobertura formal de suplencias, control de asistencia diaria y generación de planillas oficiales con formato ministerial bajo estrictas normativas institucionales.
 
 ---
 
-### Paso 2: Crear y Activar el Entorno Virtual (`.venv`)
-Se recomienda usar Python 3.10 o superior:
+## 👥 Roles Institucionales y Niveles de Acceso
 
-* **En Windows (PowerShell):**
-  ```powershell
-  python -m venv .venv
-  .venv\Scripts\Activate.ps1
-  ```
-  *(Si PowerShell restringe la ejecución de scripts, ejecutar previamente: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`)*
+El acceso al sistema está estrictamente restringido a los dos perfiles de usuario autorizados por la normativa del instituto:
 
-* **En Windows (Símbolo del sistema / CMD):**
-  ```cmd
-  python -m venv .venv
-  .venv\Scripts\activate.bat
-  ```
+| Rol Institucional | Perfil | Alcance y Módulos Habilitados |
+| :--- | :--- | :--- |
+| **Secretaría** | Administrativo / Gestión | **Acceso Completo de Gestión:** Gestión de legajos docentes (altas, modificaciones, unicidad de DNI y legajo), asignación de cátedras y designaciones multi-día, registro de suplencias con resolución ministerial, administración y blanqueo de usuarios institucionales, emisión de libros Excel y reportes oficiales. |
+| **Bedelía** | Operativo / Control Diario | **Gestión Diaria de Asistencia:** Carga del parte diario de presentismo, ausentismo y licencias médicas/particulares (DL-01 / DL-02), generación de la Planilla Imprimible de Control Diario con casillas de verificación para papel, consulta interactiva del Calendario Institucional y Fichas Docentes. |
 
-* **En Linux / macOS:**
-  ```bash
-  python3 -m venv .venv
-  source .venv/bin/activate
-  ```
+> [!IMPORTANT]
+> **Seguridad y Jerarquía de Accesos:** Bedelía tiene restringido el acceso al módulo de administración de usuarios y configuración sensible. Cualquier intento de acceso no autorizado es bloqueado por las guardas de seguridad y registrado en el log inmutable de auditoría (`audit_logs`).
 
 ---
 
-### Paso 3: Instalar Dependencias del Proyecto
-Con el entorno virtual activado, actualizar pip e instalar los paquetes requeridos:
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+## 🚀 Mejoras y Actualizaciones Institucionales Recientes (14/11/2026)
 
----
+Durante la jornada del 14/11/2026 se incorporaron refactorizaciones clave y nuevas funcionalidades al sistema:
 
-### Paso 4: Configuración de Base de Datos (`config.json`)
-SIGET incluye soporte nativo tanto para trabajo autónomo fuera de línea (SQLite) como para despliegue distribuido multi-usuario en Red de Área Local (LAN).
+### 1. Calendario Institucional Unificado "2 en 1"
+- **Fusión Integral:** Se combinó la grilla mensual del mes en curso y la planilla de novedades en una única vista interactiva con etiquetas de estado (*pills*) por evento (feriados, jornadas institucionales, licencias y ausencias).
+- **Modal Flotante de Detalle Diario:** Al hacer clic sobre cualquier celda de la grilla mensual, se abre un modal flotante detallado que desglosa la nómina de profesores presentes, suplencias activas, licencias especiales e inasistencias del día, con botón de salto directo a la fecha en la pestaña de Asistencias.
 
-El archivo `config.json` se encuentra en la raíz del proyecto. Elige una de las siguientes opciones:
+### 2. Cátedras Multi-Día con Cargas y Horarios Variables
+- **Soporte Integral de Múltiples Días:** Las cátedras y materias pueden contar con dictado en diferentes días de la semana con franjas horarias y cargas horarias independientes (por ejemplo: *Lunes de 18:00 a 20:15 con 3 hs y Jueves de 18:00 a 18:40 con 1 h*).
+- **Consolidación Inteligente:** En el listado general de cátedras, la materia se consolida en una única fila representativa con el total acumulado de horas semanales y el detalle de cada día.
 
-#### Opción A: Evaluación Rápida Local con SQLite (Por Defecto - Sin Servidores Adicionales)
-No requiere instalar ningún servicio de base de datos. La base de datos `siget.db` se inicializa y crea automáticamente:
-```json
-{
-    "db_type": "sqlite",
-    "sqlite_path": "siget.db",
-    "max_weekly_hours_default": 30
-}
-```
+### 3. Planilla Imprimible de Control Diario para Bedelía
+- **Optimización para Impresión en Papel:** Generación de planilla oficial en formato **A4 Horizontal (Landscape)** tanto en PDF vectorial como en Excel (`.xlsx`).
+- **Casillas de Verificación Manual:** Diseñada específicamente para uso diario en el mostrador de Bedelía, incluye casillas de verificación manual (*checkboxes*) para la firma de cada docente por materia y horario.
 
-#### Opción B: Conexión en Red LAN a Servidor Central (MySQL / MariaDB)
-Si la cátedra cuenta con un servidor central de base de datos en la red local (ej. XAMPP, MariaDB Server o MySQL Server), configura la IP del servidor en el campo `host`:
-```json
-{
-    "db_type": "mysql",
-    "host": "192.168.1.100",
-    "port": 3306,
-    "database": "siget_db",
-    "user": "siget_user",
-    "password": "tu_password_seguro",
-    "connect_timeout": 5,
-    "pool_size": 10,
-    "max_overflow": 20,
-    "pool_recycle": 1800,
-    "max_weekly_hours_default": 30
-}
-```
+### 4. Contextualización Dinámica de Exportación
+- **Ficha Docente Independiente:** En la sub-pestaña "Ficha Docente", la interfaz oculta automáticamente los botones de exportación del mes general y exhibe únicamente los botones dedicados de *Exportar Ficha (PDF)* y *Exportar Ficha (Excel)*.
+- **Diálogos Nativos del Sistema Operativo (`showSaveDialog`):** Todas las funciones de exportación (calendarios, fichas individuales y planillas de control diario) abren el diálogo nativo de guardado del sistema operativo, permitiendo al usuario elegir la carpeta y nombre de archivo deseado.
 
-> [!TIP]
-> **Configuración visual sin editar código ni archivos:** También puedes abrir la aplicación y hacer clic en el botón **⚙️ Base de Datos** ubicado en la esquina superior de la pantalla de inicio (*Login*). Desde allí podrás cambiar de motor, ingresar la IP del servidor LAN y probar la conexión con verificación de ping en tiempo real.
-
----
-
-### Paso 5: Ejecutar el Sistema
-```bash
-python main.py
-```
-
----
-
-### Paso 6: Credenciales de Acceso de Demostración
-Al iniciar, SIGET verifica la base de datos y genera automáticamente las tablas, carreras, materias y los usuarios iniciales con contraseñas seguras hasheadas con `bcrypt`:
-
-| Rol Institucional | Usuario | Contraseña | Alcance y Módulos Habilitados |
-| :--- | :--- | :--- | :--- |
-| **Rectoría** | `rector` | `rector123` | **Acceso Total:** Planta docente, designaciones, auditoría integral (`audit_logs`) y configuración. |
-| **Secretaría** | `secretaria` | `secretaria123` | **Académica y Matrícula:** Legajos docentes y alumnos (Formulario N° 1), emisión de reportes Excel. |
-| **Bedelía** | `bedel` | `bedel123` | **Gestión Diaria:** Carga de partes diarios de asistencia, licencias (DL-01 / DL-02) e inasistencias. |
-
-> [!NOTE]
-> En la pantalla de login dispones además de botones de acceso rápido de prueba (`Rector` / `Bedel`) para agilizar la navegación durante las evaluaciones.
+### 5. Depuración y Limpieza de Módulos Redundantes
+- **Eliminación del Módulo Huérfano:** Se suprimió del menú lateral el antiguo módulo independiente de "Planilla Mensual", integrando toda la reportería mensual directamente en el Calendario Institucional.
+- **Corrección de Validación de Legajos:** Se corrigió la consulta de validación de unicidad de DNI al momento de editar (`UPDATE`), excluyendo el propio ID del registro (`WHERE dni = ? AND id != ?`), permitiendo guardar modificaciones en datos docentes sin bloqueos indebidos.
 
 ---
 
 ## 🛠️ Stack Tecnológico y Arquitectura
 
-```
-                  ┌────────────────────────────────────────┐
-                  │          SIGET CLIENTE GUI             │
-                  │   CustomTkinter + Responsive Canvas    │
-                  └──────────────────┬─────────────────────┘
-                                     │
-                                     ▼
-                  ┌────────────────────────────────────────┐
-                  │       CONTROLADOR DE APLICACIÓN        │
-                  │    ApplicationController (main.py)     │
-                  └──────────────────┬─────────────────────┘
-                                     │
-           ┌─────────────────────────┴─────────────────────────┐
-           ▼                                                   ▼
-┌──────────────────────┐                           ┌──────────────────────┐
-│  SERVICIOS DOMINIO   │                           │     VALIDACIONES     │
-│ Auth, Attendance,    │                           │ Topes de Cátedra,    │
-│ Reports, Designation │                           │ Solapamiento Horario │
-└──────────┬───────────┘                           └──────────┬───────────┘
-           │                                                   │
-           └─────────────────────────┬─────────────────────────┘
-                                     │
-                                     ▼
-                  ┌────────────────────────────────────────┐
-                  │       CAPA DE PERSISTENCIA ORM         │
-                  │     SQLAlchemy 2.0+ (Scoped Session)   │
-                  └──────────────────┬─────────────────────┘
-                                     │
-                    ┌────────────────┴────────────────┐
-                    ▼                                 ▼
-         ┌─────────────────────┐           ┌─────────────────────┐
-         │    SQLite Local     │           │   Servidor LAN      │
-         │  (Embebido/Offline) │           │  (MySQL / MariaDB)  │
-         └─────────────────────┘           └─────────────────────┘
-```
-
-* **Lenguaje:** **Python 3.10+** (implementación pura de reglas de negocio, modelos de datos relacionales y servicios de presentación).
-* **Capa de Presentación (GUI):** **CustomTkinter (>=5.2.0)** con tematización institucional, modo claro por defecto (*Light Mode*), layouts adaptativos y tablas estilizadas.
-* **Capa de Persistencia y ORM:** **SQLAlchemy (>=2.0.0)** agnóstico al motor:
-  * **Modo SQLite (Embebido):** Con `PRAGMA journal_mode=WAL` y `busy_timeout` para evitar bloqueos concurrentes.
-  * **Modo Red LAN (MySQL / MariaDB vía PyMySQL):** Conexiones administradas mediante *Connection Pooling* (`QueuePool`), reconexión ante caídas temporales de red y reciclado automático de sockets inactivos.
-* **Seguridad y Criptografía:** **bcrypt (>=4.0.0)** con salado dinámico (*rounds=12*) para todas las credenciales y pistas de recuperación.
-* **Generación de Reportes Oficiales:** **pandas (>=2.0.0)** y **openpyxl (>=3.1.0)** para emisión programática de planillas de asistencia y estadística mensual con formato oficial ministerial, autoajuste de columnas y colores institucionales.
-* **Empaquetado:** **PyInstaller (>=6.0.0)** con especificación corporativa [`siget.spec`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/siget.spec) y script [`build_exe.py`](file:///c:/Users/tomiv/.gemini/antigravity-ide/scratch/siget/build_exe.py).
-
----
-
-## 🏛️ Reglas de Negocio Implementadas
-
-El sistema valida de forma exhaustiva la normativa ministerial del nivel superior terciario:
-
-1. **RN-01 (Identificación Unívoca):** El DNI se normaliza como clave alfanumérica unívoca de personas físicas, impidiendo registros duplicados.
-2. **RN-02 (Designaciones por Cátedra):** Adjudicación formal de materias, cargo institucional, día de dictado, horario (`HH:MM`) y horas cátedra.
-3. **RN-03 (Trazabilidad y Baja Lógica):** Eliminación lógica (`is_active = False`) en todas las entidades clave (docentes, alumnos, asistencias y designaciones) preservando el historial administrativo.
-4. **RN-04 (Cuadro DL-01 - Salud y Licencias Médicas):** Clasificación estricta de licencias de salud (Art. 48, ART, atención familiar) en el cuadro ministerial correspondiente.
-5. **RN-05 (Cuadro DL-02 - Otras Novedades):** Clasificación de inasistencias por causas particulares, mesas de examen, donación de sangre o motivos no médicos.
-6. **RN-06 (Cómputo Diario Unificado):** Registro de inasistencia tipificado por jornada laboral única.
-7. **RN-07 (Control de Tope Horario):** Rechazo preventivo de designaciones que superen el tope reglamentario (30 horas cátedra semanales por defecto).
-8. **RN-08 (Incompatibilidad Horaria):** Algoritmo que detecta y bloquea superposiciones horarias de dictado en el mismo día para un mismo docente.
-
----
-
-## 📁 Estructura del Proyecto
-
 ```text
-siget/
-├── main.py                     # Controlador del ciclo de vida y navegación de la app
-├── main_dashboard.py           # Dashboard principal con panel lateral dinámico según rol
-├── build_exe.py                # Script de compilación automática a ejecutable standalone
-├── siget.spec                  # Especificación de recursos y empaquetado para PyInstaller
-├── config.json                 # Configuración de base de datos (SQLite / MySQL LAN)
-├── requirements.txt            # Dependencias oficiales de Python del proyecto
-├── .gitignore                  # Reglas de exclusión en codificación UTF-8
-├── test_siget.py               # Suite de pruebas de validaciones, base de datos y reportes
-├── test_business_logic_dl.py   # Pruebas de reglas normativas DL-01/DL-02 y topes horarios
-│
-├── assets/                     # Identidad visual, logotipos e iconos (.ico, .png)
-├── reportes/                   # Directorio de salida para planillas Excel generadas
-│
-├── database/                   # Capa de datos y persistencia
-│   ├── config.py               # Gestor de configuración y lectura de config.json
-│   ├── connection.py           # Engine SQLAlchemy, pooling LAN, migraciones y seeders
-│   └── schema.py               # Modelos relacionales ORM (User, Teacher, Student, etc.)
-│
-├── models/                     # Servicios de lógica de negocio y normativas
-│   ├── attendance.py           # Registro y novedades de asistencia
-│   ├── attendance_processor.py # Agrupador de partes diarios para planillas
-│   ├── auth.py                 # Autenticación, sesión y seguridad bcrypt
-│   ├── designation.py          # Gestión de cátedras y suplencias
-│   ├── normative.py            # Artículos estatutarios y tipificación ministerial
-│   ├── reports.py              # Exportador a planillas Excel con openpyxl/pandas
-│   ├── student.py              # Gestión de matrícula y legajos de alumnos
-│   ├── teacher.py              # Gestión de legajos docentes
-│   └── validation.py           # Algoritmos de topes horarios y prevención de solapamientos
-│
-└── views/                      # Capa de interfaz gráfica (CustomTkinter)
-    ├── attendance_view.py      # Planilla de asistencia diaria y carga de novedades
-    ├── dashboard_view.py       # Pantalla de bienvenida, métricas y accesos rápidos
-    ├── designations_view.py    # Formulario de designación de cátedras y suplencias
-    ├── excel_table.py          # Componente visual de tabla de datos interactiva
-    ├── login_view.py           # Ventana de autenticación institucional y configuración de BD
-    ├── main_window.py          # Ventana contenedora principal
-    ├── register_view.py        # Alta institucional de nuevos usuarios
-    ├── calendar_view.py        # Calendario institucional y ficha docente
-    ├── students_view.py        # Gestión de legajos de alumnos
-    ├── teachers_view.py        # Gestión de legajos docentes
-    └── theme.py                # Paleta de colores institucional y configuración de temas
+                  ┌────────────────────────────────────────┐
+                  │          SIGET CLIENTE DESKTOP         │
+                  │   Electron 35 + HTML5 + Tailwind CSS   │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │       PRELOAD BRIDGE (SEGURO)          │
+                  │   contextBridge (window.sigetApi)      │
+                  └──────────────────┬─────────────────────┘
+                                     │
+            ┌────────────────────────┴────────────────────────┐
+            ▼                                                 ▼
+ ┌──────────────────────┐                         ┌──────────────────────┐
+ │    MAIN PROCESS      │                         │  SERVICIOS BACKEND   │
+ │ Electron App, IPC,   │                         │ Attendance, Calendar │
+ │ Dialogs, Lifecycle   │                         │ Teachers, Designat.  │
+ └──────────┬───────────┘                         └──────────┬───────────┘
+            │                                                 │
+            └────────────────────────┬────────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │    MOTOR DE BASE DE DATOS LOCAL        │
+                  │    SQLite 3 Nativo (node:sqlite)       │
+                  │        Modo WAL Concurrente            │
+                  └────────────────────────────────────────┘
 ```
+
+- **Runtime y Plataforma:** [Node.js](https://nodejs.org/) v20+ / v22+ con [Electron](https://www.electronjs.org/) v35.
+- **Interfaz Gráfica:** HTML5 semántico, [Tailwind CSS](https://tailwindcss.com/) 3.4 y suite de iconos [Lucide](https://lucide.dev/).
+- **Base de Datos y Persistencia:** SQLite 3 nativo de alto rendimiento (`node:sqlite`) con modo `WAL` (*Write-Ahead Logging*), garantizando integridad referencial estricta y lecturas concurrentes sin bloqueo.
+- **Seguridad y Criptografía:** Hash de contraseñas mediante `bcryptjs` con salado dinámico, preguntas de seguridad institucionales y clave de recuperación maestra (*Master Recovery Key*) de 16 caracteres.
+- **Generación de Reportes y Planillas:** [ExcelJS](https://github.com/exceljs/exceljs) para generación de libros de cálculo con diseño y estilos ministeriales oficiales, y motor Chromium integrado para exportación a PDF en tamaño A4.
+
+---
+
+## 📋 Guía Rápida de Instalación y Ejecución
+
+### Paso 1: Clonar el Repositorio
+```bash
+git clone https://github.com/tomivargas101/siget-iesetyfp.git
+cd siget
+```
+
+### Paso 2: Instalar Dependencias
+```bash
+npm install
+# o utilizando pnpm:
+pnpm install
+```
+
+### Paso 3: Iniciar la Aplicación en Modo Escritorio
+```bash
+npm start
+```
+
+---
+
+## 🔑 Credenciales de Acceso de Demostración
+
+El sistema inicializa automáticamente la base de datos `siget.db` con dos usuarios predeterminados:
+
+| Rol | Usuario | Contraseña | Perfil y Alcance |
+| :--- | :--- | :--- | :--- |
+| **Secretaría** | `secretaria` | `secretaria123` | Control total administrativo, cátedras, legajos y reportes. |
+| **Bedelía** | `bedel` | `bedel123` | Carga de asistencia diaria y planilla imprimible. |
+
+*(En la pantalla de inicio de sesión dispones de botones de acceso rápido para autocompletar credenciales en modo evaluación).*
 
 ---
 
 ## 🧪 Ejecución de Pruebas Automatizadas
 
-Para verificar el correcto funcionamiento de la base de datos, autenticación, topes horarios y generación de reportes:
+El proyecto cuenta con un conjunto integral de suites de pruebas que validan reglas de negocio, consistencia de base de datos y nuevas funcionalidades:
 
 ```bash
-# Ejecutar suite principal de integración
-python test_siget.py
+# 1. Pruebas de backend, autenticación, seguridad bcrypt y reglas normativas (39 tests)
+npm run test:backend
 
-# Ejecutar pruebas específicas de reglas de negocio normativas
-python test_business_logic_dl.py
+# 2. Pruebas de funcionalidades recientes: multi-día, calendario y planilla imprimible (8 bloques)
+node test_new_features.js
+
+# 3. Pruebas de requerimientos normativos v2.0, ABMC y catálogo IL-01/IL-02 (12 bloques)
+node test_v2_features.js
+
+# 4. Verificación de inicio y carga de ventana de Electron
+npm run test:electron
 ```
-
-Ambas suites se ejecutan en consola y emiten un informe detallado indicando la conformidad de cada validación.
 
 ---
 
-## 📦 Generación de Ejecutable para Windows (`.exe`)
+## 📁 Estructura del Repositorio
 
-Si se desea generar un instalador o ejecutable independiente para distribuir en PCs sin Python instalado:
-
-```bash
-python build_exe.py
+```text
+siget/
+├── src/
+│   ├── database/
+│   │   └── db.js                 # Conexión nativa SQLite, migraciones y seeds iniciales
+│   ├── main/
+│   │   ├── main.js               # Ciclo de vida de Electron, BrowserWindow y single-instance lock
+│   │   └── ipcHandlers.js        # Handlers IPC asíncronos para comunicación Main <-> Renderer
+│   ├── preload/
+│   │   └── preload.js            # Exposición segura de APIs en window.sigetApi
+│   ├── services/
+│   │   ├── attendanceService.js  # Lógica de asistencias, estados cerrados y planilla imprimible
+│   │   ├── attendanceProcessor.js# Agrupamiento de novedades para planillas oficiales
+│   │   ├── auditService.js       # Registro de auditoría institucional y exportación PDF
+│   │   ├── authService.js        # Autenticación bcrypt, preguntas secretas y Master Key
+│   │   ├── csvImportService.js   # Importación universal de CSV con detección automática
+│   │   ├── dashboardService.js   # Métricas y estadísticas institucionales
+│   │   ├── designationService.js # Cátedras multi-día y asignación de suplencias
+│   │   ├── normativeService.js   # Catálogo maestro de licencias (IL-01 / IL-02)
+│   │   ├── reportService.js      # Generación de libro Excel mensual oficial
+│   │   ├── teacherCalendarService.js # Matriz de mes, fichas docentes y exportaciones
+│   │   ├── teacherService.js     # Legajos de profesores y validación de unicidad
+│   │   ├── userService.js        # Gestión de cuentas de usuario y blanqueo
+│   │   └── validationService.js  # Reglas de negocio estatutarias y topes horarios
+│   └── renderer/
+│       ├── index.html            # Interfaz de usuario SPA institucional
+│       ├── css/                  # Estilos Tailwind CSS y temas de la app
+│       └── js/
+│           └── app.js            # Controlador del frontend y gestión de eventos
+│
+├── assets/                       # Logotipos e identidad visual oficial (.png)
+├── reportes/                     # Carpeta de salida de reportes generados
+├── export_schema_pdf.js          # Script auxiliar de compilación del esquema de BD
+├── package.json                  # Dependencias y scripts de npm
+└── README.md                     # Documentación general del sistema
 ```
-
-El ejecutable resultante se ubicará en `dist/SIGET.exe`, incluyendo todos los componentes gráficos, librerías y recursos necesarios en un único archivo autónomo.
 
 ---
 

@@ -1,12 +1,3 @@
-"""
-Módulo de Importación Masiva por Archivos CSV para SIGET (Python / SQLAlchemy)
-Permite la precarga masiva y validación de:
-1. Planta funcional / Legajos de docentes ("Datos del personal")
-2. Registros históricos y operativos de Asistencias ("Asistencia")
-
-Garantiza RN-01 (DNI formato texto), RN-02 (designaciones independientes),
-RN-03 (tope de 30 horas semanales), prevención de duplicados e informe de inconsistencias.
-"""
 
 import csv
 import io
@@ -23,15 +14,9 @@ from models.auth import CurrentSession, AuthService
 class CsvImportServicePy:
     @staticmethod
     def parse_universal_file(file_source: Any, filename: str = "", explicit_type: str = "auto") -> Dict[str, Any]:
-        """
-        Parsea un archivo universal (.xlsx, .xls, .docx, .doc, .csv, .txt) ya sea pasando
-        la ruta al archivo o un buffer de bytes, y devuelve el tipo detectado ('personnel' o 'attendance'),
-        nombre de hoja y el contenido CSV normalizado.
-        """
         if not file_source:
             return {"success": False, "message": "No se recibieron datos de archivo."}
 
-        # Obtener bytes y nombre de archivo
         if isinstance(file_source, str) and not os.path.exists(file_source) and isinstance(filename, (bytes, bytearray)):
             raw_bytes = bytes(filename)
             filename = file_source
@@ -111,7 +96,6 @@ class CsvImportServicePy:
                 if not raw_rows:
                     return {"success": False, "message": f"La hoja '{sheet_name}' no contiene filas con datos."}
 
-                # Buscar fila de cabecera
                 header_idx = 0
                 for i, r in enumerate(raw_rows[:6]):
                     r_lower = " ".join(r).lower()
@@ -129,7 +113,6 @@ class CsvImportServicePy:
                     else:
                         detected_type = "personnel"
 
-                # Grilla mensual de asistencia
                 is_grid = detected_type == "attendance" and any(re.match(r'^[1-9]$|^[12][0-9]$|^3[01]$', str(h).strip()) for h in headers)
                 if is_grid:
                     dni_col = 2
@@ -179,7 +162,6 @@ class CsvImportServicePy:
                 with zipfile.ZipFile(io.BytesIO(raw_bytes)) as z:
                     xml_content = z.read("word/document.xml").decode("utf-8", errors="ignore")
 
-                # Tablas
                 tr_list = re.findall(r'<w:tr[\s>][\s\S]*?<\/w:tr>', xml_content)
                 if tr_list:
                     table_rows = []
@@ -199,7 +181,6 @@ class CsvImportServicePy:
                         writer.writerow(r)
                     csv_text = out.getvalue()
                 else:
-                    # Párrafos
                     p_list = re.findall(r'<w:p[\s>][\s\S]*?<\/w:p>', xml_content)
                     lines = []
                     for p in p_list:
@@ -217,7 +198,6 @@ class CsvImportServicePy:
                         detected_type = "personnel"
 
             elif ext == "doc":
-                # Extracción de cadenas legibles
                 text_latin = raw_bytes.decode("latin1", errors="ignore")
                 lines = [l.strip() for l in text_latin.splitlines() if len(l.strip()) > 5 and (',' in l or ';' in l or '\t' in l)]
                 if not lines:
@@ -227,7 +207,6 @@ class CsvImportServicePy:
                     detected_type = "attendance" if "fecha" in csv_text[:400].lower() else "personnel"
 
             else:
-                # CSV o TXT plano
                 if len(raw_bytes) >= 2 and raw_bytes[:2] == b'\xff\xfe':
                     csv_text = raw_bytes[2:].decode("utf-16le", errors="ignore")
                 else:
@@ -300,17 +279,14 @@ class CsvImportServicePy:
             return None
         s = re.sub(r'[\'\"“”«»]', '', str(raw_fecha)).strip()
 
-        # ISO: YYYY-MM-DD o YYYY/MM/DD o YYYY.MM.DD
         m = re.match(r'^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$', s)
         if m:
             return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
 
-        # DD/MM/YYYY o DD-MM-YYYY o DD.MM.YYYY
         m = re.match(r'^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$', s)
         if m:
             return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
 
-        # DD/MM/YY
         m = re.match(r'^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$', s)
         if m:
             return f"20{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
@@ -344,7 +320,6 @@ class CsvImportServicePy:
         if not raw_lines:
             return [], []
 
-        # Detectar delimitador inspeccionando las primeras líneas
         sample_text = "\n".join(raw_lines[:10])
         commas = sample_text.count(',')
         semicolons = sample_text.count(';')
@@ -365,7 +340,6 @@ class CsvImportServicePy:
             return [], []
 
         first_row = raw_rows[0]
-        # Determinar si la primera fila es encabezado o fila de datos
         has_dni_or_date = any(
             (len(re.sub(r'\D', '', val)) in range(7, 11)) or (CsvImportServicePy._parse_date(val) is not None)
             for val in first_row
@@ -385,7 +359,6 @@ class CsvImportServicePy:
             if is_attendance:
                 headers = ['dni', 'fecha', 'estado', 'horas', 'observaciones']
             else:
-                # Estructura oficial de planta institucional: DNI, Legajo, Apellido, Nombre...
                 headers = ['dni', 'legajo', 'apellido', 'nombre', 'revista', 'horas', 'catedra', 'carrera', 'dia', 'horario', 'resolucion']
             data_rows = raw_rows
             start_line = 1
@@ -408,9 +381,6 @@ class CsvImportServicePy:
 
     @staticmethod
     def preview_personnel(csv_content: str) -> Dict[str, Any]:
-        """
-        Valida y genera informe de inconsistencias del archivo de personal.
-        """
         headers, rows = CsvImportServicePy.parse_csv(csv_content, "personnel")
         if not rows:
             return {
@@ -452,7 +422,6 @@ class CsvImportServicePy:
                 line_num = r["_raw_line"]
                 row_errors = []
 
-                # 1. Extraer DNI con búsqueda flexible
                 raw_dni = (
                     r.get("dni") or r.get("documento") or r.get("doc") or
                     r.get("nro_doc") or r.get("num_doc") or r.get("nro_documento") or
@@ -502,7 +471,6 @@ class CsvImportServicePy:
                             else:
                                 apellido = raw_full
                 else:
-                    # Caso directo sin encabezados: mapeo semántico por contenido de celdas
                     c0 = non_dni_cells[0] if len(non_dni_cells) > 0 else ""
                     c1 = non_dni_cells[1] if len(non_dni_cells) > 1 else ""
                     c2 = non_dni_cells[2] if len(non_dni_cells) > 2 else ""
@@ -522,17 +490,14 @@ class CsvImportServicePy:
                         nombre = " ".join(p.strip() for p in parts[1:])
                         legajo = c0
                     elif is_c0_code and not is_c1_code and len(c1) > 0:
-                        # Formato Institucional Estándar: DNI ; Legajo (c0) ; Apellido (c1) ; Nombre (c2)
                         legajo = c0
                         apellido = c1
                         nombre = c2 if not is_c2_code else ""
                     elif not is_c0_code and not is_c1_code and is_c2_code:
-                        # Formato Alternativo: DNI ; Apellido (c0) ; Nombre (c1) ; Legajo (c2)
                         apellido = c0
                         nombre = c1
                         legajo = c2
                     elif not is_c0_code and is_c1_code:
-                        # Formato DNI ; Apellido (c0) ; Legajo (c1) ; Nombre (c2)
                         apellido = c0
                         legajo = c1
                         nombre = c2 if not is_c2_code else ""
@@ -541,7 +506,6 @@ class CsvImportServicePy:
                         apellido = c1
                         nombre = c2
 
-                # Fallback por índices posicionales estándar
                 if not legajo and r.get("_1") and bool(re.match(r'^\d+$', str(r["_1"]).strip())): legajo = str(r["_1"]).strip()
                 if not apellido and r.get("_2"): apellido = str(r["_2"]).strip()
                 if not nombre and r.get("_3"): nombre = str(r["_3"]).strip()
@@ -553,7 +517,6 @@ class CsvImportServicePy:
                     apellido = parts[0].strip()
                     nombre = " ".join(p.strip() for p in parts[1:])
 
-                # SANITY CHECK & AUTOCORRECCIÓN ESTRICTA
                 is_apellido_numeric = bool(re.match(r'^\d+$', re.sub(r'[\.\-\s]', '', apellido)))
                 is_nombre_numeric = bool(re.match(r'^\d+$', re.sub(r'[\.\-\s]', '', nombre)))
                 is_legajo_text_only = not bool(re.search(r'\d', legajo)) and len(legajo) > 2
@@ -672,16 +635,12 @@ class CsvImportServicePy:
 
     @staticmethod
     def import_personnel(csv_content: str, update_existing: bool = True) -> Dict[str, Any]:
-        """
-        Ejecuta la persistencia masiva de docentes y designaciones.
-        """
         prev = CsvImportServicePy.preview_personnel(csv_content)
         if not prev["success"]:
             return prev
 
         session = get_db_session()
         try:
-            # Buscar o crear carrera por defecto
             default_career = session.query(Career).first()
             if not default_career:
                 default_career = Career(name="Profesorado de Educación Secundaria", code="PES", is_active=True)
@@ -725,7 +684,6 @@ class CsvImportServicePy:
                             teacher.legajo = item["legajo"]
                         updated += 1
 
-                # Asignación de Cátedra si aplica
                 if item["catedra"] and item["catedra"] != "-":
                     subject = session.query(Subject).filter(Subject.name.ilike(item["catedra"])).first()
                     if not subject:
@@ -794,9 +752,6 @@ class CsvImportServicePy:
 
     @staticmethod
     def preview_attendance(csv_content: str) -> Dict[str, Any]:
-        """
-        Valida registros masivos de asistencia.
-        """
         headers, rows = CsvImportServicePy.parse_csv(csv_content)
         if not rows:
             return {
@@ -833,7 +788,6 @@ class CsvImportServicePy:
                 line_num = r["_raw_line"]
                 row_errors = []
 
-                # 1. DNI con búsqueda flexible por alias o posición
                 raw_dni = (
                     r.get("dni") or r.get("documento") or r.get("doc") or
                     r.get("nro_doc") or r.get("num_doc") or r.get("nro_documento") or
@@ -849,7 +803,6 @@ class CsvImportServicePy:
                             break
                 clean_dni = re.sub(r'\D', '', re.sub(r'[\'\"“”«»]', '', str(raw_dni))).strip()
 
-                # 2. Fecha con búsqueda flexible
                 raw_fecha = (
                     r.get("fecha") or r.get("date") or r.get("dia") or
                     r.get("fecha_asistencia") or r.get("fecha_novedad") or
@@ -864,7 +817,6 @@ class CsvImportServicePy:
                             raw_fecha = str(v)
                             break
 
-                # 3. Marca / Estado con búsqueda flexible
                 raw_estado = str(
                     r.get("estado") or r.get("marca") or r.get("asistencia") or
                     r.get("novedad") or r.get("condicion") or r.get("situacion") or
@@ -880,7 +832,6 @@ class CsvImportServicePy:
                             raw_estado = str(v)
                             break
 
-                # 4. Horas y Observaciones
                 raw_horas = r.get("horas") or r.get("cant_horas") or r.get("cantidad_horas") or r.get("hs") or r.get("_3") or "4"
                 try:
                     horas = int(re.sub(r'\D', '', str(raw_horas))) or 4
@@ -893,7 +844,6 @@ class CsvImportServicePy:
                         r.get("motivo") or r.get("detalle") or r.get("comentario") or r.get("_4") or "")
                 ).strip()
 
-                # 5. Búsqueda de docente en el catálogo institucional
                 teacher = (
                     teachers_by_dni.get(clean_dni) or
                     teachers_by_dni.get(clean_dni.lstrip('0')) or

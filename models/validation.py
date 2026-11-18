@@ -1,9 +1,9 @@
+import re
 from datetime import datetime
 from sqlalchemy.orm import Session
 from database.schema import Designation, Teacher, Subject
 
 def parse_time_to_minutes(time_str: str) -> int:
-    """Convierte una cadena 'HH:MM' a minutos desde la medianoche."""
     try:
         parts = time_str.strip().split(":")
         hours = int(parts[0])
@@ -17,12 +17,89 @@ def format_minutes_to_time(minutes: int) -> str:
     m = minutes % 60
     return f"{h:02d}:{m:02d}"
 
+def validate_dni(dni: any) -> tuple[bool, str, str]:
+    if dni is None or str(dni).strip() == "":
+        return False, "", "El DNI es un campo obligatorio."
+    raw = str(dni).strip()
+    clean = re.sub(r"[\.\s\-]", "", raw)
+    if not clean.isdigit():
+        return False, clean, f"El DNI solo puede contener dígitos numéricos. Se ingresó: '{raw}'."
+    if len(clean) < 6 or len(clean) > 8:
+        return False, clean, f"El DNI debe contener 7 u 8 dígitos numéricos válidos (ej. 28456123). Se ingresó un valor incompleto o fuera de rango: '{raw}'."
+    return True, clean, ""
+
+def validate_cuil(cuil: any, dni: any = None) -> tuple[bool, str, str]:
+    if cuil is None or str(cuil).strip() == "":
+        return True, "", ""
+    raw = str(cuil).strip()
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) != 11:
+        return False, "", f"El CUIL/CUIT debe contener exactamente 11 dígitos numéricos (ej. 20-28456123-7). Se recibió: '{raw}'."
+    prefix = digits[:2]
+    if prefix not in ["20", "23", "24", "27", "30", "33", "34"]:
+        return False, "", f"El prefijo del CUIL '{prefix}' no es válido en el sistema argentino."
+    if dni:
+        clean_dni = re.sub(r"\D", "", str(dni))
+        cuil_dni = digits[2:10]
+        matches = (cuil_dni == clean_dni) or (len(clean_dni) == 7 and (cuil_dni == "0" + clean_dni or digits[3:10] == clean_dni)) or (len(clean_dni) == 6 and cuil_dni.endswith(clean_dni))
+        if not matches:
+            return False, "", f"El DNI contenido en el CUIL ({cuil_dni}) no coincide con el DNI del docente ({clean_dni})."
+    formatted = f"{digits[:2]}-{digits[2:10]}-{digits[10]}"
+    return True, formatted, ""
+
+def validate_name(name: any, field_name: str = "Nombre", min_len: int = 2, max_len: int = 100) -> tuple[bool, str, str]:
+    if name is None or str(name).strip() == "":
+        return False, "", f"El campo {field_name} es obligatorio y no puede estar vacío."
+    trimmed = str(name).strip()
+    if len(trimmed) < min_len:
+        return False, trimmed, f"El campo {field_name} debe contener al menos {min_len} caracteres."
+    if len(trimmed) > max_len:
+        return False, trimmed, f"El campo {field_name} no puede exceder los {max_len} caracteres."
+    if not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'\-\._]+$", trimmed):
+        return False, trimmed, f"El campo {field_name} solo puede contener letras y signos de puntuación válidos."
+    letters = re.sub(r"[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]", "", trimmed)
+    if len(letters) <= 4 and re.match(r"^(.)\1+$", letters, re.IGNORECASE):
+        return False, trimmed, f"El valor ingresado para {field_name} ('{trimmed}') no parece un nombre o apellido válido."
+    if len(letters) <= 4 and not re.search(r"[aeiouáéíóúyü]", letters, re.IGNORECASE):
+        return False, trimmed, f"El valor ingresado para {field_name} ('{trimmed}') no contiene vocales válidas."
+    return True, trimmed, ""
+
+def validate_legajo(legajo: any) -> tuple[bool, str, str]:
+    if legajo is None or str(legajo).strip() == "":
+        return False, "", "El número de Legajo es obligatorio."
+    trimmed = str(legajo).strip()
+    if len(trimmed) < 2:
+        return False, trimmed, "El Legajo debe tener al menos 2 caracteres."
+    if len(trimmed) > 50:
+        return False, trimmed, "El Legajo no puede superar los 50 caracteres."
+    if not re.search(r"[a-zA-Z0-9]", trimmed):
+        return False, trimmed, "El Legajo debe contener al menos un carácter alfanumérico."
+    return True, trimmed, ""
+
+def validate_email(email: any, is_required: bool = False) -> tuple[bool, str, str]:
+    if email is None or str(email).strip() == "":
+        if is_required:
+            return False, "", "El correo electrónico es obligatorio."
+        return True, "", ""
+    trimmed = str(email).strip().lower()
+    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", trimmed):
+        return False, trimmed, f"El correo electrónico '{trimmed}' tiene un formato inválido."
+    return True, trimmed, ""
+
+def validate_max_weekly_hours(hours: any) -> tuple[bool, int, str]:
+    if hours is None or str(hours).strip() == "":
+        return True, 30, ""
+    try:
+        val = int(hours)
+        if val < 1 or val > 30:
+            return False, val, f"El tope semanal institucional no puede exceder las 30 horas cátedra (valor permitido: entre 1 y 30). Se recibió: '{hours}'."
+        return True, val, ""
+    except (ValueError, TypeError):
+        return False, 0, f"El tope semanal de horas cátedra debe ser un número entero válido entre 1 y 30. Se recibió: '{hours}'."
+
 class BusinessValidationService:
     @staticmethod
     def calculate_teacher_active_hours(teacher_id: int, session: Session, exclude_designation_id: int = None) -> int:
-        """
-        Calcula la suma total de horas cátedra semanales activas para un docente.
-        """
         query = session.query(Designation).filter(
             Designation.teacher_id == teacher_id,
             Designation.is_active == True
@@ -41,10 +118,6 @@ class BusinessValidationService:
         session: Session, 
         exclude_designation_id: int = None
     ) -> tuple[bool, int, int, str]:
-        """
-        Valida que el docente no supere el tope reglamentario semanal (ej. 30 horas cátedra).
-        Retorna: (is_valid, horas_actuales, horas_maximas, mensaje)
-        """
         teacher = session.query(Teacher).filter(Teacher.id == teacher_id).first()
         if not teacher:
             return False, 0, 0, "Docente no encontrado."
@@ -76,10 +149,6 @@ class BusinessValidationService:
         session: Session,
         exclude_designation_id: int = None
     ) -> tuple[bool, str]:
-        """
-        Valida que no exista superposición de días y horarios con otras designaciones activas del docente.
-        Retorna: (is_valid, mensaje_detalle)
-        """
         new_start = parse_time_to_minutes(start_time)
         new_end = parse_time_to_minutes(end_time)
 
@@ -100,7 +169,6 @@ class BusinessValidationService:
             ex_start = parse_time_to_minutes(desig.start_time)
             ex_end = parse_time_to_minutes(desig.end_time)
 
-            # Condición de solapamiento: max(inicio1, inicio2) < min(fin1, fin2)
             if max(new_start, ex_start) < min(new_end, ex_end):
                 sub_name = desig.subject.name if desig.subject else "Materia ID " + str(desig.subject_id)
                 conflict_msg = (

@@ -1,15 +1,3 @@
-"""
-Módulo de Generación y Exportación de Reportes Oficiales en Excel (openpyxl y pandas).
-
-Implementa la exportación de la 'Planilla Oficial de Estadísticas Mensuales y Planta Docente'
-con sus cuadros normativos correspondientes:
-- Hoja 1: 'Estadística Mensual' (Planta Funcional, Cátedras, Situación de Revista y Cómputo Horario).
-- Hoja 2: 'Cuadro DL-01' (Exclusivo Licencias por Enfermedad - RN-04, Oficina 1452 - RN-07, Año - RN-08).
-- Hoja 3: 'Cuadro DL-02' (Inasistencias, Permisos y Otras Licencias - RN-05, RN-06: 1 día por falta).
-
-Garantiza la preservación de estilos corporativos institucionales, fórmulas dinámicas y volcado
-directo desde DataFrames de Pandas sin corromper el archivo base ni los formatos de la administración.
-"""
 
 import os
 from datetime import datetime, date, timedelta
@@ -25,35 +13,28 @@ from models.normative import NormativeClassifier, DEFAULT_OFFICE_CODE
 
 
 class ReportService:
-    """
-    Servicio de compilación y exportación de reportes institucionales en formato Excel.
-    """
 
-    # Paleta de colores institucional
-    NAVY_PRIMARY = "1B365D"
-    NAVY_ACCENT = "2C5282"
-    GRAY_LIGHT = "F7FAFC"
-    WHITE = "FFFFFF"
-    BORDER_COLOR = "D2D6DC"
+    HEADER_BG = "F1F5F9"
+    HEADER_ACCENT_BG = "E2E8F0"
+    GRAY_LIGHT = "F8FAFC"
+    DARK_TEXT = "0F172A"
+    MUTED_TEXT = "334155"
+    BORDER_COLOR = "CBD5E1"
 
     @classmethod
     def get_processed_dataframes(cls, month: int, year: int = None, career_id: int = None) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Retorna la tupla de DataFrames (df_dl01, df_dl02) procesados con Pandas.
-        """
         return AttendanceProcessor.process_monthly_attendance(month=month, year=year, career_id=career_id)
 
     @classmethod
     def _create_styles(cls):
-        """Genera el catálogo de fuentes, rellenos y bordes corporativos."""
-        title_font = Font(name="Calibri", size=15, bold=True, color=cls.WHITE)
-        sub_font = Font(name="Calibri", size=10, italic=True, color=cls.WHITE)
-        header_font = Font(name="Calibri", size=10, bold=True, color=cls.WHITE)
+        title_font = Font(name="Calibri", size=14, bold=True, color=cls.DARK_TEXT)
+        sub_font = Font(name="Calibri", size=10, italic=True, color=cls.MUTED_TEXT)
+        header_font = Font(name="Calibri", size=10, bold=True, color=cls.DARK_TEXT)
         data_font = Font(name="Calibri", size=10)
         bold_font = Font(name="Calibri", size=10, bold=True)
 
-        navy_fill = PatternFill(start_color=cls.NAVY_PRIMARY, end_color=cls.NAVY_PRIMARY, fill_type="solid")
-        accent_fill = PatternFill(start_color=cls.NAVY_ACCENT, end_color=cls.NAVY_ACCENT, fill_type="solid")
+        navy_fill = PatternFill(start_color=cls.HEADER_BG, end_color=cls.HEADER_BG, fill_type="solid")
+        accent_fill = PatternFill(start_color=cls.HEADER_ACCENT_BG, end_color=cls.HEADER_ACCENT_BG, fill_type="solid")
         zebra_fill = PatternFill(start_color=cls.GRAY_LIGHT, end_color=cls.GRAY_LIGHT, fill_type="solid")
 
         thin_side = Side(border_style="thin", color=cls.BORDER_COLOR)
@@ -82,13 +63,8 @@ class ReportService:
         days_col_idx: int = 11,
         total_cols: int = 12
     ):
-        """
-        Vuelca un DataFrame procesado de Pandas directamente en la hoja especificada de openpyxl,
-        preservando o aplicando formatos oficiales, encabezados estilizados, bordes y fórmulas de totales.
-        """
         styles = cls._create_styles()
 
-        # 1. Título y Subtítulo
         actual_total_cols = len(df.columns) if (df is not None and not df.empty) else total_cols
         actual_days_col_idx = (list(df.columns).index("Total Días") + 1) if (df is not None and "Total Días" in df.columns) else days_col_idx
 
@@ -109,9 +85,8 @@ class ReportService:
         sub_title.alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[2].height = 22
 
-        ws.row_dimensions[3].height = 10  # Espacio en blanco
+        ws.row_dimensions[3].height = 10
 
-        # 2. Encabezados de columnas (Fila 4)
         header_row = 4
         ws.row_dimensions[header_row].height = 26
         headers = list(df.columns)
@@ -122,12 +97,10 @@ class ReportService:
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             cell.border = styles["border"]
 
-        # 3. Filas de datos (Fila 5 en adelante)
         start_row = 5
         rows_count = len(df)
 
         if rows_count == 0:
-            # Caso sin novedades: Fila informativa sin romper fórmulas
             cur_row = start_row
             ws.row_dimensions[cur_row].height = 22
             ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=actual_total_cols)
@@ -161,7 +134,6 @@ class ReportService:
                     cell.font = styles["data_font"]
                     cell.border = styles["border"]
 
-                    # Formato explícito de texto para DNI (RN-01: preserva ceros y evita notación científica)
                     if headers[col_idx - 1] == "DNI":
                         cell.number_format = "@"
                         cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -173,11 +145,9 @@ class ReportService:
                     else:
                         cell.alignment = Alignment(horizontal="left", vertical="center")
 
-                    # Cebra en filas pares
                     if i % 2 == 1:
                         cell.fill = styles["zebra_fill"]
 
-            # 4. Fila de Totales con fórmula oficial de administración openpyxl
             tot_row = start_row + rows_count
             ws.row_dimensions[tot_row].height = 24
             ws.merge_cells(start_row=tot_row, start_column=1, end_row=tot_row, end_column=actual_days_col_idx - 1)
@@ -186,7 +156,6 @@ class ReportService:
             lbl_tot.alignment = Alignment(horizontal="right", vertical="center")
 
             days_col_letter = get_column_letter(actual_days_col_idx)
-            # Fórmula oficial en openpyxl que se evalúa automáticamente en Excel
             c_tot = ws.cell(
                 row=tot_row,
                 column=actual_days_col_idx,
@@ -200,7 +169,6 @@ class ReportService:
                 ws.cell(row=tot_row, column=c_idx).border = styles["border"]
                 ws.cell(row=tot_row, column=c_idx).fill = styles["zebra_fill"]
 
-        # 5. Ajuste dinámico de ancho de columnas
         for col in ws.columns:
             max_len = 0
             col_letter = get_column_letter(col[0].column)
@@ -209,7 +177,6 @@ class ReportService:
                     continue
                 if cell.value:
                     val_str = str(cell.value)
-                    # No medir fórmulas para el ancho
                     if not val_str.startswith("="):
                         max_len = max(max_len, len(val_str))
             ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
@@ -223,14 +190,6 @@ class ReportService:
         output_path: str = None,
         base_template_path: str = None
     ) -> str:
-        """
-        Genera la 'Planilla Oficial de Estadísticas Mensuales y Asistencia Docente'
-        respetando el formato institucional de educación superior.
-        Incluye de forma automatizada:
-        - Hoja 1: Estadística Mensual y Planta Funcional
-        - Hoja 2: Cuadro DL-01 (Licencias por Enfermedad - RN-04, RN-07, RN-08)
-        - Hoja 3: Cuadro DL-02 (Inasistencias y Permisos - RN-05, RN-06)
-        """
         if not output_path:
             reports_dir = os.path.join(os.getcwd(), "reportes")
             os.makedirs(reports_dir, exist_ok=True)
@@ -238,7 +197,6 @@ class ReportService:
 
         session = get_db_session()
         try:
-            # 1. Consultar designaciones para Hoja 1
             query = session.query(Designation).join(Subject).join(Teacher).outerjoin(Career, Subject.career_id == Career.id)
             if career_id and career_id != 0:
                 query = query.filter(Subject.career_id == career_id)
@@ -247,7 +205,6 @@ class ReportService:
                 Teacher.last_name, Designation.day_of_week
             ).all()
 
-            # Estructurar datos de Hoja 1
             first_day_of_month = date(year, month, 1)
             if month == 12:
                 last_day_of_month = date(year, 12, 31)
@@ -295,7 +252,6 @@ class ReportService:
                     "Motivo Licencia / Suplencia": detalle_suplencia
                 })
 
-            # 2. Procesar asistencias con Pandas para DL-01 y DL-02
             df_dl01, df_dl02 = AttendanceProcessor.process_monthly_attendance(
                 month=month,
                 year=year,
@@ -303,14 +259,12 @@ class ReportService:
                 session=session
             )
 
-            # 3. Inicializar Workbook openpyxl
             styles = cls._create_styles()
             if base_template_path and os.path.exists(base_template_path):
                 wb = load_workbook(base_template_path)
             else:
                 wb = Workbook()
 
-            # --- HOJA 1: Estadística Mensual y Planta Docente ---
             ws_stats = wb.active
             ws_stats.title = f"Estadística {month:02d}-{year}"
 
@@ -362,7 +316,7 @@ class ReportService:
                     cell.font = styles["data_font"]
                     cell.border = styles["border"]
 
-                    if col_idx == 3:  # DNI como texto
+                    if col_idx == 3:
                         cell.number_format = "@"
                         cell.alignment = Alignment(horizontal="center", vertical="center")
                     elif col_idx in [1, 7, 8, 12]:
@@ -376,7 +330,6 @@ class ReportService:
                     if i % 2 == 1:
                         cell.fill = styles["zebra_fill"]
 
-            # Fila de Totales Hoja 1
             tot_row_stats = start_row + len(rows_stats)
             ws_stats.row_dimensions[tot_row_stats].height = 24
             ws_stats.merge_cells(start_row=tot_row_stats, start_column=1, end_row=tot_row_stats, end_column=8)
@@ -416,7 +369,6 @@ class ReportService:
                             max_len = max(max_len, len(v_str))
                 ws_stats.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
-            # --- HOJA 2: Cuadro DL-01 (Licencias por Enfermedad - RN-04) ---
             ws_dl01 = wb.create_sheet(title="Cuadro DL-01")
             cls.dump_dataframe_to_sheet(
                 ws=ws_dl01,
@@ -428,7 +380,6 @@ class ReportService:
                 total_cols=len(df_dl01.columns)
             )
 
-            # --- HOJA 3: Cuadro DL-02 (Inasistencias y Otras Licencias - RN-05 & RN-06) ---
             ws_dl02 = wb.create_sheet(title="Cuadro DL-02")
             cls.dump_dataframe_to_sheet(
                 ws=ws_dl02,
@@ -440,7 +391,6 @@ class ReportService:
                 total_cols=len(df_dl02.columns)
             )
 
-            # --- HOJA 4: Cuadro IL-01 (Nomenclatura Versión 2.0) ---
             ws_il01 = wb.create_sheet(title="Cuadro IL-01")
             cls.dump_dataframe_to_sheet(
                 ws=ws_il01,
@@ -452,7 +402,6 @@ class ReportService:
                 total_cols=len(df_dl01.columns)
             )
 
-            # --- HOJA 5: Cuadro IL-02 (Nomenclatura Versión 2.0) ---
             ws_il02 = wb.create_sheet(title="Cuadro IL-02")
             cls.dump_dataframe_to_sheet(
                 ws=ws_il02,
@@ -464,7 +413,6 @@ class ReportService:
                 total_cols=len(df_dl02.columns)
             )
 
-            # Guardar archivo completo
             wb.save(output_path)
             return output_path
 
@@ -473,7 +421,6 @@ class ReportService:
 
     @classmethod
     def export_dl01_excel(cls, month: int, year: int, career_id: int = None, output_path: str = None) -> str:
-        """Exporta exclusivamente el Cuadro DL-01 en un archivo independiente si es requerido."""
         if not output_path:
             reports_dir = os.path.join(os.getcwd(), "reportes")
             os.makedirs(reports_dir, exist_ok=True)
@@ -497,7 +444,6 @@ class ReportService:
 
     @classmethod
     def export_dl02_excel(cls, month: int, year: int, career_id: int = None, output_path: str = None) -> str:
-        """Exporta exclusivamente el Cuadro DL-02 en un archivo independiente si es requerido."""
         if not output_path:
             reports_dir = os.path.join(os.getcwd(), "reportes")
             os.makedirs(reports_dir, exist_ok=True)

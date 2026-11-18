@@ -1,12 +1,6 @@
-/**
- * Preload Script seguro para SIGET (Electron)
- * Expone la API tipada en window.sigetApi mediante contextBridge sin comprometer la seguridad.
- */
-
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('sigetApi', {
-    // Autenticación, Configuración Inicial y Recuperación Offline
     auth: {
         checkFirstRun: () => ipcRenderer.invoke('auth:checkFirstRun'),
         firstRunSetup: (payload) => ipcRenderer.invoke('auth:firstRunSetup', payload),
@@ -19,7 +13,6 @@ contextBridge.exposeInMainWorld('sigetApi', {
         recoverByMasterKey: (payload) => ipcRenderer.invoke('auth:recoverByMasterKey', payload)
     },
 
-    // Gestión de Usuarios y Roles (Secretaría)
     users: {
         getAll: () => ipcRenderer.invoke('users:getAll'),
         getById: (id) => ipcRenderer.invoke('users:getById', id),
@@ -29,7 +22,6 @@ contextBridge.exposeInMainWorld('sigetApi', {
         toggleActive: (id) => ipcRenderer.invoke('users:toggleActive', id)
     },
 
-    // Docentes y Legajos
     teachers: {
         getAll: (filters) => ipcRenderer.invoke('teachers:getAll', filters),
         getById: (id) => ipcRenderer.invoke('teachers:getById', id),
@@ -38,7 +30,6 @@ contextBridge.exposeInMainWorld('sigetApi', {
         delete: (id) => ipcRenderer.invoke('teachers:delete', id)
     },
 
-    // Cátedras, Designaciones y Suplencias
     designations: {
         getAll: (filters) => ipcRenderer.invoke('designations:getAll', filters),
         getById: (id) => ipcRenderer.invoke('designations:getById', id),
@@ -54,7 +45,6 @@ contextBridge.exposeInMainWorld('sigetApi', {
         deleteCareer: (id) => ipcRenderer.invoke('designations:deleteCareer', id)
     },
 
-    // Asistencias y Novedades Diarias
     attendance: {
         getDaily: (dateStr) => ipcRenderer.invoke('attendance:getDaily', dateStr),
         save: (payload) => ipcRenderer.invoke('attendance:save', payload),
@@ -63,19 +53,17 @@ contextBridge.exposeInMainWorld('sigetApi', {
         receivePhysicalForm: (payload) => ipcRenderer.invoke('attendance:receivePhysicalForm', payload),
         parseJustificationFile: (payload) => ipcRenderer.invoke('attendance:parseJustificationFile', payload),
         getSummary: (dateStr) => ipcRenderer.invoke('attendance:getSummary', dateStr),
-        exportDailyExcel: (dateStr) => ipcRenderer.invoke('attendance:exportDailyExcel', dateStr),
+        exportDailyExcel: (params) => ipcRenderer.invoke('attendance:exportDailyExcel', params),
         exportPrintablePdf: (params) => ipcRenderer.invoke('attendance:exportPrintablePdf', params),
         exportPrintableExcel: (params) => ipcRenderer.invoke('attendance:exportPrintableExcel', params)
     },
 
-    // Catálogo Maestro Normativo (IL-01 / IL-02) y Calendario Escolar (RF-10)
     normative: {
         getMasterCatalog: () => ipcRenderer.invoke('normative:getMasterCatalog'),
         getArticleDetails: (key) => ipcRenderer.invoke('normative:getArticleDetails', key),
         getCalendarDayInfo: (dateStr) => ipcRenderer.invoke('normative:getCalendarDayInfo', dateStr)
     },
 
-    // Importación Masiva CSV y Archivos Universales
     csv: {
         parseUniversalFile: (payload) => ipcRenderer.invoke('csv:parseUniversalFile', payload),
         previewPersonnel: (csvText) => ipcRenderer.invoke('csv:previewPersonnel', csvText),
@@ -84,7 +72,6 @@ contextBridge.exposeInMainWorld('sigetApi', {
         importAttendance: (csvText) => ipcRenderer.invoke('csv:importAttendance', csvText)
     },
 
-    // Calendario Institucional del Profesorado
     calendar: {
         getTeacherTimeline: (params) => ipcRenderer.invoke('calendar:getTeacherTimeline', params),
         getInstitutionalOverview: (params) => ipcRenderer.invoke('calendar:getInstitutionalOverview', params),
@@ -98,26 +85,28 @@ contextBridge.exposeInMainWorld('sigetApi', {
         exportTeacherExcel: (params) => ipcRenderer.invoke('calendar:exportTeacherExcel', params)
     },
 
-    // Auditoría y Registro Oficial de Acciones
     audit: {
         getAll: (params) => ipcRenderer.invoke('audit:getAll', params),
         exportPdf: (params) => ipcRenderer.invoke('audit:exportPdf', params)
     },
 
-    // Dashboard y Estadísticas
     dashboard: {
         getStats: () => ipcRenderer.invoke('dashboard:getStats')
     },
 
-    // Reportes Oficiales Excel
     reports: {
         getPreview: (year, month) => ipcRenderer.invoke('reports:getPreview', { year, month }),
-        generateMonthly: (year, month) => ipcRenderer.invoke('reports:generateMonthly', { year, month }),
+        generateMonthly: (paramsOrYear, maybeMonth, maybeOutputPath) => {
+            if (typeof paramsOrYear === 'object') {
+                return ipcRenderer.invoke('reports:generateMonthly', paramsOrYear);
+            }
+            return ipcRenderer.invoke('reports:generateMonthly', { year: paramsOrYear, month: maybeMonth, outputPath: maybeOutputPath });
+        },
         openFile: (filePath) => ipcRenderer.invoke('reports:openFile', filePath)
     },
 
-    // Diálogos del sistema
     dialog: {
-        showMessage: (options) => ipcRenderer.invoke('dialog:showMessage', options)
+        showMessage: (options) => ipcRenderer.invoke('dialog:showMessage', options),
+        showSaveDialog: (options) => ipcRenderer.invoke('dialog:showSaveDialog', options)
     }
 });

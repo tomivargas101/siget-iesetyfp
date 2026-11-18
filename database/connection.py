@@ -38,7 +38,6 @@ def get_connection_url(cfg: dict = None) -> str:
         return "sqlite:///siget.db"
 
 def _setup_sqlite_pragmas(target_engine):
-    """Configura PRAGMAs de alto rendimiento y concurrencia (WAL) para SQLite."""
     @event.listens_for(target_engine, "connect")
     def _set_pragmas(dbapi_connection, connection_record):
         try:
@@ -57,7 +56,6 @@ def get_engine(cfg: dict = None, force_reconnect: bool = False):
         cfg = load_config()
 
     if _engine is None or force_reconnect:
-        # Si se fuerza reconexión, limpiar pool anterior y scoped_session
         if _SessionFactory is not None:
             try:
                 _SessionFactory.remove()
@@ -136,10 +134,6 @@ def get_db_session():
     return _SessionFactory()
 
 def test_connection(cfg: dict = None) -> tuple[bool, str]:
-    """
-    Verifica la conectividad con el servidor de base de datos sin alterar el estado global.
-    Retorna (True, 'Conexión exitosa') o (False, mensaje_error_amigable).
-    """
     if cfg is None:
         cfg = load_config()
 
@@ -191,16 +185,11 @@ def check_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 def _ensure_schema_columns(engine):
-    """
-    Verifica y aplica migraciones automáticas no destructivas de forma agnóstica al motor
-    (SQLite, MySQL, PostgreSQL), garantizando las columnas de RN-01, RN-02 y RN-03 sin pérdida de datos.
-    """
     try:
         inspector = inspect(engine)
         tables = set(inspector.get_table_names())
 
         with engine.connect() as conn:
-            # 1. Tabla designations
             if "designations" in tables:
                 desig_cols = {c["name"] for c in inspector.get_columns("designations")}
                 if "cargo" not in desig_cols:
@@ -208,15 +197,19 @@ def _ensure_schema_columns(engine):
                 if "revista" not in desig_cols:
                     conn.execute(text("ALTER TABLE designations ADD COLUMN revista VARCHAR(20)"))
 
-            # 2. Tabla attendances
             if "attendances" in tables:
                 att_cols = {c["name"] for c in inspector.get_columns("attendances")}
                 if "designation_id" not in att_cols:
                     conn.execute(text("ALTER TABLE attendances ADD COLUMN designation_id INTEGER"))
+                if "suplente_teacher_id" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN suplente_teacher_id INTEGER"))
+                if "attachment_filename" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN attachment_filename VARCHAR(255)"))
+                if "attachment_path" not in att_cols:
+                    conn.execute(text("ALTER TABLE attendances ADD COLUMN attachment_path TEXT"))
                 if "is_active" not in att_cols:
                     conn.execute(text("ALTER TABLE attendances ADD COLUMN is_active BOOLEAN DEFAULT 1"))
 
-            # 3. Tabla users (campos de seguridad y recuperación)
             if "users" in tables:
                 user_cols = {c["name"] for c in inspector.get_columns("users")}
                 if "security_question" not in user_cols:
@@ -234,15 +227,10 @@ def _ensure_schema_columns(engine):
 
 
 def init_db(cfg: dict = None):
-    """
-    Inicializa las tablas y carga datos de demostración si la base está vacía.
-    Elimina módulo de alumnos y rol de rector.
-    """
     engine = get_engine(cfg, force_reconnect=True)
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns(engine)
 
-    # Limpiar tabla students obsoleta si existiera
     try:
         with engine.connect() as conn:
             conn.execute(text("DROP TABLE IF EXISTS students"))
@@ -252,14 +240,12 @@ def init_db(cfg: dict = None):
 
     session = get_db_session()
     try:
-        # Purgar cualquier usuario rector remanente liberando referencias de claves foráneas
         rector_u = session.query(User).filter(User.username == "rector").first()
         if rector_u:
             session.query(AuditLog).filter(AuditLog.user_id == rector_u.id).update({AuditLog.user_id: None})
             session.delete(rector_u)
             session.commit()
 
-        # 1. Crear usuarios por defecto si no existen (exclusivamente Secretaría y Bedel)
         if session.query(User).count() == 0:
             bedel_user = User(
                 username="bedel",
@@ -280,7 +266,6 @@ def init_db(cfg: dict = None):
             session.add_all([secretaria_user, bedel_user])
             session.commit()
 
-        # 2. Cargar carreras de ejemplo
         if session.query(Career).count() == 0:
             c1 = Career(
                 code="TEC-DS",
@@ -297,7 +282,6 @@ def init_db(cfg: dict = None):
             session.add_all([c1, c2])
             session.commit()
 
-            # Materias
             sub1 = Subject(career_id=c1.id, code="DS-101", name="Algoritmos y Estructuras de Datos I", year_level=1, weekly_hours=5)
             sub2 = Subject(career_id=c1.id, code="DS-102", name="Sistemas y Organizaciones", year_level=1, weekly_hours=4)
             sub3 = Subject(career_id=c1.id, code="DS-201", name="Bases de Datos Relacionales", year_level=2, weekly_hours=4)
@@ -306,7 +290,6 @@ def init_db(cfg: dict = None):
             session.add_all([sub1, sub2, sub3, sub4, sub5])
             session.commit()
 
-        # 3. Cargar docentes de ejemplo
         if session.query(Teacher).count() == 0:
             t1 = Teacher(
                 legajo="DOC-00101",
@@ -355,7 +338,6 @@ def init_db(cfg: dict = None):
             session.add_all([t1, t2, t3, t4])
             session.commit()
 
-            # Designaciones iniciales
             sub_db = session.query(Subject).filter_by(code="DS-101").first()
             if sub_db:
                 desig1 = Designation(
@@ -372,7 +354,6 @@ def init_db(cfg: dict = None):
                 session.add(desig1)
                 session.commit()
 
-                # Ejemplo de Suplencia registrada
                 subst1 = Substitution(
                     designation_id=desig1.id,
                     titular_teacher_id=t1.id,
@@ -386,16 +367,11 @@ def init_db(cfg: dict = None):
                 session.add(subst1)
                 session.commit()
 
-        # Normalización preventiva de registros de docentes desfasados
         normalize_corrupted_teachers(session)
     finally:
         session.close()
 
 def normalize_corrupted_teachers(session):
-    """
-    Normaliza y reasigna los campos de docentes en caso de que una carga masiva previa
-    haya desplazado o intercambiado legajo con apellido o nombre.
-    """
     import re
     try:
         teachers = session.query(Teacher).all()
