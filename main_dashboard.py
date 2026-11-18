@@ -206,23 +206,6 @@ class MainDashboardWindow(ctk.CTk):
         bottom_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         bottom_box.pack(side="bottom", fill="x", padx=16, pady=20)
 
-        current_mode = ctk.get_appearance_mode()
-        self.switch_theme = ctk.CTkSwitch(
-            bottom_box,
-            text="Modo Oscuro",
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-            text_color=Theme.TEXT_SECONDARY,
-            progress_color=Theme.GOLD,
-            command=self._toggle_theme,
-            onvalue="Dark",
-            offvalue="Light"
-        )
-        if current_mode == "Dark":
-            self.switch_theme.select()
-        else:
-            self.switch_theme.deselect()
-        self.switch_theme.pack(anchor="w", padx=2, pady=(0, 12))
-
         btn_logout = ctk.CTkButton(
             bottom_box,
             text="Cerrar Sesión",
@@ -342,8 +325,7 @@ class MainDashboardWindow(ctk.CTk):
         self.show_view("dashboard")
 
     def _toggle_theme(self):
-        mode = self.switch_theme.get()
-        ctk.set_appearance_mode(mode)
+        ctk.set_appearance_mode("Dark")
         self.update_idletasks()
 
     def _confirm_logout(self):
@@ -366,7 +348,7 @@ if __name__ == "__main__":
     from database.config import load_config
     from database.connection import init_db
 
-    ctk.set_appearance_mode("Light")
+    ctk.set_appearance_mode("Dark")
     ctk.set_default_color_theme("blue")
     cfg = load_config()
     init_db(cfg)

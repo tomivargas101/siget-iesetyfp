@@ -14,7 +14,7 @@ if (process && typeof process.emitWarning === 'function') {
     };
 }
 
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, nativeTheme } = require('electron');
 const path = require('path');
 const { registerIpcHandlers } = require('./ipcHandlers');
 const { closeDatabase } = require('../database/db');
@@ -22,6 +22,7 @@ const { closeDatabase } = require('../database/db');
 let mainWindow = null;
 
 function createWindow() {
+    nativeTheme.themeSource = 'dark';
     const iconPath = path.join(__dirname, '../../assets/logo_transparent.png');
 
     mainWindow = new BrowserWindow({
@@ -32,7 +33,7 @@ function createWindow() {
         center: true,
         title: 'SIGET - Sistema Integral de Gestión Educativa Terciaria',
         icon: iconPath,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#18181B',
         show: false,
         webPreferences: {
             preload: path.join(__dirname, '../preload/preload.js'),

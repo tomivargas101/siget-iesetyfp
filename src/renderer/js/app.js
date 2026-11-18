@@ -37,61 +37,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function applyTheme(theme) {
-    const isDark = (theme === 'dark');
+function applyTheme(theme = 'dark') {
     const docEl = document.documentElement;
     const body = document.body;
     const appContainer = document.getElementById('app-container');
     const mainEl = document.querySelector('main');
     const viewsContainer = document.getElementById('views-container');
 
-    if (isDark) {
-        docEl.classList.add('dark');
-        docEl.setAttribute('data-theme', 'dark');
-        body.classList.add('dark', 'dark-mode');
-        body.setAttribute('data-theme', 'dark');
-        if (appContainer) {
-            appContainer.classList.add('dark');
-            appContainer.setAttribute('data-theme', 'dark');
-        }
-        if (mainEl) {
-            mainEl.classList.add('dark');
-            mainEl.setAttribute('data-theme', 'dark');
-        }
-        if (viewsContainer) {
-            viewsContainer.classList.add('dark');
-            viewsContainer.setAttribute('data-theme', 'dark');
-        }
-        localStorage.setItem('siget-theme', 'dark');
-    } else {
-        docEl.classList.remove('dark');
-        docEl.removeAttribute('data-theme');
-        body.classList.remove('dark', 'dark-mode');
-        body.removeAttribute('data-theme');
-        if (appContainer) {
-            appContainer.classList.remove('dark');
-            appContainer.removeAttribute('data-theme');
-        }
-        if (mainEl) {
-            mainEl.classList.remove('dark');
-            mainEl.removeAttribute('data-theme');
-        }
-        if (viewsContainer) {
-            viewsContainer.classList.remove('dark');
-            viewsContainer.removeAttribute('data-theme');
-        }
-        localStorage.setItem('siget-theme', 'light');
+    docEl.classList.add('dark');
+    docEl.setAttribute('data-theme', 'dark');
+    body.classList.add('dark', 'dark-mode');
+    body.setAttribute('data-theme', 'dark');
+    if (appContainer) {
+        appContainer.classList.add('dark');
+        appContainer.setAttribute('data-theme', 'dark');
     }
+    if (mainEl) {
+        mainEl.classList.add('dark');
+        mainEl.setAttribute('data-theme', 'dark');
+    }
+    if (viewsContainer) {
+        viewsContainer.classList.add('dark');
+        viewsContainer.setAttribute('data-theme', 'dark');
+    }
+    localStorage.setItem('siget-theme', 'dark');
 
     const themeSwitch = document.getElementById('theme-switch');
     if (themeSwitch) {
-        themeSwitch.checked = isDark;
+        themeSwitch.checked = true;
+        themeSwitch.disabled = true;
     }
 }
 
 function initTheme() {
-    const savedTheme = localStorage.getItem('siget-theme') || 'light';
-    applyTheme(savedTheme);
+    applyTheme('dark');
 }
 
 function initLucideIcons() {
@@ -204,9 +183,11 @@ function setupEventListeners() {
 
     const themeSwitch = document.getElementById('theme-switch');
     if (themeSwitch) {
-        themeSwitch.checked = (localStorage.getItem('siget-theme') === 'dark');
-        themeSwitch.addEventListener('change', () => {
-            applyTheme(themeSwitch.checked ? 'dark' : 'light');
+        themeSwitch.checked = true;
+        themeSwitch.disabled = true;
+        themeSwitch.addEventListener('change', (e) => {
+            e.preventDefault();
+            applyTheme('dark');
         });
     }
 
@@ -1124,7 +1105,7 @@ function handleLoginSuccess(user) {
         if (navCsv) navCsv.classList.add('hidden');
     }
 
-    applyTheme(localStorage.getItem('siget-theme') || 'light');
+    applyTheme('dark');
 
     loadInitialCatalogs();
 

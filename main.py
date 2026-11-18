@@ -15,7 +15,7 @@ from main_dashboard import MainDashboardWindow, MainWindow
 
 class ApplicationController:
     def __init__(self):
-        ctk.set_appearance_mode("Light")
+        ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
 
         self.current_window = None
