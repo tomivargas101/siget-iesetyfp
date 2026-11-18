@@ -3201,6 +3201,21 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
             });
         }
 
+        const pfSuplenteSelect = document.getElementById('pf-suplente-teacher');
+        if (pfSuplenteSelect) {
+            pfSuplenteSelect.addEventListener('change', () => {
+                const val = pfSuplenteSelect.value ? parseInt(pfSuplenteSelect.value, 10) : null;
+                if (val && val === teacherId) {
+                    pfSuplenteSelect.value = '';
+                    errDiv.textContent = 'Un docente no puede suplirse a sí mismo en su propia cátedra.';
+                    errDiv.classList.remove('hidden');
+                    showToast('Un docente no puede suplirse a sí mismo en su propia cátedra.', 'error');
+                } else {
+                    errDiv.classList.add('hidden');
+                }
+            });
+        }
+
         if (form) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -3212,6 +3227,14 @@ async function openPhysicalFormModal(teacherId, teacherName, dateStr) {
                 const observations = document.getElementById('pf-observations').value.trim();
                 const suplenteSelect = document.getElementById('pf-suplente-teacher');
                 const suplenteTeacherId = suplenteSelect?.value ? parseInt(suplenteSelect.value, 10) : null;
+
+                if (suplenteTeacherId && suplenteTeacherId === teacherId) {
+                    if (suplenteSelect) suplenteSelect.value = '';
+                    errDiv.textContent = 'Un docente no puede suplirse a sí mismo en su propia cátedra.';
+                    errDiv.classList.remove('hidden');
+                    showToast('Un docente no puede suplirse a sí mismo en su propia cátedra.', 'error');
+                    return;
+                }
 
                 const formNumberInput = document.getElementById('pf-form-number');
                 if (!formNumber || formNumber.length < 2) {
@@ -4403,65 +4426,155 @@ function openDesignationModal(selectedCareerId = null, designationToEdit = null)
 }
 window.openDesignationModal = openDesignationModal;
 
-window.openSubstitutionModal = function (designationId) {
+window.openSubstitutionModal = async function (designationId, designationObj = null) {
+    let desig = designationObj;
+    if (!desig && window.sigetApi?.designations?.getById) {
+        try {
+            desig = await window.sigetApi.designations.getById(designationId);
+        } catch (e) {
+            console.error('Error obteniendo designación para suplencia:', e);
+        }
+    }
+
+    if (!AppState.teachersCache || AppState.teachersCache.length === 0) {
+        try {
+            if (window.sigetApi?.teachers?.getAll) {
+                AppState.teachersCache = await window.sigetApi.teachers.getAll({ activeOnly: true });
+            }
+        } catch (_) {}
+    }
+
+    const titularTeacherId = desig ? desig.teacherId : null;
+    const titularInCache = (AppState.teachersCache || []).find(t => t.id === titularTeacherId);
+    const titularName = titularInCache?.fullName || desig?.teacherName || 'Docente Titular';
+    const titularDni = titularInCache?.dni || desig?.teacherDni || '—';
+    const titularLegajo = titularInCache?.legajo || 'S/L';
+    const subjectName = desig?.subjectName || 'Cátedra / Materia Asignada';
+    const careerInfo = desig?.careerName ? `${desig.careerName}${desig.careerCode ? ` (${desig.careerCode})` : ''}` : '';
+    const hoursCount = desig ? (desig.hoursCount || desig.totalHours || 0) : 0;
+    const scheduleText = desig?.dayOfWeek ? `${desig.dayOfWeek} ${desig.startTime || ''} a ${desig.endTime || ''}` : '';
+
+    const suplenteOptions = (AppState.teachersCache || []).map(t => {
+        const isTitular = titularTeacherId && t.id === titularTeacherId;
+        if (isTitular) {
+            return `<option value="${t.id}" disabled class="bg-red-50 text-red-500 font-bold cursor-not-allowed">[INCOMPATIBLE] ${escapeHtml(t.fullName)} (DNI ${t.dni}) - TITULAR DE LA CÁTEDRA</option>`;
+        }
+        return `<option value="${t.id}">${escapeHtml(t.fullName)} (DNI ${t.dni}) - [${t.activeHours || 0}/30hs]</option>`;
+    }).join('');
+
     const modalHtml = `
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <h3 class="text-sm font-bold text-slate-900">Registrar Suplencia Oficial (Resolución Ministerial)</h3>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700">✕</button>
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 mb-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-800">
+                    <i data-lucide="user-check" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-zinc-100">Registrar Suplencia Oficial (Resolución Ministerial)</h3>
+                    <p class="text-[11px] text-slate-500 dark:text-zinc-400">Designación de profesor reemplazante con afectación estatutaria de horas.</p>
+                </div>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 font-bold p-1">✕</button>
+        </div>
+
+        <!-- Banner Informativo del Docente Titular y Cátedra (Fijo / No Seleccionable) -->
+        <div class="mb-4 p-3.5 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-xl space-y-2 shadow-sm select-none">
+            <div class="flex items-center justify-between">
+                <span class="inline-flex items-center space-x-1.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded">
+                    <i data-lucide="info" class="w-3 h-3 text-amber-600"></i>
+                    <span>Cátedra e Inasistencia del Titular</span>
+                </span>
+                <span class="text-xs font-black text-slate-800 dark:text-zinc-200 font-mono bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 px-2 py-0.5 rounded">
+                    ${hoursCount} hs cátedra
+                </span>
+            </div>
+            <div>
+                <div class="text-xs font-extrabold text-slate-900 dark:text-zinc-100">
+                    ${escapeHtml(subjectName)}
+                    ${careerInfo ? `<span class="font-normal text-slate-500 dark:text-zinc-400 ml-1">(${escapeHtml(careerInfo)})</span>` : ''}
+                </div>
+                ${scheduleText ? `<div class="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono">Días y Horarios: ${escapeHtml(scheduleText)}</div>` : ''}
+            </div>
+            <div class="pt-2 border-t border-slate-200/80 dark:border-zinc-700 flex flex-wrap items-center justify-between gap-y-1 text-xs">
+                <div>
+                    <span class="text-[11px] text-slate-500 dark:text-zinc-400 uppercase font-semibold">Docente Titular:</span>
+                    <strong class="text-slate-900 dark:text-zinc-100 font-bold ml-1">${escapeHtml(titularName)}</strong>
+                </div>
+                <div class="text-[11px] text-slate-600 dark:text-zinc-300 font-mono">
+                    Legajo: <strong class="text-slate-900 dark:text-zinc-100">${escapeHtml(titularLegajo)}</strong> • DNI: <strong class="text-slate-900 dark:text-zinc-100">${escapeHtml(titularDni)}</strong>
+                </div>
+            </div>
         </div>
 
         <form id="subst-form" class="space-y-3">
             <input type="hidden" id="modal-subst-desig-id" value="${designationId}">
+            <input type="hidden" id="modal-subst-titular-id" value="${titularTeacherId || ''}">
 
             <div>
-                <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Docente Suplente a Designar *</label>
-                <select id="modal-subst-teacher" required class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Docente Suplente a Designar *</label>
+                <select id="modal-subst-teacher" required class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg">
                     <option value="">Seleccione el profesor suplente...</option>
-                    ${AppState.teachersCache.map(t => `<option value="${t.id}">${escapeHtml(t.fullName)} (DNI ${t.dni}) - [${t.activeHours || 0}/30hs]</option>`).join('')}
+                    ${suplenteOptions}
                 </select>
+                <span class="text-[10px] text-slate-400">Por normativa estatutaria, el docente titular no puede seleccionarse como su propio suplente.</span>
             </div>
 
             <div>
-                <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Motivo de la Licencia *</label>
+                <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Motivo de la Licencia *</label>
                 <input type="text" id="modal-subst-reason" required placeholder="Ej. Licencia por Enfermedad / Tratamiento Médico o Maternidad"
-                    class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg">
                 <span class="text-[10px] text-slate-400">Si contiene términos médicos se clasificará automáticamente como DL-01; de lo contrario como DL-02.</span>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Fecha de Inicio *</label>
-                    <input type="date" id="modal-subst-start" required class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Fecha de Inicio *</label>
+                    <input type="date" id="modal-subst-start" required class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Fecha de Finalización</label>
-                    <input type="date" id="modal-subst-end" class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">Fecha de Finalización</label>
+                    <input type="date" id="modal-subst-end" class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg">
                 </div>
             </div>
 
             <div>
-                <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">N° de Resolución / Expediente</label>
-                <input type="text" id="modal-subst-resolution" placeholder="Ej. Res. Min. N° 451/2026"
-                    class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg">
+                <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">N° de Resolución / Expediente *</label>
+                <input type="text" id="modal-subst-resolution" required placeholder="Ej. Res. Min. N° 451/2026"
+                    class="w-full px-3 py-1.5 text-xs border border-slate-200 dark:border-zinc-700 dark:bg-[#202020] dark:text-zinc-100 rounded-lg">
             </div>
 
             <div id="modal-subst-error" class="hidden p-2 rounded bg-red-50 text-red-700 text-xs"></div>
 
-            <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
+            <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800">Cancelar</button>
                 <button type="submit" class="btn-gold px-4 py-2 text-xs font-bold shadow-sm">Designar Suplente</button>
             </div>
         </form>
     `;
 
     openModal(modalHtml, () => {
+        initLucideIcons();
         const form = document.getElementById('subst-form');
+        const suplenteSelect = document.getElementById('modal-subst-teacher');
+        const errDiv = document.getElementById('modal-subst-error');
+
+        if (suplenteSelect) {
+            suplenteSelect.addEventListener('change', () => {
+                const selectedId = parseInt(suplenteSelect.value, 10);
+                if (selectedId && titularTeacherId && selectedId === titularTeacherId) {
+                    suplenteSelect.value = '';
+                    errDiv.textContent = 'Un docente no puede suplirse a sí mismo en su propia cátedra.';
+                    errDiv.classList.remove('hidden');
+                    showToast('Un docente no puede suplirse a sí mismo en su propia cátedra.', 'error');
+                } else {
+                    errDiv.classList.add('hidden');
+                }
+            });
+        }
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const errDiv = document.getElementById('modal-subst-error');
             errDiv.classList.add('hidden');
 
-            const suplenteSelect = document.getElementById('modal-subst-teacher');
             const reasonInput = document.getElementById('modal-subst-reason');
             const startInput = document.getElementById('modal-subst-start');
             const endInput = document.getElementById('modal-subst-end');
@@ -4473,6 +4586,15 @@ window.openSubstitutionModal = function (designationId) {
                 errDiv.classList.remove('hidden');
                 if (suplenteSelect) suplenteSelect.focus();
                 showToast('Debe seleccionar el docente suplente.', 'error');
+                return;
+            }
+
+            if (titularTeacherId && suplenteTeacherId === titularTeacherId) {
+                suplenteSelect.value = '';
+                errDiv.textContent = 'Un docente no puede suplirse a sí mismo en su propia cátedra.';
+                errDiv.classList.remove('hidden');
+                if (suplenteSelect) suplenteSelect.focus();
+                showToast('Un docente no puede suplirse a sí mismo en su propia cátedra.', 'error');
                 return;
             }
 

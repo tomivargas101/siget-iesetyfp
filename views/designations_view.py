@@ -491,6 +491,13 @@ class SubstitutionModal(ctk.CTkToplevel):
             messagebox.showwarning("Incompleto", "Debe ingresar el número de resolución ministerial.")
             return
 
+        if self.designation_info and sup_id == self.designation_info.get("teacher_id"):
+            messagebox.showerror(
+                "Incompatibilidad de Suplencia",
+                "Un docente no puede suplirse a sí mismo en su propia cátedra."
+            )
+            return
+
         payload = {
             "designation_id": self.designation_info["id"],
             "suplente_teacher_id": sup_id,

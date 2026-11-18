@@ -257,6 +257,9 @@ class DesignationService:
             if not desig:
                 return False, "Designación no encontrada."
 
+            if desig.teacher_id == suplente_id:
+                return False, "Un docente no puede suplirse a sí mismo en su propia cátedra."
+
             is_cap_valid, curr, max_hs, cap_msg = BusinessValidationService.validate_hours_cap(
                 teacher_id=suplente_id,
                 new_hours=desig.hours_count,

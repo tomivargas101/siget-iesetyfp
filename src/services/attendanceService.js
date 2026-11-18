@@ -355,6 +355,9 @@ class AttendanceService {
             let finalSuplenteId = null;
             const suplenteIdNum = suplenteTeacherId ? Number(suplenteTeacherId) : null;
             if (suplenteIdNum && !isNaN(suplenteIdNum) && suplenteIdNum > 0) {
+                if (Number(suplenteIdNum) === Number(teacherId)) {
+                    return { success: false, message: 'Un docente no puede suplirse a sí mismo en su propia cátedra.' };
+                }
                 suplenteObj = db.prepare('SELECT id, first_name, last_name, dni, legajo FROM teachers WHERE id = ?').get(suplenteIdNum);
             }
 

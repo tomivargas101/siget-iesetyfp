@@ -402,7 +402,7 @@ class DesignationService {
 
             const titularId = desig.teacher_id;
             if (titularId === suplenteId) {
-                return { success: false, message: 'El docente suplente no puede ser el mismo titular de la cátedra.' };
+                return { success: false, message: 'Un docente no puede suplirse a sí mismo en su propia cátedra.' };
             }
 
             const hoursVal = ValidationService.validateHoursLimit(suplenteId, desig.hours_count);
