@@ -797,18 +797,30 @@ class AttendanceService {
 
         sheet.mergeCells('A1:G1');
         const titleCell = sheet.getCell('A1');
-        titleCell.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
-        titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        titleCell.value = 'IESETyFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
+        titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        titleCell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
         sheet.getRow(1).height = 28;
 
         sheet.mergeCells('A2:G2');
         const subCell = sheet.getCell('A2');
         subCell.value = `PARTE DIARIO OFICIAL DE ASISTENCIA Y NOVEDADES • FECHA: ${formattedDate} • EMISIÓN: ${nowStr} • CONTROL DE BEDELÍA`;
-        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } };
-        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF334155' } };
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        subCell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
         sheet.getRow(2).height = 22;
 
         sheet.getRow(3).height = 8;
@@ -823,10 +835,18 @@ class AttendanceService {
             'Observaciones / Motivo'
         ];
         sheet.getRow(4).values = headers;
-        sheet.getRow(4).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
-        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        sheet.getRow(4).font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
         sheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(4).height = 24;
+        sheet.getRow(4).eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
 
         sheet.getColumn(1).width = 14;
         sheet.getColumn(2).width = 34;
@@ -1206,17 +1226,17 @@ class AttendanceService {
 
         sheet.mergeCells('A1:L1');
         const titleCell = sheet.getCell('A1');
-        titleCell.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
-        titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        titleCell.value = 'IESETyFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
+        titleCell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(1).height = 28;
 
         sheet.mergeCells('A2:L2');
         const subCell = sheet.getCell('A2');
         subCell.value = `PLANILLA IMPRIMIBLE DE CONTROL DIARIO DE ASISTENCIA Y PARTE DE NOVEDADES • FECHA: ${data.formattedDate} (${data.dayOfWeekName.toUpperCase()}) • CONTROL DE BEDELÍA`;
-        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF854D0E' } };
-        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } };
+        subCell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF334155' } };
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         subCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(2).height = 22;
 
@@ -1241,8 +1261,8 @@ class AttendanceService {
         const headerRow = sheet.getRow(4);
         headerRow.values = headers.map(h => h.header);
         headerRow.height = 26;
-        headerRow.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        headerRow.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
         headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         const thinBorder = {
@@ -1252,6 +1272,8 @@ class AttendanceService {
             right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
         };
 
+        titleCell.border = thinBorder;
+        subCell.border = thinBorder;
         headerRow.eachCell(c => { c.border = thinBorder; });
 
         let rowIdx = 5;
@@ -1287,17 +1309,20 @@ class AttendanceService {
             [8, 9, 10, 11].forEach(col => {
                 const cell = row.getCell(col);
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                cell.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF64748B' } };
+                cell.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF334155' } };
             });
 
             const supCell = row.getCell(12);
             supCell.alignment = { horizontal: 'left', vertical: 'middle' };
-            supCell.font = { name: 'Segoe UI', size: 8, color: { argb: 'FF64748B' } };
+            supCell.font = { name: 'Segoe UI', size: 8, color: { argb: 'FF334155' } };
 
             if (rowIdx % 2 === 0) {
-                for (let c = 1; c <= 12; c++) {
+                for (let c = 1; c <= 7; c++) {
                     row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
                 }
+            }
+            for (let c = 8; c <= 12; c++) {
+                row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
             }
 
             for (let c = 1; c <= 12; c++) {
@@ -1413,6 +1438,19 @@ class AttendanceService {
         const path = require('path');
         const fs = require('fs');
 
+        let logoBase64 = '';
+        try {
+            const logoPath = path.resolve(__dirname, '../../assets/logo_iesetyfp.jpg');
+            if (fs.existsSync(logoPath)) {
+                logoBase64 = fs.readFileSync(logoPath).toString('base64');
+            } else {
+                const altPath = path.resolve(__dirname, '../renderer/assets/logo_iesetyfp.jpg');
+                if (fs.existsSync(altPath)) {
+                    logoBase64 = fs.readFileSync(altPath).toString('base64');
+                }
+            }
+        } catch (_) {}
+
         const data = this.getPrintableDailyData({ dateStr });
         const targetDate = data.targetDate;
 
@@ -1450,22 +1488,22 @@ class AttendanceService {
                 <td style="text-align: center; font-weight: bold; font-size: 8.5pt; color: #0f172a; border: 1px solid #cbd5e1;">
                     ${r.totalHours > 0 ? `${r.totalHours} hs` : '—'}
                 </td>
-                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle;">
+                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle; background-color: #ffffff;">
                     <div style="width: 14px; height: 14px; border: 1.5px solid #334155; border-radius: 2px; margin: 0 auto; background: #fff;"></div>
                 </td>
-                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle;">
+                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle; background-color: #ffffff;">
                     <div style="width: 14px; height: 14px; border: 1.5px solid #334155; border-radius: 2px; margin: 0 auto; background: #fff;"></div>
                 </td>
-                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle;">
+                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle; background-color: #ffffff;">
                     <div style="width: 14px; height: 14px; border: 1.5px solid #334155; border-radius: 2px; margin: 0 auto; background: #fff;"></div>
                 </td>
-                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle;">
+                <td style="text-align: center; border: 1px solid #cbd5e1; vertical-align: middle; background-color: #ffffff;">
                     <div style="width: 14px; height: 14px; border: 1.5px solid #334155; border-radius: 2px; margin: 0 auto; background: #fff;"></div>
                 </td>
-                <td style="padding: 6px 6px; border: 1px solid #cbd5e1; vertical-align: middle;">
+                <td style="padding: 6px 6px; border: 1px solid #cbd5e1; vertical-align: middle; background-color: #ffffff;">
                     <div style="display: flex; align-items: center;">
                         <div style="width: 13px; height: 13px; border: 1.5px solid #334155; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 6px; background: #fff;"></div>
-                        <span style="font-size: 7.5pt; color: #475569; display: inline-block; vertical-align: middle;">Suple a: <span style="letter-spacing: 1px; color: #94a3b8;">............................................................</span></span>
+                        <span style="font-size: 7.5pt; color: #334155; display: inline-block; vertical-align: middle;">Suple a: <span style="letter-spacing: 1px; color: #94a3b8;">............................................................</span></span>
                     </div>
                 </td>
             </tr>
@@ -1550,13 +1588,13 @@ class AttendanceService {
                         font-size: 8pt;
                     }
                     .main-table th {
-                        background-color: #1e293b;
-                        color: #ffffff;
+                        background-color: #f1f5f9;
+                        color: #0f172a;
                         font-weight: 800;
                         font-size: 7.5pt;
                         text-transform: uppercase;
                         padding: 6px 4px;
-                        border: 1px solid #0f172a;
+                        border: 1px solid #94a3b8;
                         text-align: center;
                     }
                     .main-table tr:nth-child(even) td {
@@ -1604,8 +1642,13 @@ class AttendanceService {
             <body>
                 <table class="header-table">
                     <tr>
+                        ${logoBase64 ? `
+                        <td style="width: 75px; vertical-align: middle; padding-right: 12px;">
+                            <img src="data:image/jpeg;base64,${logoBase64}" style="width: 70px; height: auto; display: block;" alt="IESETyFP">
+                        </td>
+                        ` : ''}
                         <td class="header-left">
-                            <div class="inst-sub">PROVINCIA DE BUENOS AIRES • DGCyE • DIRECCIÓN DE EDUCACIÓN SUPERIOR</div>
+                            <div class="inst-sub">IESETyFP (Instituto de Educación Superior Educación Técnica y Formación Profesional) — Resistencia, Chaco</div>
                             <div class="inst-name">INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL</div>
                             <div class="doc-title">PLANILLA IMPRIMIBLE DE CONTROL DIARIO DE ASISTENCIA Y PARTE DE NOVEDADES</div>
                         </td>

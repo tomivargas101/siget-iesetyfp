@@ -28,10 +28,11 @@ class ReportService {
         workbook.creator = 'SIGET - Sistema Integral de Gestión Educativa Terciaria';
         workbook.created = new Date();
 
-        const COLOR_NAVY = '1E3A5F';
-        const COLOR_HEADER_BG = 'E5E7EB';
-        const COLOR_HEADER_TXT = '1F2937';
-        const COLOR_BORDER = 'D1D5DB';
+        const COLOR_TITLE_BG = 'F1F5F9';
+        const COLOR_TITLE_TXT = '0F172A';
+        const COLOR_HEADER_BG = 'E2E8F0';
+        const COLOR_HEADER_TXT = '0F172A';
+        const COLOR_BORDER = 'CBD5E1';
 
         const sheet1 = workbook.addWorksheet(`Estadística ${mStr}-${yNum}`);
         sheet1.views = [{ showGridLines: true }];
@@ -39,16 +40,16 @@ class ReportService {
         sheet1.mergeCells('B2:G2');
         const titleCell = sheet1.getCell('B2');
         titleCell.value = 'SIGET - INSTITUTO DE EDUCACIÓN SUPERIOR TÉCNICA Y FORMACIÓN PROFESIONAL';
-        titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_NAVY } };
+        titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: COLOR_TITLE_TXT } };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TITLE_BG } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet1.getRow(2).height = 30;
 
         sheet1.mergeCells('B3:G3');
         const subCell = sheet1.getCell('B3');
         subCell.value = `CUADRO DE ESTADÍSTICA GENERAL DE PLANTA Y ASISTENCIA - PERÍODO: ${mStr}/${yNum}`;
-        subCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF8A6F0E' } };
-        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        subCell.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF334155' } };
+        subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         subCell.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet1.getRow(3).height = 24;
 
@@ -90,8 +91,8 @@ class ReportService {
         sheet2.mergeCells('A1:N1');
         const il01Title = sheet2.getCell('A1');
         il01Title.value = `CUADRO IL-01: LICENCIAS POR TRATAMIENTO MÉDICO Y SALUD - MES: ${mStr}/${yNum}`;
-        il01Title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        il01Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_NAVY } };
+        il01Title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: COLOR_TITLE_TXT } };
+        il01Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TITLE_BG } };
         il01Title.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet2.getRow(1).height = 28;
 
@@ -158,8 +159,8 @@ class ReportService {
         sheet3.mergeCells('A1:N1');
         const il02Title = sheet3.getCell('A1');
         il02Title.value = `CUADRO IL-02: INASISTENCIAS, PERMISOS Y LICENCIAS ESPECIALES - MES: ${mStr}/${yNum}`;
-        il02Title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        il02Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_NAVY } };
+        il02Title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: COLOR_TITLE_TXT } };
+        il02Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLOR_TITLE_BG } };
         il02Title.alignment = { horizontal: 'center', vertical: 'middle' };
         sheet3.getRow(1).height = 28;
 

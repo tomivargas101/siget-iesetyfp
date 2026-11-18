@@ -666,18 +666,30 @@ class TeacherCalendarService {
 
         sheet.mergeCells(1, 1, 1, matrix.daysInMonth + 9);
         const title = sheet.getCell(1, 1);
-        title.value = `SIGET - INSTITUTO DE EDUCACIÓN SUPERIOR • PLANILLA MENSUAL DE ASISTENCIA Y NOVEDADES`;
-        title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+        title.value = `IESETyFP • PLANILLA MENSUAL DE ASISTENCIA Y NOVEDADES`;
+        title.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+        title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         title.alignment = { horizontal: 'center', vertical: 'middle' };
+        title.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
         sheet.getRow(1).height = 28;
 
         sheet.mergeCells(2, 1, 2, matrix.daysInMonth + 9);
         const subtitle = sheet.getCell(2, 1);
         subtitle.value = `PERÍODO: ${matrix.monthName.toUpperCase()} ${matrix.year} • GENERADO: ${new Date().toLocaleDateString('es-AR')}`;
-        subtitle.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF8A6F0E' } };
-        subtitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        subtitle.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF334155' } };
+        subtitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         subtitle.alignment = { horizontal: 'center', vertical: 'middle' };
+        subtitle.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
         sheet.getRow(2).height = 22;
 
         const headers = ['Legajo', 'Docente (Apellido y Nombres)', 'DNI', 'Revista'];
@@ -687,9 +699,18 @@ class TeacherCalendarService {
         headers.push('PR', 'I', 'P', 'LIC', 'LT');
 
         sheet.getRow(4).values = headers;
-        sheet.getRow(4).font = { name: 'Segoe UI', size: 9, bold: true };
+        sheet.getRow(4).font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
         sheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
         sheet.getRow(4).height = 24;
+        sheet.getRow(4).eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
 
         sheet.getColumn(1).width = 11;
         sheet.getColumn(2).width = 28;
@@ -801,6 +822,19 @@ class TeacherCalendarService {
         const path = require('path');
         const fs = require('fs');
 
+        let logoBase64 = '';
+        try {
+            const logoPath = path.resolve(__dirname, '../../assets/logo_iesetyfp.jpg');
+            if (fs.existsSync(logoPath)) {
+                logoBase64 = fs.readFileSync(logoPath).toString('base64');
+            } else {
+                const altPath = path.resolve(__dirname, '../renderer/assets/logo_iesetyfp.jpg');
+                if (fs.existsSync(altPath)) {
+                    logoBase64 = fs.readFileSync(altPath).toString('base64');
+                }
+            }
+        } catch (_) {}
+
         const matrix = this.getMonthMatrix({ year, month });
         if (!matrix.success) throw new Error(matrix.message);
 
@@ -848,27 +882,35 @@ class TeacherCalendarService {
     <title>Calendario Académico y Reporte de Novedades - ${matrix.monthName} ${matrix.year}</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; background: #fff; }
-        .header { border-bottom: 2px solid #b45309; padding-bottom: 12px; margin-bottom: 14px; }
+        .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; }
+        .inst-sub { font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; }
         .inst-title { font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
-        .doc-title { font-size: 17px; font-weight: 900; color: #b45309; margin: 4px 0; }
+        .doc-title { font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
         .meta-grid { display: flex; justify-content: space-between; font-size: 10.5px; color: #64748b; background: #f8fafc; padding: 6px 10px; border-radius: 6px; }
         .kpi-boxes { display: flex; gap: 10px; margin: 12px 0; }
         .kpi-box { flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
         .kpi-val { font-size: 16px; font-weight: bold; }
         .kpi-lbl { font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #0f172a; color: #f8fafc; font-size: 9.5px; font-weight: 700; text-transform: uppercase; padding: 6px; text-align: left; }
+        th { background: #f1f5f9; color: #0f172a; font-size: 9.5px; font-weight: 800; text-transform: uppercase; padding: 6px; text-align: left; border: 1px solid #94a3b8; }
         th.center { text-align: center; }
+        td { border: 1px solid #cbd5e1; }
         .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 9px; color: #64748b; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="inst-title">Instituto de Educación Superior Técnica y Formación Profesional</div>
-        <div class="doc-title">CALENDARIO ACADÉMICO MENSUAL Y REPORTE DE NOVEDADES</div>
-        <div class="meta-grid">
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" style="width: 60px; height: auto;" alt="IESETyFP">` : ''}
+            <div>
+                <div class="inst-sub">IESETyFP (Instituto de Educación Superior Educación Técnica y Formación Profesional) — Resistencia, Chaco</div>
+                <div class="inst-title">INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL</div>
+                <div class="doc-title">CALENDARIO ACADÉMICO MENSUAL Y REPORTE DE NOVEDADES</div>
+            </div>
+        </div>
+        <div style="text-align: right; font-size: 9.5px; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
             <div><strong>Período:</strong> ${matrix.monthName.toUpperCase()} ${matrix.year}</div>
-            <div><strong>Generado por:</strong> ${escapeCalXml(exportedBy)} • ${new Date().toLocaleDateString('es-AR')}</div>
+            <div><strong>Generado por:</strong> ${escapeCalXml(exportedBy)}</div>
             <div><strong>Total Docentes Planta:</strong> ${matrix.stats.totalTeachers}</div>
         </div>
     </div>
@@ -1017,19 +1059,31 @@ class TeacherCalendarService {
 
         sheet.mergeCells('A1:G1');
         const header1 = sheet.getCell('A1');
-        header1.value = 'IESETYFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
-        header1.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
-        header1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        header1.value = 'IESETyFP • INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL';
+        header1.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF0F172A' } };
+        header1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
         header1.alignment = { horizontal: 'center', vertical: 'middle' };
+        header1.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
         sheet.getRow(1).height = 28;
 
         sheet.mergeCells('A2:G2');
         const header2 = sheet.getCell('A2');
         const nowStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
         header2.value = `FICHA INSTITUCIONAL DE DOCENTE • CONTROL ESTATUTARIO Y CRONOGRAMA ACADÉMICO • EMISIÓN: ${nowStr}`;
-        header2.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF8A6F0E' } };
-        header2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF9E7' } };
+        header2.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF334155' } };
+        header2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         header2.alignment = { horizontal: 'center', vertical: 'middle' };
+        header2.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
         sheet.getRow(2).height = 22;
 
         sheet.getRow(3).height = 8;
@@ -1048,9 +1102,15 @@ class TeacherCalendarService {
             sheet.mergeCells(`A${rowIdx}:G${rowIdx}`);
             const cell = sheet.getCell(`A${rowIdx}`);
             cell.value = title;
-            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
             cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
             sheet.getRow(rowIdx).height = 24;
             rowIdx++;
         };
@@ -1098,8 +1158,16 @@ class TeacherCalendarService {
         addSectionHeader('III. CÁTEDRAS, CARRERAS Y HORARIOS ASIGNADOS');
         const rDesigH = sheet.getRow(rowIdx++);
         rDesigH.values = ['Materia / Espacio Curricular', 'Código', 'Carrera', 'Día y Horario', 'Carga Horaria', 'Revista', 'Resolución'];
-        rDesigH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        rDesigH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+        rDesigH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        rDesigH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        rDesigH.eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
 
         if (desigs.length === 0) {
             const rEmpty = sheet.getRow(rowIdx++);
@@ -1126,8 +1194,16 @@ class TeacherCalendarService {
         addSectionHeader('IV. SUPLENCIAS EN CURSO (TITULAR / SUPLENTE)');
         const rSubH = sheet.getRow(rowIdx++);
         rSubH.values = ['Rol', 'Materia / Cátedra', 'Docente Asociado', 'DNI Asociado', 'Período', 'Motivo / Causa', 'Resolución'];
-        rSubH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        rSubH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+        rSubH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        rSubH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        rSubH.eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
 
         if (allSubs.length === 0) {
             const rEmpty = sheet.getRow(rowIdx++);
@@ -1154,8 +1230,16 @@ class TeacherCalendarService {
         addSectionHeader(`V. CRONOGRAMA DE ASISTENCIAS Y NOVEDADES EN EL PERÍODO (${period.startDate} al ${period.endDate})`);
         const rEvH = sheet.getRow(rowIdx++);
         rEvH.values = ['Fecha', 'Estado / Marca', 'Horas', 'Cátedra / Espacio Curricular', 'Observaciones / Motivo', '', ''];
-        rEvH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
-        rEvH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+        rEvH.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF0F172A' } };
+        rEvH.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+        rEvH.eachCell(c => {
+            c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
 
         if (events.length === 0) {
             const rEmpty = sheet.getRow(rowIdx++);
@@ -1242,6 +1326,19 @@ class TeacherCalendarService {
         const path = require('path');
         const fs = require('fs');
 
+        let logoBase64 = '';
+        try {
+            const logoPath = path.resolve(__dirname, '../../assets/logo_iesetyfp.jpg');
+            if (fs.existsSync(logoPath)) {
+                logoBase64 = fs.readFileSync(logoPath).toString('base64');
+            } else {
+                const altPath = path.resolve(__dirname, '../renderer/assets/logo_iesetyfp.jpg');
+                if (fs.existsSync(altPath)) {
+                    logoBase64 = fs.readFileSync(altPath).toString('base64');
+                }
+            }
+        } catch (_) {}
+
         const timeline = this.getTeacherTimeline({ teacherId, startDate, endDate });
         if (!timeline || !timeline.success) {
             throw new Error(timeline?.message || 'Error al obtener datos del docente.');
@@ -1307,30 +1404,36 @@ class TeacherCalendarService {
     <title>Ficha Docente Institucional - ${escapeCalXml(t.fullName)}</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; background: #fff; font-size: 10px; }
-        .header { border-bottom: 2px solid #b45309; padding-bottom: 10px; margin-bottom: 12px; }
+        .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+        .inst-sub { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; }
         .inst-title { font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
-        .doc-title { font-size: 16px; font-weight: 900; color: #b45309; margin: 3px 0; }
+        .doc-title { font-size: 15px; font-weight: 900; color: #b45309; margin: 3px 0; }
         .meta-grid { display: flex; justify-content: space-between; font-size: 10px; color: #334155; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
         .kpi-boxes { display: flex; gap: 8px; margin: 10px 0; }
         .kpi-box { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
         .kpi-val { font-size: 14px; font-weight: bold; }
         .kpi-lbl { font-size: 8.5px; text-transform: uppercase; color: #64748b; font-weight: bold; }
-        .section-title { font-size: 10.5px; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; }
+        .section-title { font-size: 10.5px; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px; color: #0f172a; border-bottom: 1px solid #94a3b8; padding-bottom: 2px; }
         table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9.5px; }
-        th { background: #1e293b; color: #fff; font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 5px; text-align: left; }
+        th { background: #f1f5f9; color: #0f172a; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 5px; text-align: left; border: 1px solid #94a3b8; }
         th.center { text-align: center; }
-        td { border-bottom: 1px solid #e2e8f0; }
+        td { border: 1px solid #cbd5e1; }
         .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="inst-title">Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETYFP)</div>
-        <div class="doc-title">FICHA OFICIAL DE DOCENTE • CRONOGRAMA Y CONTROL ESTATUTARIO</div>
-        <div class="meta-grid">
-            <div><strong>Docente:</strong> ${escapeCalXml(t.fullName)} (Leg. ${escapeCalXml(t.legajo || 'S/L')} • DNI ${escapeCalXml(t.dni)})</div>
-            <div><strong>Revista:</strong> ${escapeCalXml(t.revista || 'Titular')} • <strong>Carga:</strong> ${t.activeHours} / ${t.maxWeeklyHours || 30} hs</div>
-            <div><strong>Período:</strong> ${period.startDate} al ${period.endDate} • <strong>Emisión:</strong> ${nowStr}</div>
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" style="width: 55px; height: auto;" alt="IESETyFP">` : ''}
+            <div>
+                <div class="inst-sub">IESETyFP (Instituto de Educación Superior Educación Técnica y Formación Profesional) — Resistencia, Chaco</div>
+                <div class="inst-title">INSTITUTO DE EDUCACIÓN SUPERIOR DE EDUCACIÓN TÉCNICA Y FORMACIÓN PROFESIONAL</div>
+                <div class="doc-title">FICHA OFICIAL DE DOCENTE • CRONOGRAMA Y CONTROL ESTATUTARIO</div>
+            </div>
+        </div>
+        <div style="text-align: right; font-size: 9px; color: #475569; background: #f8fafc; padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <div><strong>Emisión:</strong> ${nowStr}</div>
+            <div><strong>Generado por:</strong> ${escapeCalXml(exportedBy)}</div>
         </div>
     </div>
 

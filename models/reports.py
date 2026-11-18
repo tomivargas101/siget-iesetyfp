@@ -14,11 +14,12 @@ from models.normative import NormativeClassifier, DEFAULT_OFFICE_CODE
 
 class ReportService:
 
-    NAVY_PRIMARY = "1B365D"
-    NAVY_ACCENT = "2C5282"
-    GRAY_LIGHT = "F7FAFC"
-    WHITE = "FFFFFF"
-    BORDER_COLOR = "D2D6DC"
+    HEADER_BG = "F1F5F9"
+    HEADER_ACCENT_BG = "E2E8F0"
+    GRAY_LIGHT = "F8FAFC"
+    DARK_TEXT = "0F172A"
+    MUTED_TEXT = "334155"
+    BORDER_COLOR = "CBD5E1"
 
     @classmethod
     def get_processed_dataframes(cls, month: int, year: int = None, career_id: int = None) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -26,14 +27,14 @@ class ReportService:
 
     @classmethod
     def _create_styles(cls):
-        title_font = Font(name="Calibri", size=15, bold=True, color=cls.WHITE)
-        sub_font = Font(name="Calibri", size=10, italic=True, color=cls.WHITE)
-        header_font = Font(name="Calibri", size=10, bold=True, color=cls.WHITE)
+        title_font = Font(name="Calibri", size=14, bold=True, color=cls.DARK_TEXT)
+        sub_font = Font(name="Calibri", size=10, italic=True, color=cls.MUTED_TEXT)
+        header_font = Font(name="Calibri", size=10, bold=True, color=cls.DARK_TEXT)
         data_font = Font(name="Calibri", size=10)
         bold_font = Font(name="Calibri", size=10, bold=True)
 
-        navy_fill = PatternFill(start_color=cls.NAVY_PRIMARY, end_color=cls.NAVY_PRIMARY, fill_type="solid")
-        accent_fill = PatternFill(start_color=cls.NAVY_ACCENT, end_color=cls.NAVY_ACCENT, fill_type="solid")
+        navy_fill = PatternFill(start_color=cls.HEADER_BG, end_color=cls.HEADER_BG, fill_type="solid")
+        accent_fill = PatternFill(start_color=cls.HEADER_ACCENT_BG, end_color=cls.HEADER_ACCENT_BG, fill_type="solid")
         zebra_fill = PatternFill(start_color=cls.GRAY_LIGHT, end_color=cls.GRAY_LIGHT, fill_type="solid")
 
         thin_side = Side(border_style="thin", color=cls.BORDER_COLOR)

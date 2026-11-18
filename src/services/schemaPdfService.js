@@ -130,12 +130,12 @@ class SchemaPdfService {
             overflow: hidden;
         }
         th {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-weight: 700;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-weight: 800;
             padding: 5px 8px;
             text-align: left;
-            border: 1px solid #334155;
+            border: 1px solid #94a3b8;
             font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 0.3px;
