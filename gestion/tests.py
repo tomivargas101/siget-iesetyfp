@@ -890,6 +890,95 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertEqual(resp_asistencia.status_code, 200)
         self.assertContains(resp_asistencia, "Asistencia Diaria")
 
+    def test_agente_alta_baja_logica_rn03_reactivacion_y_mensajes(self):
+        """
+        Valida el flujo integral de gestión de docentes (RN-03 y requerimientos de usuario):
+        1. Alta exitosa con redirección al Padrón de Agentes (/agentes/) y mensaje de éxito.
+        2. Baja lógica (RN-03) al desmarcar 'Docente Activo', sin eliminar de BD, con mensaje de aviso y redirección.
+        3. Reactivación al volver a marcar 'Docente Activo' y guardar, con mensaje de éxito y redirección.
+        """
+        self.client.login(username="testadmin", password="password123")
+        total_inicial = Agente.objects.count()
+
+        # 1. Alta de docente
+        datos_alta = {
+            "dni": "04999888",  # Preserva cero a la izquierda (RN-01)
+            "legajo": "LEG-499",
+            "apellido": "Castillo",
+            "nombre": "Esteban",
+            "situacion_revista_defecto": "TIT",
+            "activo": "on",
+            "email": "ecastillo@iesetyfp.edu.ar",
+            "telefono": "3624-998877",
+        }
+        resp_alta = self.client.post("/agentes/nuevo/", data=datos_alta, follow=True)
+        self.assertRedirects(resp_alta, "/agentes/")
+        self.assertEqual(Agente.objects.count(), total_inicial + 1)
+        agente = Agente.objects.get(dni="04999888")
+        self.assertTrue(agente.activo)
+        self.assertContains(resp_alta, "registrado con éxito")
+
+        # 2. Baja lógica (RN-03): desmarcar 'activo' (no se envía 'activo' en POST)
+        datos_baja = {
+            "dni": agente.dni,
+            "legajo": agente.legajo,
+            "apellido": agente.apellido,
+            "nombre": agente.nombre,
+            "situacion_revista_defecto": agente.situacion_revista_defecto,
+            # 'activo' ausente -> equivale a checkbox desmarcado
+        }
+        resp_baja = self.client.post(f"/agentes/{agente.pk}/editar/", data=datos_baja, follow=True)
+        self.assertRedirects(resp_baja, "/agentes/")
+        self.assertEqual(Agente.objects.count(), total_inicial + 1)  # No se borró el registro de la BD
+        agente.refresh_from_db()
+        self.assertFalse(agente.activo)  # En estado histórico / baja lógica
+        self.assertContains(resp_baja, "archivo histórico")
+
+        # 3. Reactivación: volver a marcar 'activo'
+        datos_reactivacion = {
+            "dni": agente.dni,
+            "legajo": agente.legajo,
+            "apellido": agente.apellido,
+            "nombre": agente.nombre,
+            "situacion_revista_defecto": agente.situacion_revista_defecto,
+            "activo": "on",
+        }
+        resp_react = self.client.post(f"/agentes/{agente.pk}/editar/", data=datos_reactivacion, follow=True)
+        self.assertRedirects(resp_react, "/agentes/")
+        self.assertEqual(Agente.objects.count(), total_inicial + 1)
+        agente.refresh_from_db()
+        self.assertTrue(agente.activo)  # Reactivado
+        self.assertContains(resp_react, "actualizado correctamente")
+
+    def test_agente_errores_formulario_visibles_sin_fallo_silencioso(self):
+        """
+        Valida que si ocurre un error de validación en el formulario de agente (alta o edición),
+        los errores se muestren de forma clara y visible en pantalla (código 200) sin fallar silenciosamente.
+        """
+        self.client.login(username="testadmin", password="password123")
+        docente_existente = Agente.objects.create(
+            dni="28111222",
+            legajo="LEG-281",
+            apellido="Prueba",
+            nombre="Existente",
+            situacion_revista_defecto="TIT",
+            activo=True
+        )
+
+        # Intento de alta con DNI duplicado
+        datos_invalidos = {
+            "dni": docente_existente.dni,
+            "legajo": "LEG-DUP",
+            "apellido": "Duplicado",
+            "nombre": "Prueba",
+            "situacion_revista_defecto": "INT",
+            "activo": "on",
+        }
+        resp = self.client.post("/agentes/nuevo/", data=datos_invalidos)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Por favor corrija los siguientes errores")
+        self.assertContains(resp, f"Ya existe un docente registrado con el DNI {docente_existente.dni}")
+
 
 
 

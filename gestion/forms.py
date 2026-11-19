@@ -30,6 +30,20 @@ class AgenteForm(forms.ModelForm):
             "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["legajo"].required = False
+        self.fields["sexo"].required = False
+        self.fields["max_horas_semanales"].required = False
+        self.fields["cuil"].required = False
+        self.fields["email"].required = False
+        self.fields["telefono"].required = False
+        self.fields["activo"].required = False
+        if not self.is_bound and (not self.instance or not self.instance.pk):
+            self.initial.setdefault("activo", True)
+            self.initial.setdefault("max_horas_semanales", 30)
+            self.initial.setdefault("sexo", "M")
+
     def clean_dni(self):
         dni = str(self.cleaned_data.get("dni", "")).strip().replace(".", "").replace(" ", "")
         if not dni:
@@ -40,6 +54,42 @@ class AgenteForm(forms.ModelForm):
         if qs.exists():
             raise ValidationError(f"Ya existe un docente registrado con el DNI {dni}.")
         return dni
+
+    def clean_legajo(self):
+        legajo = str(self.cleaned_data.get("legajo", "")).strip()
+        if not legajo:
+            if self.instance and self.instance.pk and self.instance.legajo:
+                return self.instance.legajo
+            dni = str(self.cleaned_data.get("dni", "")).strip().replace(".", "").replace(" ", "")
+            legajo = f"LEG-{dni}" if dni else "S/L"
+        qs = Agente.objects.filter(legajo=legajo)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError(f"Ya existe un docente registrado con el Legajo {legajo}.")
+        return legajo
+
+    def clean_sexo(self):
+        sexo = self.cleaned_data.get("sexo")
+        if not sexo:
+            if self.instance and self.instance.pk and self.instance.sexo:
+                return self.instance.sexo
+            return "M"
+        return sexo
+
+    def clean_max_horas_semanales(self):
+        hs = self.cleaned_data.get("max_horas_semanales")
+        if hs is None or hs == "":
+            if self.instance and self.instance.pk and self.instance.max_horas_semanales:
+                return self.instance.max_horas_semanales
+            return 30
+        try:
+            val = int(hs)
+            if val <= 0:
+                raise ValidationError("El tope máximo semanal debe ser un número entero positivo.")
+            return val
+        except (ValueError, TypeError):
+            raise ValidationError("El tope de horas debe ser un número entero válido.")
 
 
 class DesignacionForm(forms.ModelForm):

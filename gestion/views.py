@@ -547,8 +547,10 @@ def agente_create_view(request):
                 detalles=f"Alta del agente {agente.nombre_completo} (DNI: {agente.dni}).",
                 ip=request.META.get("REMOTE_ADDR")
             )
-            messages.success(request, f"Docente {agente.nombre_completo} registrado con éxito.")
+            messages.success(request, f"Docente {agente.nombre_completo} registrado con éxito en el padrón institucional.")
             return redirect("agentes_list")
+        else:
+            messages.error(request, "No se pudo registrar el docente. Revise los errores señalados en el formulario.")
     else:
         form = AgenteForm()
     return render(request, "gestion/agente_form.html", {"form": form, "titulo": "Registrar Nuevo Agente Docente"})
@@ -561,14 +563,20 @@ def agente_edit_view(request, pk):
         form = AgenteForm(request.POST, instance=agente)
         if form.is_valid():
             agente = form.save()
+            estado_txt = "activo en planta" if agente.activo else "en estado histórico / baja lógica (RN-03)"
             registrar_auditoria(
                 usuario=request.user,
                 accion="MODIFICACION_AGENTE",
-                detalles=f"Modificación del agente {agente.nombre_completo} (DNI: {agente.dni}).",
+                detalles=f"Modificación del agente {agente.nombre_completo} (DNI: {agente.dni}, Estado: {estado_txt}).",
                 ip=request.META.get("REMOTE_ADDR")
             )
-            messages.success(request, f"Docente {agente.nombre_completo} actualizado.")
+            if agente.activo:
+                messages.success(request, f"Docente {agente.nombre_completo} actualizado correctamente (Activo en planta institucional).")
+            else:
+                messages.warning(request, f"Docente {agente.nombre_completo} actualizado y pasado a archivo histórico (Baja lógica RN-03).")
             return redirect("agentes_list")
+        else:
+            messages.error(request, "No se pudieron guardar los cambios. Revise los errores señalados en el formulario.")
     else:
         form = AgenteForm(instance=agente)
     return render(request, "gestion/agente_form.html", {"form": form, "titulo": f"Modificar Agente: {agente.nombre_completo}"})

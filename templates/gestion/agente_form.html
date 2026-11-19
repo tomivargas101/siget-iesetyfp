@@ -31,11 +31,21 @@
                 <form method="POST">
                     {% csrf_token %}
 
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for err in form.non_field_errors %}
-                            <div><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ err }}</div>
-                        {% endfor %}
+                    {% if form.errors %}
+                    <div class="alert alert-danger shadow-sm border-danger">
+                        <h6 class="fw-bold mb-2">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Por favor corrija los siguientes errores:
+                        </h6>
+                        <ul class="mb-0 ps-3 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
                     </div>
                     {% endif %}
 
@@ -77,6 +87,23 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Sexo / Género</label>
+                            {{ form.sexo }}
+                            {% if form.sexo.errors %}
+                                <div class="text-danger small mt-1">{{ form.sexo.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">CUIL</label>
+                            {{ form.cuil }}
+                            {% if form.cuil.errors %}
+                                <div class="text-danger small mt-1">{{ form.cuil.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
                             <label class="form-label text-dark small fw-bold">Situación de Revista Predeterminada *</label>
                             {{ form.situacion_revista_defecto }}
                             {% if form.situacion_revista_defecto.errors %}
@@ -84,13 +111,12 @@
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-dark small fw-bold">Estado Activo en Planta</label>
-                            <div class="form-check form-switch mt-2">
-                                {{ form.activo }}
-                                <label class="form-check-label text-dark small" for="{{ form.activo.id_for_label }}">
-                                    Docente Activo (Si se desmarca pasa a histórico conforme a RN-03)
-                                </label>
-                            </div>
+                            <label class="form-label text-dark small fw-bold">Tope Máximo Semanal (Hs Cátedra)</label>
+                            {{ form.max_horas_semanales }}
+                            <div class="form-text small">RN-02: Tope institucional estándar de 30 hs semanales.</div>
+                            {% if form.max_horas_semanales.errors %}
+                                <div class="text-danger small mt-1">{{ form.max_horas_semanales.errors }}</div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -107,6 +133,24 @@
                             {{ form.telefono }}
                             {% if form.telefono.errors %}
                                 <div class="text-danger small mt-1">{{ form.telefono.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark small fw-bold">Estado Activo en Planta</label>
+                        <div class="card bg-light border p-3">
+                            <div class="form-check form-switch mb-0">
+                                {{ form.activo }}
+                                <label class="form-check-label text-dark small fw-semibold" for="{{ form.activo.id_for_label }}">
+                                    Docente Activo (Si se desmarca pasa a histórico conforme a RN-03)
+                                </label>
+                                <div class="form-text small text-muted mt-1">
+                                    Conforme a RN-03, los agentes dados de baja no se eliminan físicamente; pasan a archivo histórico para preservar los antecedentes institucionales y pueden ser reactivados volviendo a marcar esta opción.
+                                </div>
+                            </div>
+                            {% if form.activo.errors %}
+                                <div class="text-danger small mt-1">{{ form.activo.errors }}</div>
                             {% endif %}
                         </div>
                     </div>
