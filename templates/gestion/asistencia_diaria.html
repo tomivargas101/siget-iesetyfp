@@ -223,11 +223,11 @@
                         {% if fila.novedad and fila.novedad.formulario_numero %}
                             <div class="d-flex flex-column align-items-center gap-1">
                                 <div class="d-flex align-items-center gap-1">
-                                    <span class="badge bg-white text-primary border border-primary fw-semibold" title="Formulario Oficial Registrado">
-                                        <i class="bi bi-receipt"></i> F-{{ fila.novedad.formulario_numero }}
+                                    <span class="badge bg-white text-primary border border-primary fw-semibold" title="Formulario Oficial Registrado: {{ fila.novedad.formulario_numero }}">
+                                        <i class="bi bi-receipt"></i> {% if fila.novedad.formulario_numero|slice:":2"|upper == "F-" %}{{ fila.novedad.formulario_numero }}{% else %}F-{{ fila.novedad.formulario_numero }}{% endif %}
                                     </span>
                                     {% if fila.dias_periodo and fila.dias_periodo > 1 %}
-                                        <span class="badge bg-light text-secondary border small" title="Período de {{ fila.dias_periodo }} días continuos">
+                                        <span class="badge bg-light text-secondary border small" title="Período de {{ fila.dias_periodo }} días continuos ({{ fila.fecha_desde_periodo|date:'d/m' }} al {{ fila.fecha_hasta_periodo|date:'d/m' }})">
                                             <i class="bi bi-calendar-range"></i> {{ fila.dias_periodo }}d
                                         </span>
                                     {% endif %}
@@ -249,7 +249,7 @@
                                     <i class="bi bi-clock-history me-1"></i>Pendiente F.
                                 </span>
                                 {% if fila.dias_periodo and fila.dias_periodo > 1 %}
-                                    <span class="text-muted small" style="font-size: 0.72rem;">
+                                    <span class="text-muted small" style="font-size: 0.72rem;" title="Período continuo de inasistencias">
                                         <i class="bi bi-calendar-range me-1"></i>{{ fila.dias_periodo }} días
                                     </span>
                                 {% endif %}
@@ -277,6 +277,9 @@
                                 data-agente-legajo="{{ fila.agente.legajo|default:'S/L' }}"
                                 data-agente-revista="{{ fila.agente.situacion_revista_defecto }}"
                                 data-fecha="{{ fecha_sel|date:'Y-m-d' }}"
+                                data-fecha-desde="{{ fila.fecha_desde_periodo|date:'Y-m-d' }}"
+                                data-fecha-hasta="{{ fila.fecha_hasta_periodo|date:'Y-m-d' }}"
+                                data-formulario-original="{{ fila.novedad.formulario_numero|default:'' }}"
                                 data-dias="{{ fila.dias_periodo|default:1 }}"
                                 data-estado="{% if fila.estado in 'LIC,LT,P,I' %}{{ fila.estado }}{% else %}LIC{% endif %}"
                                 data-formulario="{{ fila.novedad.formulario_numero|default:'' }}"
@@ -319,7 +322,11 @@
             <form method="POST" enctype="multipart/form-data" id="formModalJustificar">
                 {% csrf_token %}
                 <input type="hidden" name="accion" value="justificar_modal">
+                <input type="hidden" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}">
                 <input type="hidden" name="agente_id" id="modalAgenteId">
+                <input type="hidden" name="formulario_original" id="modalFormularioOriginal">
+                <input type="hidden" name="fecha_desde_original" id="modalFechaDesdeOriginal">
+                <input type="hidden" name="fecha_hasta_original" id="modalFechaHastaOriginal">
 
                 <div class="modal-body p-4">
                     <!-- BANNER FIJO DEL DOCENTE TITULAR (CONTEXTO OBLIGATORIO) -->
@@ -578,12 +585,17 @@ function cargarDatosModal(btn) {
     const legajo = btn.getAttribute("data-agente-legajo");
     const revista = btn.getAttribute("data-agente-revista");
     const fecha = btn.getAttribute("data-fecha");
+    const fechaDesdeAttr = btn.getAttribute("data-fecha-desde");
+    const fechaHastaAttr = btn.getAttribute("data-fecha-hasta");
+    const dias = parseInt(btn.getAttribute("data-dias")) || 1;
+    const fechaDesde = fechaDesdeAttr || fecha;
+    const fechaHasta = fechaHastaAttr || calcularFechaHasta(fechaDesde, dias);
     const estado = btn.getAttribute("data-estado");
     const formNum = btn.getAttribute("data-formulario");
+    const formOriginal = btn.getAttribute("data-formulario-original") || formNum || "";
     const tipoLicId = btn.getAttribute("data-tipo-licencia");
     const suplenteId = btn.getAttribute("data-suplente");
     const obs = btn.getAttribute("data-observaciones");
-    const dias = parseInt(btn.getAttribute("data-dias")) || 1;
 
     document.getElementById("modalAgenteId").value = agenteId;
     document.getElementById("modalTitularNombre").textContent = nombre;
@@ -593,8 +605,11 @@ function cargarDatosModal(btn) {
 
     document.getElementById("modalEstado").value = estado || "LIC";
     document.getElementById("modalFormularioNumero").value = formNum || "";
-    document.getElementById("modalFechaDesde").value = fecha;
-    document.getElementById("modalFechaHasta").value = calcularFechaHasta(fecha, dias);
+    document.getElementById("modalFormularioOriginal").value = formOriginal;
+    document.getElementById("modalFechaDesde").value = fechaDesde;
+    document.getElementById("modalFechaHasta").value = fechaHasta;
+    document.getElementById("modalFechaDesdeOriginal").value = fechaDesde;
+    document.getElementById("modalFechaHastaOriginal").value = fechaHasta;
     document.getElementById("modalObservaciones").value = obs || "";
 
     actualizarBadgeDiasModal();

@@ -12,7 +12,8 @@ from .models import (
 from .forms import RecepcionFormularioFisicoForm, DesignacionForm
 from .services import (
     ProcesadorMensualService, ExportadorExcelService,
-    CalculadorAlertasService, ImportadorCSVService, HorarioService
+    CalculadorAlertasService, ImportadorCSVService, HorarioService,
+    JustificacionService
 )
 
 class ReglasNegocioSIGETTests(TestCase):
@@ -645,5 +646,116 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertEqual(res_list.status_code, 200)
         self.assertContains(res_list, "Suple a:")
         self.assertContains(res_list, "Gómez, Carlos")
+
+    def test_edicion_justificacion_rango_acortado_desvincula_y_actualiza_grilla(self):
+        """
+        Verifica que al acortar el rango de una justificación/formulario (ej. de 10d a 5d):
+        1. Los 5 días vigentes conserven el formulario, estado y tipo de licencia.
+        2. Los 5 días fuera del rango queden desvinculados del formulario y restaurados a Inasistencia (I).
+        3. La grilla diaria muestre 5d (no 10d) y el nuevo rango vigente.
+        4. Se registre la acción en Auditoría.
+        5. Los días desvinculados puedan editarse manualmente en la grilla diaria.
+        """
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(
+            dni="32888999",
+            legajo="LEG-328",
+            apellido="Valenzuela",
+            nombre="Marcos",
+            activo=True
+        )
+
+        # 1. Registrar justificación inicial de 10 días (10/11/2026 al 19/11/2026)
+        f_desde_orig = date(2026, 11, 10)
+        f_hasta_orig = date(2026, 11, 19)
+        form_num = "F-1042/26"
+
+        res_inicial = JustificacionService.aplicar_justificacion(
+            agente=docente,
+            fecha_desde=f_desde_orig,
+            fecha_hasta=f_hasta_orig,
+            formulario_numero=form_num,
+            estado="LIC",
+            tipo_licencia=self.lic_medica,
+            usuario=self.user,
+            observaciones="Reposo por faringitis"
+        )
+        self.assertEqual(res_inicial["dias_procesados"], 10)
+        self.assertEqual(res_inicial["dias_desvinculados"], 0)
+
+        # Verificar que existen 10 registros asociados al formulario
+        self.assertEqual(
+            NovedadAsistencia.objects.filter(agente=docente, formulario_numero=form_num).count(),
+            10
+        )
+
+        # Verificar que la grilla del 10/11/2026 refleja 10 días
+        res_grid_10d = self.client.get(f"/asistencia/?fecha={f_desde_orig.strftime('%Y-%m-%d')}")
+        self.assertEqual(res_grid_10d.status_code, 200)
+        fila_doc = next(f for f in res_grid_10d.context["filas"] if f["agente"].id == docente.id)
+        self.assertEqual(fila_doc["dias_periodo"], 10)
+        self.assertContains(res_grid_10d, "10d")
+
+        # 2. Simular edición en modal: acortar período de 10d a 5d (10/11/2026 al 14/11/2026)
+        f_hasta_nueva = date(2026, 11, 14)
+        resp_post = self.client.post(f"/asistencia/?fecha={f_desde_orig.strftime('%Y-%m-%d')}", data={
+            "accion": "justificar_modal",
+            "agente_id": docente.id,
+            "formulario_numero": form_num,
+            "formulario_original": form_num,
+            "fecha": f_desde_orig.strftime("%Y-%m-%d"),
+            "fecha_desde": f_desde_orig.strftime("%Y-%m-%d"),
+            "fecha_hasta": f_hasta_nueva.strftime("%Y-%m-%d"),
+            "fecha_desde_original": f_desde_orig.strftime("%Y-%m-%d"),
+            "fecha_hasta_original": f_hasta_orig.strftime("%Y-%m-%d"),
+            "estado": "LIC",
+            "tipo_licencia_id": self.lic_medica.id,
+            "observaciones": "Reposo acortado con alta médica anticipada"
+        })
+        self.assertRedirects(resp_post, f"/asistencia/?fecha={f_desde_orig.strftime('%Y-%m-%d')}")
+
+        # 3. Comprobar registros vigentes en base de datos: solo 5 días conservan el formulario
+        qs_form_5d = NovedadAsistencia.objects.filter(agente=docente, formulario_numero=form_num)
+        self.assertEqual(qs_form_5d.count(), 5)
+        for nov in qs_form_5d:
+            self.assertEqual(nov.estado, "LIC")
+            self.assertEqual(nov.tipo_licencia, self.lic_medica)
+            self.assertGreaterEqual(nov.fecha, f_desde_orig)
+            self.assertLessEqual(nov.fecha, f_hasta_nueva)
+
+        # 4. Comprobar días que salieron del rango (15/11/2026 al 19/11/2026): desvinculados y con estado 'I'
+        qs_desvinculados = NovedadAsistencia.objects.filter(
+            agente=docente,
+            fecha__range=(date(2026, 11, 15), date(2026, 11, 19))
+        )
+        self.assertEqual(qs_desvinculados.count(), 5)
+        for nov_desv in qs_desvinculados:
+            self.assertIsNone(nov_desv.formulario_numero)
+            self.assertIsNone(nov_desv.tipo_licencia)
+            self.assertIsNone(nov_desv.suplente)
+            self.assertEqual(nov_desv.estado, "I")
+
+        # 5. Comprobar que en la grilla diaria se refleja coherentemente '5d' (y ya no '10d')
+        res_grid_5d = self.client.get(f"/asistencia/?fecha={f_desde_orig.strftime('%Y-%m-%d')}")
+        self.assertEqual(res_grid_5d.status_code, 200)
+        fila_editada = next(f for f in res_grid_5d.context["filas"] if f["agente"].id == docente.id)
+        self.assertEqual(fila_editada["dias_periodo"], 5)
+        self.assertContains(res_grid_5d, "5d")
+        self.assertNotContains(res_grid_5d, "10d")
+
+        # 6. Comprobar que en la fecha 16/11/2026 (día desvinculado) aparece con 'Pendiente F.'
+        res_grid_dia_fuera = self.client.get("/asistencia/?fecha=2026-11-16")
+        self.assertEqual(res_grid_dia_fuera.status_code, 200)
+        fila_fuera = next(f for f in res_grid_dia_fuera.context["filas"] if f["agente"].id == docente.id)
+        self.assertEqual(fila_fuera["estado"], "I")
+        self.assertIsNone(fila_fuera["novedad"].formulario_numero)
+
+        # 7. Comprobar Auditoría
+        audit_mod = Auditoria.objects.filter(accion="MODIFICACION_JUSTIFICACION").first()
+        self.assertIsNotNone(audit_mod)
+        self.assertIn("F-1042/26", audit_mod.detalles)
+        self.assertIn("Valenzuela, Marcos", audit_mod.detalles)
+        self.assertIn("Días desvinculados fuera de rango restaurados a Inasistencia (I): 5", audit_mod.detalles)
+
 
 

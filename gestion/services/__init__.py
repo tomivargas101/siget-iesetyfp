@@ -4,7 +4,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import date, timedelta
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Min, Max
 from ..models import (
     Agente, Carrera, Materia, Designacion, TipoLicencia,
     NovedadAsistencia, Disposicion, RenglonMensual, Auditoria,
@@ -521,4 +521,130 @@ class CalculadorAlertasService:
             resultado.append(cls.obtener_resumen_docente_anual(ag, anio))
 
         return resultado
+
+
+class JustificacionService:
+    """
+    Servicio centralizado para la aplicación, actualización, edición y desvinculación
+    de novedades de asistencia vinculadas a formularios oficiales de justificación
+    (Licencias médicas, especiales, permisos o inasistencias).
+    """
+
+    @classmethod
+    @transaction.atomic
+    def aplicar_justificacion(
+        cls,
+        agente: Agente,
+        fecha_desde: date,
+        fecha_hasta: date,
+        formulario_numero: str,
+        estado: str = "LIC",
+        tipo_licencia: TipoLicencia = None,
+        suplente: Agente = None,
+        observaciones: str = "",
+        adjunto=None,
+        usuario=None,
+        formulario_original: str = None,
+        fecha_desde_original: date = None,
+        fecha_hasta_original: date = None,
+        ip: str = None
+    ) -> dict:
+        if fecha_desde > fecha_hasta:
+            raise ValueError("La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
+
+        if suplente and suplente.id == agente.id:
+            raise ValueError(
+                f"Incompatibilidad detectada: El docente titular {agente.nombre_completo} "
+                f"no puede seleccionarse como su propio suplente."
+            )
+
+        if estado not in ["LIC", "LT", "P", "I"]:
+            estado = "LIC"
+
+        form_num_limpio = formulario_numero.strip() if formulario_numero else ""
+        form_orig_limpio = formulario_original.strip() if formulario_original else ""
+
+        # 1. Identificar registros históricos previamente asociados a este formulario o bloque
+        forms_busqueda = {f for f in [form_num_limpio, form_orig_limpio] if f}
+
+        qs_anteriores = NovedadAsistencia.objects.filter(agente=agente)
+        if forms_busqueda:
+            qs_anteriores = qs_anteriores.filter(formulario_numero__in=forms_busqueda)
+        elif fecha_desde_original and fecha_hasta_original:
+            qs_anteriores = qs_anteriores.filter(fecha__range=(fecha_desde_original, fecha_hasta_original))
+        else:
+            qs_anteriores = qs_anteriores.none()
+
+        # Preservar adjunto previo si no se subió uno nuevo y existía constancia
+        adjunto_existente = None
+        if not adjunto and qs_anteriores.filter(adjunto_certificado__isnull=False).exclude(adjunto_certificado="").exists():
+            nov_con_adj = qs_anteriores.filter(adjunto_certificado__isnull=False).exclude(adjunto_certificado="").first()
+            adjunto_existente = nov_con_adj.adjunto_certificado
+
+        # 2. Desvincular días que quedan fuera del nuevo intervalo [fecha_desde, fecha_hasta]
+        qs_sobrantes = qs_anteriores.exclude(fecha__range=(fecha_desde, fecha_hasta))
+        dias_desvinculados = 0
+        for nov_sob in qs_sobrantes:
+            nov_sob.formulario_numero = None
+            nov_sob.tipo_licencia = None
+            nov_sob.suplente = None
+            nov_sob.estado = "I"  # Restaurar a inasistencia injustificada sin respaldo
+            if usuario:
+                nov_sob.registrado_por = usuario
+            nov_sob.save()
+            dias_desvinculados += 1
+
+        # 3. Registrar o actualizar cada día en el nuevo intervalo [fecha_desde, fecha_hasta]
+        dias_procesados = 0
+        cur = fecha_desde
+        while cur <= fecha_hasta:
+            nov, _ = NovedadAsistencia.objects.get_or_create(
+                agente=agente,
+                fecha=cur,
+                defaults={"estado": estado, "registrado_por": usuario}
+            )
+            nov.estado = estado
+            nov.formulario_numero = form_num_limpio or None
+            nov.tipo_licencia = tipo_licencia
+            nov.suplente = suplente
+            if observaciones:
+                nov.observaciones = observaciones
+            if adjunto:
+                nov.adjunto_certificado = adjunto
+            elif adjunto_existente and not nov.adjunto_certificado:
+                nov.adjunto_certificado = adjunto_existente
+
+            if usuario:
+                nov.registrado_por = usuario
+            nov.save()
+            dias_procesados += 1
+            cur += timedelta(days=1)
+
+        # 4. Registrar en Auditoría
+        accion_auditoria = "MODIFICACION_JUSTIFICACION" if dias_desvinculados > 0 else "REGISTRO_JUSTIFICACION"
+        detalles = (
+            f"Formulario {form_num_limpio or 'S/N'} para {agente.nombre_completo}: "
+            f"nuevo rango {fecha_desde.strftime('%d/%m/%Y')} al {fecha_hasta.strftime('%d/%m/%Y')} ({dias_procesados} días). "
+            f"Estado: {estado} | Lic: {tipo_licencia.codigo if tipo_licencia else 'S/C'} | "
+            f"Suplente: {suplente.nombre_completo if suplente else 'Ninguno'}."
+        )
+        if dias_desvinculados > 0:
+            detalles += f" Días desvinculados fuera de rango restaurados a Inasistencia (I): {dias_desvinculados}."
+
+        registrar_auditoria(
+            usuario=usuario,
+            accion=accion_auditoria,
+            detalles=detalles,
+            ip=ip
+        )
+
+        return {
+            "success": True,
+            "dias_procesados": dias_procesados,
+            "dias_desvinculados": dias_desvinculados,
+            "fecha_desde": fecha_desde,
+            "fecha_hasta": fecha_hasta,
+            "formulario_numero": form_num_limpio,
+        }
+
 

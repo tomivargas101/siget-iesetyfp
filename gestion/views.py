@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Min, Max
 from django.utils import timezone
 from datetime import date, datetime, timedelta
 from calendar import monthrange
@@ -20,7 +20,7 @@ from .forms import (
 )
 from .services import (
     ProcesadorMensualService, ExportadorExcelService,
-    ImportadorCSVService, CalculadorAlertasService, registrar_auditoria,
+    ImportadorCSVService, CalculadorAlertasService, JustificacionService, registrar_auditoria,
     HorarioService, DIAS_MAP
 )
 
@@ -71,7 +71,7 @@ def dashboard_view(request):
 
 @login_required
 def asistencia_diaria_view(request):
-    fecha_str = request.GET.get("fecha")
+    fecha_str = request.GET.get("fecha") or request.POST.get("fecha")
     if fecha_str:
         try:
             fecha_sel = datetime.strptime(fecha_str, "%Y-%m-%d").date()
@@ -89,11 +89,14 @@ def asistencia_diaria_view(request):
 
         if accion == "justificar_modal" or request.POST.get("formulario_numero"):
             form_num = request.POST.get("formulario_numero", "").strip()
+            form_original = request.POST.get("formulario_original", "").strip()
             estado = request.POST.get("estado", "LIC")
             tipo_lic_id = request.POST.get("tipo_licencia_id")
             suplente_id = request.POST.get("suplente_id")
             fecha_desde_str = request.POST.get("fecha_desde")
             fecha_hasta_str = request.POST.get("fecha_hasta")
+            fecha_desde_orig_str = request.POST.get("fecha_desde_original")
+            fecha_hasta_orig_str = request.POST.get("fecha_hasta_original")
             obs = request.POST.get("observaciones", "").strip()
             adjunto = request.FILES.get("adjunto_certificado")
 
@@ -106,6 +109,20 @@ def asistencia_diaria_view(request):
                 fecha_h = datetime.strptime(fecha_hasta_str, "%Y-%m-%d").date() if fecha_hasta_str else fecha_d
             except ValueError:
                 fecha_h = fecha_d
+
+            fecha_d_orig = None
+            if fecha_desde_orig_str:
+                try:
+                    fecha_d_orig = datetime.strptime(fecha_desde_orig_str, "%Y-%m-%d").date()
+                except ValueError:
+                    fecha_d_orig = None
+
+            fecha_h_orig = None
+            if fecha_hasta_orig_str:
+                try:
+                    fecha_h_orig = datetime.strptime(fecha_hasta_orig_str, "%Y-%m-%d").date()
+                except ValueError:
+                    fecha_h_orig = None
 
             if fecha_d > fecha_h:
                 messages.error(request, "La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
@@ -124,36 +141,34 @@ def asistencia_diaria_view(request):
                 except ValueError:
                     suplente = None
 
-            dias_procesados = 0
-            with transaction.atomic():
-                cur = fecha_d
-                while cur <= fecha_h:
-                    nov, _ = NovedadAsistencia.objects.get_or_create(
-                        agente=agente,
-                        fecha=cur,
-                        defaults={"estado": estado, "registrado_por": request.user}
-                    )
-                    nov.estado = estado
-                    nov.formulario_numero = form_num
-                    nov.tipo_licencia = tipo_lic
-                    nov.suplente = suplente
-                    if obs:
-                        nov.observaciones = obs
-                    if adjunto:
-                        nov.adjunto_certificado = adjunto
-                    nov.registrado_por = request.user
-                    nov.save()
-                    dias_procesados += 1
-                    cur += timedelta(days=1)
-
-                registrar_auditoria(
+            try:
+                res_justif = JustificacionService.aplicar_justificacion(
+                    agente=agente,
+                    fecha_desde=fecha_d,
+                    fecha_hasta=fecha_h,
+                    formulario_numero=form_num,
+                    estado=estado,
+                    tipo_licencia=tipo_lic,
+                    suplente=suplente,
+                    observaciones=obs,
+                    adjunto=adjunto,
                     usuario=request.user,
-                    accion="JUSTIFICACION_FORMULARIO_MODAL",
-                    detalles=f"Formulario {form_num} cargado para {agente.nombre_completo} ({fecha_d} al {fecha_h}). Estado: {estado} | Lic: {tipo_lic.codigo if tipo_lic else 'S/C'} | Suplente: {suplente.nombre_completo if suplente else 'Ninguno'}.",
+                    formulario_original=form_original,
+                    fecha_desde_original=fecha_d_orig,
+                    fecha_hasta_original=fecha_h_orig,
                     ip=request.META.get("REMOTE_ADDR")
                 )
+            except ValueError as ve:
+                messages.error(request, str(ve))
+                return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
 
-            messages.success(request, f"¡Formulario {form_num} registrado con éxito para {agente.nombre_completo} ({dias_procesados} día/s registrados del {fecha_d.strftime('%d/%m/%Y')} al {fecha_h.strftime('%d/%m/%Y')})!")
+            dias_proc = res_justif["dias_procesados"]
+            dias_desv = res_justif["dias_desvinculados"]
+            msg = f"¡Formulario {form_num} guardado con éxito para {agente.nombre_completo} ({dias_proc} día/s vigentes del {fecha_d.strftime('%d/%m/%Y')} al {fecha_h.strftime('%d/%m/%Y')})!"
+            if dias_desv > 0:
+                msg += f" Se desvincularon y restauraron a Inasistencia (I) {dias_desv} día/s fuera del nuevo rango."
+
+            messages.success(request, msg)
             return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
 
         else:
@@ -270,13 +285,24 @@ def asistencia_diaria_view(request):
     agentes = Agente.objects.filter(activo=True).prefetch_related("designaciones", "designaciones__materia").order_by("apellido", "nombre")
     novedades_dict = {n.agente_id: n for n in NovedadAsistencia.objects.filter(fecha=fecha_sel).select_related("tipo_licencia", "suplente")}
 
-    # Días de período para agentes con formularios físicos o rangos continuos
+    # Días de período y rangos reales de fechas para formularios físicos registrados
     forms_nums = [n.formulario_numero for n in novedades_dict.values() if n.formulario_numero]
-    form_counts = {}
+    forms_info = {}
     if forms_nums:
-        qs_forms = NovedadAsistencia.objects.filter(formulario_numero__in=forms_nums).values("formulario_numero", "agente_id").annotate(total_dias=Count("id"))
+        qs_forms = NovedadAsistencia.objects.filter(
+            agente_id__in=[ag.id for ag in agentes],
+            formulario_numero__in=forms_nums
+        ).values("agente_id", "formulario_numero").annotate(
+            total_dias=Count("id"),
+            min_fecha=Min("fecha"),
+            max_fecha=Max("fecha")
+        )
         for item in qs_forms:
-            form_counts[(item["agente_id"], item["formulario_numero"])] = item["total_dias"]
+            forms_info[(item["agente_id"], item["formulario_numero"])] = {
+                "total_dias": item["total_dias"],
+                "min_fecha": item["min_fecha"],
+                "max_fecha": item["max_fecha"],
+            }
 
     agentes_sin_form = [ag.id for ag in agentes if novedades_dict.get(ag.id) and not novedades_dict.get(ag.id).formulario_numero and novedades_dict.get(ag.id).estado != 'PR']
     consecutivos_dict = {}
@@ -309,17 +335,27 @@ def asistencia_diaria_view(request):
         total_hs_hoy = sum(d.horas_catedra for d in desigs_hoy)
 
         dias_periodo = 1
+        fecha_desde_periodo = fecha_sel
+        fecha_hasta_periodo = fecha_sel
+
         if nov:
-            if nov.formulario_numero:
-                dias_periodo = form_counts.get((ag.id, nov.formulario_numero), 1)
+            if nov.formulario_numero and (ag.id, nov.formulario_numero) in forms_info:
+                info_f = forms_info[(ag.id, nov.formulario_numero)]
+                dias_periodo = info_f["total_dias"]
+                fecha_desde_periodo = info_f["min_fecha"]
+                fecha_hasta_periodo = info_f["max_fecha"]
             elif ag.id in consecutivos_dict:
                 dias_periodo = consecutivos_dict[ag.id]
+                fecha_desde_periodo = fecha_sel
+                fecha_hasta_periodo = fecha_sel + timedelta(days=dias_periodo - 1)
 
         filas.append({
             "agente": ag,
             "novedad": nov,
             "estado": estado_actual,
             "dias_periodo": dias_periodo,
+            "fecha_desde_periodo": fecha_desde_periodo,
+            "fecha_hasta_periodo": fecha_hasta_periodo,
             "tiene_catedra_hoy": len(desigs_hoy) > 0,
             "desigs_hoy": desigs_hoy,
             "horas_hoy": total_hs_hoy,
@@ -371,29 +407,29 @@ def recepcion_formulario_view(request, agente_id, fecha):
             suplente = form.cleaned_data["suplente"]
             adjunto = form.cleaned_data.get("adjunto_certificado")
             obs = form.cleaned_data.get("observaciones")
+            f_desde = form.cleaned_data.get("fecha_desde") or fecha_obj
+            f_hasta = form.cleaned_data.get("fecha_hasta") or f_desde
+            f_orig = form.cleaned_data.get("formulario_original") or (nov.formulario_numero if nov else None)
 
-            novedad, created = NovedadAsistencia.objects.get_or_create(
-                agente=agente,
-                fecha=fecha_obj,
-                defaults={"estado": estado, "registrado_por": request.user}
-            )
-            novedad.estado = estado
-            novedad.formulario_numero = form_num
-            novedad.tipo_licencia = tipo_lic
-            novedad.suplente = suplente
-            if adjunto:
-                novedad.adjunto_certificado = adjunto
-            if obs:
-                novedad.observaciones = obs
-            novedad.registrado_por = request.user
-            novedad.save()
+            try:
+                JustificacionService.aplicar_justificacion(
+                    agente=agente,
+                    fecha_desde=f_desde,
+                    fecha_hasta=f_hasta,
+                    formulario_numero=form_num,
+                    estado=estado,
+                    tipo_licencia=tipo_lic,
+                    suplente=suplente,
+                    observaciones=obs,
+                    adjunto=adjunto,
+                    usuario=request.user,
+                    formulario_original=f_orig,
+                    ip=request.META.get("REMOTE_ADDR")
+                )
+            except ValueError as ve:
+                messages.error(request, str(ve))
+                return redirect(request.path)
 
-            registrar_auditoria(
-                usuario=request.user,
-                accion="RECEPCION_FORMULARIO_FISICO",
-                detalles=f"Formulario {form_num} recibido para {agente.nombre_completo} el {fecha_obj}. Estado: {estado} | Licencia: {tipo_lic.codigo} | Suplente: {suplente.nombre_completo if suplente else 'Ninguno'}",
-                ip=request.META.get("REMOTE_ADDR")
-            )
             messages.success(request, f"¡Formulario físico {form_num} procesado con éxito para {agente.nombre_completo}!")
             return redirect(f"/asistencia/?fecha={fecha_obj.strftime('%Y-%m-%d')}")
     else:

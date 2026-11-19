@@ -391,6 +391,20 @@ class RecepcionFormularioFisicoForm(forms.Form):
         label="Observaciones Institucionales",
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Motivo, diagnóstico o constancia de recepción..."})
     )
+    fecha_desde = forms.DateField(
+        required=False,
+        label="Fecha Desde",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"})
+    )
+    fecha_hasta = forms.DateField(
+        required=False,
+        label="Fecha Hasta",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"})
+    )
+    formulario_original = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput()
+    )
 
     def __init__(self, *args, titular_agente=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -403,6 +417,14 @@ class RecepcionFormularioFisicoForm(forms.Form):
         if suplente and self.titular_agente and suplente.pk == self.titular_agente.pk:
             raise ValidationError("Un docente no puede suplirse a sí mismo en su propia cátedra.")
         return suplente
+
+    def clean(self):
+        cleaned_data = super().clean()
+        f_desde = cleaned_data.get("fecha_desde")
+        f_hasta = cleaned_data.get("fecha_hasta")
+        if f_desde and f_hasta and f_desde > f_hasta:
+            self.add_error("fecha_hasta", "La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
+        return cleaned_data
 
 
 class ImportarCSVForm(forms.Form):
