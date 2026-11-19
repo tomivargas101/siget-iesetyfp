@@ -1,8 +1,10 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import (
-    Agente, Carrera, Materia, Designacion, TipoLicencia, NovedadAsistencia
+    Agente, Carrera, Materia, Designacion, HorarioDesignacion, Suplencia,
+    TipoLicencia, NovedadAsistencia
 )
+from .services.horarios import HorarioService
 
 class AgenteForm(forms.ModelForm):
     class Meta:
@@ -39,23 +41,39 @@ class AgenteForm(forms.ModelForm):
 
 
 class DesignacionForm(forms.ModelForm):
+    dia_semana = forms.ChoiceField(
+        choices=[("", "-- Sin definir (especificado en franjas) --")] + list(Designacion.DIAS_SEMANA),
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+    hora_inicio = forms.CharField(
+        max_length=10,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "18:30"})
+    )
+    hora_fin = forms.CharField(
+        max_length=10,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "21:00"})
+    )
+    horas_catedra = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 10})
+    )
+
     class Meta:
         model = Designacion
         fields = [
             "agente", "materia", "cargo_codigo", "situacion_revista",
-            "dia_semana", "hora_inicio", "hora_fin", "horas_catedra",
             "instrumento_legal", "vigencia_desde", "vigencia_hasta",
-            "activo", "observaciones"
+            "activo", "observaciones",
+            "dia_semana", "hora_inicio", "hora_fin", "horas_catedra"
         ]
         widgets = {
-            "agente": forms.Select(attrs={"class": "form-select"}),
-            "materia": forms.Select(attrs={"class": "form-select"}),
+            "agente": forms.Select(attrs={"class": "form-select", "id": "id_agente"}),
+            "materia": forms.Select(attrs={"class": "form-select", "id": "id_materia"}),
             "cargo_codigo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Cátedra / Horas Cátedra"}),
-            "situacion_revista": forms.Select(attrs={"class": "form-select"}),
-            "dia_semana": forms.Select(attrs={"class": "form-select"}),
-            "hora_inicio": forms.TextInput(attrs={"class": "form-control", "placeholder": "18:30"}),
-            "hora_fin": forms.TextInput(attrs={"class": "form-control", "placeholder": "21:00"}),
-            "horas_catedra": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 10}),
+            "situacion_revista": forms.Select(attrs={"class": "form-select", "id": "id_situacion_revista", "onchange": "actualizarVisibilidadSuplencia()"}),
             "instrumento_legal": forms.TextInput(attrs={"class": "form-control", "placeholder": "Res. N° ... / Disp. N° ..."}),
             "vigencia_desde": forms.TextInput(attrs={"class": "form-control", "value": "SIN INICIO"}),
             "vigencia_hasta": forms.TextInput(attrs={"class": "form-control", "value": "SIN TERMINO"}),
@@ -69,12 +87,98 @@ class DesignacionForm(forms.ModelForm):
         horas = cleaned_data.get("horas_catedra") or 0
         activo = cleaned_data.get("activo")
 
-        if agente and activo:
+        if agente and activo and horas > 0:
             excluir_id = self.instance.pk if self.instance and self.instance.pk else None
             valido, msg = agente.validar_tope_horas(nuevas_horas=horas, excluir_designacion_id=excluir_id)
             if not valido:
                 raise ValidationError(msg)
         return cleaned_data
+
+
+class HorarioDesignacionForm(forms.ModelForm):
+    class Meta:
+        model = HorarioDesignacion
+        fields = ["dia_semana", "hora_inicio", "hora_fin", "horas_catedra", "activo"]
+        widgets = {
+            "dia_semana": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "hora_inicio": forms.TimeInput(attrs={"class": "form-control form-control-sm", "type": "time"}),
+            "hora_fin": forms.TimeInput(attrs={"class": "form-control form-control-sm", "type": "time"}),
+            "horas_catedra": forms.NumberInput(attrs={"class": "form-control form-control-sm text-center", "min": 1, "max": 10}),
+            "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        hi = cleaned_data.get("hora_inicio")
+        hf = cleaned_data.get("hora_fin")
+        horas = cleaned_data.get("horas_catedra")
+        is_delete = cleaned_data.get("DELETE", False)
+
+        if not is_delete:
+            if hi and hf and hf <= hi:
+                raise ValidationError("La hora de fin debe ser posterior a la hora de inicio.")
+            if horas is not None and horas <= 0:
+                raise ValidationError("Las horas cátedra deben ser un número positivo mayor a cero.")
+        return cleaned_data
+
+
+class BaseHorarioFormSet(forms.BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        horarios_activos = []
+        for form in self.forms:
+            if not form.cleaned_data or form.cleaned_data.get("DELETE", False):
+                continue
+            if form.cleaned_data.get("activo", True):
+                horarios_activos.append(form.cleaned_data)
+
+        # Validar superposición interna entre franjas
+        valido, msg = HorarioService.validar_superposicion_franjas(horarios_activos)
+        if not valido:
+            raise ValidationError(msg)
+
+
+HorarioFormSet = forms.inlineformset_factory(
+    Designacion,
+    HorarioDesignacion,
+    form=HorarioDesignacionForm,
+    formset=BaseHorarioFormSet,
+    extra=1,
+    can_delete=True
+)
+
+
+class SuplenciaForm(forms.ModelForm):
+    class Meta:
+        model = Suplencia
+        fields = [
+            "designacion_cubierta", "motivo", "fecha_desde", "fecha_hasta",
+            "instrumento_legal", "observaciones", "activo"
+        ]
+        widgets = {
+            "designacion_cubierta": forms.Select(attrs={"class": "form-select", "id": "id_designacion_cubierta"}),
+            "motivo": forms.Select(attrs={"class": "form-select", "id": "id_suplencia_motivo", "onchange": "actualizarMotivoSuplencia()"}),
+            "fecha_desde": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "fecha_hasta": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "instrumento_legal": forms.TextInput(attrs={"class": "form-control", "placeholder": "Disp. N° ... / Res. N° ..."}),
+            "observaciones": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        materia_id = kwargs.pop("materia_id", None)
+        excluir_agente_id = kwargs.pop("excluir_agente_id", None)
+        super().__init__(*args, **kwargs)
+        self.fields["designacion_cubierta"].required = False
+        qs = Designacion.objects.filter(activo=True, situacion_revista__in=["TIT", "INT"]).select_related("agente", "materia")
+        if materia_id:
+            qs = qs.filter(materia_id=materia_id)
+        if excluir_agente_id:
+            qs = qs.exclude(agente_id=excluir_agente_id)
+        self.fields["designacion_cubierta"].queryset = qs
 
 
 class CarreraForm(forms.ModelForm):

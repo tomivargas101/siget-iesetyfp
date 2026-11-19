@@ -5,11 +5,12 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Count, Q
-from .models import (
+from ..models import (
     Agente, Carrera, Materia, Designacion, TipoLicencia,
     NovedadAsistencia, Disposicion, RenglonMensual, Auditoria,
     DEFAULT_OFFICE_CODE
 )
+from .horarios import HorarioService, DIAS_SEMANA_ORDEN
 
 DIAS_MAP = {
     0: "Lunes",
@@ -139,11 +140,11 @@ class ProcesadorMensualService:
 
                 materias_impactadas = False
                 for fecha_dia in fechas_del_bloque:
-                    nombre_dia = DIAS_MAP.get(fecha_dia.weekday(), "")
-                    desigs_del_dia = [d for d in designaciones_agente if d.dia_semana.lower() == nombre_dia.lower()]
+                    franjas_del_dia = HorarioService.obtener_franjas_docente_en_fecha(agente_obj, fecha_dia)
 
-                    for desig in desigs_del_dia:
+                    for franja in franjas_del_dia:
                         materias_impactadas = True
+                        desig = franja["designacion"]
                         suplente_final = primer_nov.suplente
                         if suplente_final:
                             obs = f"Reemplazado por: {suplente_final.apellido}, {suplente_final.nombre}"
@@ -160,7 +161,7 @@ class ProcesadorMensualService:
                             materia_nombre=desig.materia.nombre,
                             carrera_nombre=desig.materia.carrera.nombre,
                             situacion_revista=desig.situacion_revista,
-                            horas_afectadas=desig.horas_catedra,
+                            horas_afectadas=franja["horas_catedra"],
                             desde=fecha_desde,
                             hasta=fecha_hasta,
                             tipo_licencia=tipo_lic,

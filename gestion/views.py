@@ -8,17 +8,17 @@ from django.db.models import Count, Q
 from datetime import date, datetime, timedelta
 
 from .models import (
-    Agente, Carrera, Materia, Designacion, TipoLicencia,
-    Feriado, NovedadAsistencia, Disposicion, RenglonMensual, Auditoria
+    Agente, Carrera, Materia, Designacion, HorarioDesignacion, Suplencia,
+    TipoLicencia, Feriado, NovedadAsistencia, Disposicion, RenglonMensual, Auditoria
 )
 from .forms import (
-    AgenteForm, DesignacionForm, CarreraForm, MateriaForm,
+    AgenteForm, DesignacionForm, HorarioFormSet, SuplenciaForm, CarreraForm, MateriaForm,
     RecepcionFormularioFisicoForm, ImportarCSVForm
 )
 from .services import (
     ProcesadorMensualService, ExportadorExcelService,
     ImportadorCSVService, CalculadorAlertasService, registrar_auditoria,
-    DIAS_MAP
+    HorarioService, DIAS_MAP
 )
 
 @login_required
@@ -552,9 +552,24 @@ def agente_detail_view(request, pk):
 @login_required
 def designaciones_list_view(request):
     q = request.GET.get("q", "").strip()
-    qs = Designacion.objects.select_related("agente", "materia", "materia__carrera").all()
+    qs = Designacion.objects.select_related(
+        "agente", "materia", "materia__carrera"
+    ).prefetch_related(
+        "horarios",
+        "suplencias_como_suplente__designacion_cubierta__agente",
+        "suplencias_recibidas__designacion_suplente__agente"
+    ).order_by("-activo", "agente__apellido", "materia__nombre")
+
     if q:
-        qs = qs.filter(Q(agente__apellido__icontains=q) | Q(materia__nombre__icontains=q) | Q(dia_semana__icontains=q))
+        qs = qs.filter(
+            Q(agente__apellido__icontains=q) |
+            Q(agente__nombre__icontains=q) |
+            Q(agente__dni__icontains=q) |
+            Q(materia__nombre__icontains=q) |
+            Q(materia__carrera__nombre__icontains=q) |
+            Q(horarios__dia_semana__icontains=q) |
+            Q(dia_semana__icontains=q)
+        ).distinct()
 
     paginator = Paginator(qs, 20)
     page_number = request.GET.get("page")
@@ -566,45 +581,257 @@ def designaciones_list_view(request):
 @login_required
 def designacion_create_view(request):
     agente_id = request.GET.get("agente_id")
+    materia_id = request.GET.get("materia_id")
     initial = {}
     if agente_id:
         initial["agente"] = agente_id
+    if materia_id:
+        initial["materia"] = materia_id
 
     if request.method == "POST":
         form = DesignacionForm(request.POST)
+        desig_dummy = Designacion()
+        horario_formset = HorarioFormSet(request.POST, instance=desig_dummy)
+        
+        agente_sel_id = request.POST.get("agente")
+        materia_sel_id = request.POST.get("materia")
+        suplencia_form = SuplenciaForm(
+            request.POST,
+            prefix="suplencia",
+            materia_id=materia_sel_id,
+            excluir_agente_id=agente_sel_id
+        )
+
+        es_suplente = request.POST.get("situacion_revista") == "SUP"
+
         if form.is_valid():
-            desig = form.save()
-            registrar_auditoria(
-                usuario=request.user,
-                accion="ALTA_DESIGNACION",
-                detalles=f"Cátedra asignada a {desig.agente.nombre_completo}: {desig.materia.nombre} ({desig.dia_semana} {desig.horas_catedra} hs).",
-                ip=request.META.get("REMOTE_ADDR")
+            desig = form.save(commit=False)
+            horario_formset = HorarioFormSet(request.POST, instance=desig)
+
+            horarios_validos = []
+            nuevas_horas = 0
+            if horario_formset.is_valid():
+                for hf in horario_formset.forms:
+                    if not hf.cleaned_data or hf.cleaned_data.get("DELETE", False):
+                        continue
+                    if hf.cleaned_data.get("activo", True):
+                        horarios_validos.append(hf.cleaned_data)
+                        nuevas_horas += hf.cleaned_data.get("horas_catedra", 0)
+
+            # Fallback legacy si no cargó formset pero cargó horas_catedra en form
+            if not horarios_validos and desig.horas_catedra:
+                nuevas_horas = desig.horas_catedra
+
+            # 1. Validar tope semanal de horas institucional
+            valido_tope, msg_tope = HorarioService.validar_tope_semanal(
+                desig.agente,
+                nuevas_horas=nuevas_horas,
+                excluir_designacion_id=None
             )
-            messages.success(request, f"Cátedra asignada exitosamente a {desig.agente.nombre_completo}.")
-            return redirect("designaciones_list")
+            if not valido_tope:
+                form.add_error(None, msg_tope)
+
+            # 2. Validar superposición de horarios externa
+            if horarios_validos:
+                valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
+                    horarios_validos,
+                    docente=desig.agente,
+                    excluir_designacion_id=None
+                )
+                if not valido_sup:
+                    form.add_error(None, msg_sup)
+
+            # 3. Validar bloque de suplencia si es SUP
+            valido_supl = True
+            if es_suplente:
+                if suplencia_form.is_valid():
+                    valido_supl, msg_supl = HorarioService.validar_suplencia(
+                        designacion_suplente=desig,
+                        designacion_cubierta=suplencia_form.cleaned_data.get("designacion_cubierta"),
+                        motivo=suplencia_form.cleaned_data.get("motivo"),
+                        fecha_desde=suplencia_form.cleaned_data.get("fecha_desde"),
+                        fecha_hasta=suplencia_form.cleaned_data.get("fecha_hasta")
+                    )
+                    if not valido_supl:
+                        suplencia_form.add_error(None, msg_supl)
+                else:
+                    valido_supl = False
+
+            if form.is_valid() and horario_formset.is_valid() and (not es_suplente or valido_supl):
+                with transaction.atomic():
+                    if horarios_validos:
+                        primera = horarios_validos[0]
+                        desig.dia_semana = primera["dia_semana"]
+                        desig.hora_inicio = primera["hora_inicio"].strftime("%H:%M") if hasattr(primera["hora_inicio"], "strftime") else str(primera["hora_inicio"])
+                        desig.hora_fin = primera["hora_fin"].strftime("%H:%M") if hasattr(primera["hora_fin"], "strftime") else str(primera["hora_fin"])
+                        desig.horas_catedra = sum(h["horas_catedra"] for h in horarios_validos)
+
+                    desig.save()
+                    horario_formset.instance = desig
+                    horario_formset.save()
+
+                    if es_suplente and suplencia_form.is_valid():
+                        supl = suplencia_form.save(commit=False)
+                        supl.designacion_suplente = desig
+                        supl.save()
+
+                    registrar_auditoria(
+                        usuario=request.user,
+                        accion="ALTA_DESIGNACION",
+                        detalles=f"Cátedra asignada a {desig.agente.nombre_completo}: {desig.materia.nombre} ({desig.resumen_horarios or 'Sin horarios'}). Revista: {desig.situacion_revista}.",
+                        ip=request.META.get("REMOTE_ADDR")
+                    )
+
+                messages.success(request, f"Designación creada con éxito para {desig.agente.nombre_completo}.")
+                return redirect("designaciones_list")
     else:
         form = DesignacionForm(initial=initial)
-    return render(request, "gestion/designacion_form.html", {"form": form, "titulo": "Nueva Designación de Cátedra"})
+        horario_formset = HorarioFormSet(instance=Designacion())
+        suplencia_form = SuplenciaForm(prefix="suplencia")
+
+    return render(request, "gestion/designacion_form.html", {
+        "form": form,
+        "horario_formset": horario_formset,
+        "suplencia_form": suplencia_form,
+        "titulo": "Nueva Designación de Cátedra"
+    })
 
 
 @login_required
 def designacion_edit_view(request, pk):
     desig = get_object_or_404(Designacion, pk=pk)
+    suplencia_actual = desig.suplencia_activa
+
     if request.method == "POST":
         form = DesignacionForm(request.POST, instance=desig)
+        horario_formset = HorarioFormSet(request.POST, instance=desig)
+        suplencia_form = SuplenciaForm(
+            request.POST,
+            prefix="suplencia",
+            instance=suplencia_actual,
+            materia_id=desig.materia_id,
+            excluir_agente_id=desig.agente_id
+        )
+        es_suplente = request.POST.get("situacion_revista") == "SUP"
+
         if form.is_valid():
-            desig = form.save()
-            registrar_auditoria(
-                usuario=request.user,
-                accion="MODIFICACION_DESIGNACION",
-                detalles=f"Cátedra actualizada {desig.materia.nombre} para {desig.agente.nombre_completo}.",
-                ip=request.META.get("REMOTE_ADDR")
+            desig_temp = form.save(commit=False)
+
+            horarios_validos = []
+            nuevas_horas = 0
+            if horario_formset.is_valid():
+                for hf in horario_formset.forms:
+                    if not hf.cleaned_data or hf.cleaned_data.get("DELETE", False):
+                        continue
+                    if hf.cleaned_data.get("activo", True):
+                        horarios_validos.append(hf.cleaned_data)
+                        nuevas_horas += hf.cleaned_data.get("horas_catedra", 0)
+
+            if not horarios_validos and desig_temp.horas_catedra:
+                nuevas_horas = desig_temp.horas_catedra
+
+            valido_tope, msg_tope = HorarioService.validar_tope_semanal(
+                desig_temp.agente,
+                nuevas_horas=nuevas_horas,
+                excluir_designacion_id=desig.pk
             )
-            messages.success(request, f"Designación de {desig.agente.nombre_completo} actualizada.")
-            return redirect("designaciones_list")
+            if not valido_tope:
+                form.add_error(None, msg_tope)
+
+            if horarios_validos:
+                valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
+                    horarios_validos,
+                    docente=desig_temp.agente,
+                    excluir_designacion_id=desig.pk
+                )
+                if not valido_sup:
+                    form.add_error(None, msg_sup)
+
+            valido_supl = True
+            if es_suplente:
+                if suplencia_form.is_valid():
+                    valido_supl, msg_supl = HorarioService.validar_suplencia(
+                        designacion_suplente=desig_temp,
+                        designacion_cubierta=suplencia_form.cleaned_data.get("designacion_cubierta"),
+                        motivo=suplencia_form.cleaned_data.get("motivo"),
+                        fecha_desde=suplencia_form.cleaned_data.get("fecha_desde"),
+                        fecha_hasta=suplencia_form.cleaned_data.get("fecha_hasta")
+                    )
+                    if not valido_supl:
+                        suplencia_form.add_error(None, msg_supl)
+                else:
+                    valido_supl = False
+
+            if form.is_valid() and horario_formset.is_valid() and (not es_suplente or valido_supl):
+                with transaction.atomic():
+                    if horarios_validos:
+                        primera = horarios_validos[0]
+                        desig_temp.dia_semana = primera["dia_semana"]
+                        desig_temp.hora_inicio = primera["hora_inicio"].strftime("%H:%M") if hasattr(primera["hora_inicio"], "strftime") else str(primera["hora_inicio"])
+                        desig_temp.hora_fin = primera["hora_fin"].strftime("%H:%M") if hasattr(primera["hora_fin"], "strftime") else str(primera["hora_fin"])
+                        desig_temp.horas_catedra = sum(h["horas_catedra"] for h in horarios_validos)
+
+                    desig_temp.save()
+                    horario_formset.save()
+
+                    if es_suplente and suplencia_form.is_valid():
+                        supl = suplencia_form.save(commit=False)
+                        supl.designacion_suplente = desig_temp
+                        supl.save()
+                    elif not es_suplente:
+                        HorarioService.desactivar_suplencias_si_no_es_suplente(desig_temp)
+
+                    registrar_auditoria(
+                        usuario=request.user,
+                        accion="MODIFICACION_DESIGNACION",
+                        detalles=f"Designación ID {desig.id} actualizada para {desig.agente.nombre_completo} ({desig.materia.nombre}).",
+                        ip=request.META.get("REMOTE_ADDR")
+                    )
+
+                messages.success(request, f"Designación de {desig.agente.nombre_completo} actualizada con éxito.")
+                return redirect("designaciones_list")
     else:
         form = DesignacionForm(instance=desig)
-    return render(request, "gestion/designacion_form.html", {"form": form, "titulo": "Modificar Designación"})
+        horario_formset = HorarioFormSet(instance=desig)
+        suplencia_form = SuplenciaForm(
+            instance=suplencia_actual,
+            prefix="suplencia",
+            materia_id=desig.materia_id,
+            excluir_agente_id=desig.agente_id
+        )
+
+    return render(request, "gestion/designacion_form.html", {
+        "form": form,
+        "horario_formset": horario_formset,
+        "suplencia_form": suplencia_form,
+        "desig": desig,
+        "titulo": f"Modificar Designación - {desig.materia.nombre}"
+    })
+
+
+@login_required
+def designacion_detail_view(request, pk):
+    desig = get_object_or_404(
+        Designacion.objects.select_related("agente", "materia", "materia__carrera"),
+        pk=pk
+    )
+    horarios = desig.horarios.all().order_by("dia_semana", "hora_inicio")
+    suplencias_activas = desig.suplencias_como_suplente.filter(activo=True).select_related("designacion_cubierta__agente")
+    historial_suplencias = desig.suplencias_como_suplente.all().select_related("designacion_cubierta__agente").order_by("-fecha_desde")
+    coberturas_recibidas = desig.suplencias_recibidas.all().select_related("designacion_suplente__agente").order_by("-fecha_desde")
+
+    auditorias = Auditoria.objects.filter(
+        detalles__icontains=str(desig.agente.nombre_completo)
+    ).order_by("-timestamp")[:10]
+
+    return render(request, "gestion/designacion_detail.html", {
+        "desig": desig,
+        "horarios": horarios,
+        "suplencias_activas": suplencias_activas,
+        "historial_suplencias": historial_suplencias,
+        "coberturas_recibidas": coberturas_recibidas,
+        "auditorias": auditorias,
+    })
 
 
 @login_required
@@ -613,6 +840,10 @@ def designacion_baja_view(request, pk):
     desig.activo = False
     desig.vigencia_hasta = date.today().strftime("%d/%m/%Y")
     desig.save()
+
+    # Desactivar también sus horarios y suplencias como histórico
+    desig.horarios.update(activo=False)
+    desig.suplencias_como_suplente.filter(activo=True).update(activo=False)
 
     registrar_auditoria(
         usuario=request.user,

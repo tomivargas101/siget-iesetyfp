@@ -4,7 +4,8 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-10 col-xl-9">
+        <!-- ENCABEZADO -->
         <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
@@ -12,7 +13,7 @@
                         <i class="bi bi-journal-plus"></i> {{ titulo }}
                     </h2>
                     <p class="text-muted mb-0 small">
-                        El sistema valida automáticamente que el docente no exceda el tope de <strong>30 horas cátedra semanales</strong>.
+                        Gestión desacoplada de cátedras, franjas horarias semanales (1:N) y coberturas de suplencias oficiales.
                     </p>
                 </div>
                 <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary btn-sm">
@@ -21,24 +22,34 @@
             </div>
         </div>
 
-        <div class="card shadow-sm border-0 bg-white">
-            <div class="card-header py-3 bg-white">
-                <h5 class="card-title mb-0 fw-bold fs-6 text-primary">
-                    <i class="bi bi-calendar-range me-1"></i> Parámetros de la Asignación y Horarios
-                </h5>
+        <form method="POST" id="formDesignacion">
+            {% csrf_token %}
+
+            <!-- ERRORES GENERALES -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger shadow-sm border-danger">
+                {% for err in form.non_field_errors %}
+                    <div><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Error de validación:</strong> {{ err }}</div>
+                {% endfor %}
             </div>
-            <div class="card-body p-4">
-                <form method="POST">
-                    {% csrf_token %}
+            {% endif %}
 
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for err in form.non_field_errors %}
-                            <div><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Validación rechazada:</strong> {{ err }}</div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
+            {% if horario_formset.non_form_errors %}
+            <div class="alert alert-danger shadow-sm border-danger">
+                {% for err in horario_formset.non_form_errors %}
+                    <div><i class="bi bi-clock-fill me-1"></i><strong>Error en grilla horaria:</strong> {{ err }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
+            <!-- 1. BLOQUE PRINCIPAL: PARÁMETROS DE LA DESIGNACIÓN -->
+            <div class="card shadow-sm border-0 bg-white mb-4">
+                <div class="card-header py-3 bg-white border-bottom">
+                    <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                        <i class="bi bi-person-badge-fill text-secondary"></i> Parámetros Institucionales del Cargo
+                    </h5>
+                </div>
+                <div class="card-body p-4">
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label text-dark small fw-bold">Docente Asignado *</label>
@@ -58,41 +69,25 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label text-dark small fw-bold">Día de Cursada *</label>
-                            {{ form.dia_semana }}
-                            {% if form.dia_semana.errors %}
-                                <div class="text-danger small mt-1">{{ form.dia_semana.errors }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label text-dark small fw-bold">Horas Cátedra ese Día *</label>
-                            {{ form.horas_catedra }}
-                            {% if form.horas_catedra.errors %}
-                                <div class="text-danger small mt-1">{{ form.horas_catedra.errors }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label text-dark small fw-bold">Situación de Revista</label>
+                            <label class="form-label text-dark small fw-bold">Situación de Revista *</label>
                             {{ form.situacion_revista }}
                             {% if form.situacion_revista.errors %}
                                 <div class="text-danger small mt-1">{{ form.situacion_revista.errors }}</div>
                             {% endif %}
                         </div>
-                    </div>
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-dark small fw-bold">Hora de Inicio (HH:MM)</label>
-                            {{ form.hora_inicio }}
-                            {% if form.hora_inicio.errors %}
-                                <div class="text-danger small mt-1">{{ form.hora_inicio.errors }}</div>
+                        <div class="col-md-4">
+                            <label class="form-label text-dark small fw-bold">Cargo o Código</label>
+                            {{ form.cargo_codigo }}
+                            {% if form.cargo_codigo.errors %}
+                                <div class="text-danger small mt-1">{{ form.cargo_codigo.errors }}</div>
                             {% endif %}
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-dark small fw-bold">Hora de Finalización (HH:MM)</label>
-                            {{ form.hora_fin }}
-                            {% if form.hora_fin.errors %}
-                                <div class="text-danger small mt-1">{{ form.hora_fin.errors }}</div>
+                        <div class="col-md-4">
+                            <label class="form-label text-dark small fw-bold">Instrumento Legal</label>
+                            {{ form.instrumento_legal }}
+                            <div class="form-text small">Resolución o Disposición de designación.</div>
+                            {% if form.instrumento_legal.errors %}
+                                <div class="text-danger small mt-1">{{ form.instrumento_legal.errors }}</div>
                             {% endif %}
                         </div>
                     </div>
@@ -101,7 +96,7 @@
                         <div class="col-md-6">
                             <label class="form-label text-dark small fw-bold">Vigencia Desde (RN-09)</label>
                             {{ form.vigencia_desde }}
-                            <div class="form-text small">Predeterminado: "SIN INICIO" o fecha formal.</div>
+                            <div class="form-text small">Predeterminado: "SIN INICIO" o fecha formal de alta.</div>
                             {% if form.vigencia_desde.errors %}
                                 <div class="text-danger small mt-1">{{ form.vigencia_desde.errors }}</div>
                             {% endif %}
@@ -116,26 +111,295 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <div class="form-check form-switch">
                             {{ form.activo }}
-                            <label class="form-check-label text-dark small" for="{{ form.activo.id_for_label }}">
-                                Asignación Activa en Grilla Semanal
+                            <label class="form-check-label text-dark small fw-semibold" for="{{ form.activo.id_for_label }}">
+                                Designación Activa en Planta Institucional
                             </label>
                         </div>
                     </div>
 
-                    <hr class="my-4">
-
-                    <div class="d-flex justify-content-end gap-2">
-                        <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-ies px-4">
-                            <i class="bi bi-save2-fill me-1"></i> Guardar Asignación
-                        </button>
+                    <div class="mt-3">
+                        <label class="form-label text-dark small fw-bold">Observaciones Institucionales</label>
+                        {{ form.observaciones }}
                     </div>
-                </form>
+                </div>
             </div>
-        </div>
+
+            <!-- 2. BLOQUE FRANJAS HORARIAS DE CURSADA (HORARIO 1:N) -->
+            <div class="card shadow-sm border-0 bg-white mb-4">
+                <div class="card-header py-3 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                            <i class="bi bi-calendar-week-fill text-secondary"></i> Franjas Horarias Semanales (1 o más días)
+                        </h5>
+                        <p class="text-muted small mb-0">
+                            Configure los días de la semana y horarios en los que se dicta este espacio curricular.
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarFranja">
+                        <i class="bi bi-plus-circle me-1"></i> Agregar Día / Horario
+                    </button>
+                </div>
+                <div class="card-body p-3">
+                    {{ horario_formset.management_form }}
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle mb-0" id="tablaFranjas">
+                            <thead class="table-light text-uppercase small fw-bold">
+                                <tr>
+                                    <th style="width: 25%;">Día de la Semana *</th>
+                                    <th style="width: 20%;">Hora Inicio *</th>
+                                    <th style="width: 20%;">Hora Fin *</th>
+                                    <th style="width: 15%;" class="text-center">Hs Cátedra *</th>
+                                    <th style="width: 10%;" class="text-center">Activo</th>
+                                    <th style="width: 10%;" class="text-center">Quitar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="franjasContainer">
+                                {% for hform in horario_formset.forms %}
+                                <tr class="fila-franja">
+                                    {{ hform.id }}
+                                    <td>
+                                        {{ hform.dia_semana }}
+                                        {% if hform.dia_semana.errors %}
+                                            <div class="text-danger small">{{ hform.dia_semana.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ hform.hora_inicio }}
+                                        {% if hform.hora_inicio.errors %}
+                                            <div class="text-danger small">{{ hform.hora_inicio.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ hform.hora_fin }}
+                                        {% if hform.hora_fin.errors %}
+                                            <div class="text-danger small">{{ hform.hora_fin.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {{ hform.horas_catedra }}
+                                        {% if hform.horas_catedra.errors %}
+                                            <div class="text-danger small">{{ hform.horas_catedra.errors }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center">
+                                            {{ hform.activo }}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if horario_formset.can_delete %}
+                                            {% if hform.instance.pk %}
+                                                <div class="form-check d-inline-block">
+                                                    {{ hform.DELETE }}
+                                                    <label class="form-check-label text-danger small" for="{{ hform.DELETE.id_for_label }}">Borrar</label>
+                                                </div>
+                                            {% else %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0 btn-quitar-fila" onclick="quitarFilaFranja(this)" title="Quitar franja">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="form-text small mt-2">
+                        <i class="bi bi-info-circle me-1"></i>El sistema valida automáticamente que no existan franjas superpuestas y que el docente no exceda el tope de <strong>30 horas semanales</strong>.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. BLOQUE DE SUPLENCIA / COBERTURA (CONDICIONAL PARA REVISTA 'SUP') -->
+            <div class="card shadow-sm border-0 border-start border-4 border-warning bg-white mb-4 {% if form.situacion_revista.value != 'SUP' %}d-none{% endif %}" id="cardSuplencia">
+                <div class="card-header py-3 bg-white border-bottom">
+                    <h5 class="card-title mb-0 fw-bold fs-6 text-dark d-flex align-items-center gap-2">
+                        <i class="bi bi-arrow-left-right text-warning fs-5"></i>
+                        Datos de Cobertura y Suplencia (Resolución Ministerial)
+                    </h5>
+                    <p class="text-muted small mb-0">
+                        Complete la designación titular/interina que reemplaza este docente o indique si cubre una vacante.
+                    </p>
+                </div>
+                <div class="card-body p-4">
+                    {% if suplencia_form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for err in suplencia_form.non_field_errors %}
+                            <div><i class="bi bi-shield-x me-1"></i>{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Motivo de la Suplencia *</label>
+                            {{ suplencia_form.motivo }}
+                            {% if suplencia_form.motivo.errors %}
+                                <div class="text-danger small mt-1">{{ suplencia_form.motivo.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6" id="divDesignacionCubierta">
+                            <label class="form-label text-dark small fw-bold">Designación Titular/Interina Cubierta *</label>
+                            {{ suplencia_form.designacion_cubierta }}
+                            <div class="form-text small" id="helpDesignacionCubierta">Docente titular o interino con licencia que genera la vacante temporal.</div>
+                            {% if suplencia_form.designacion_cubierta.errors %}
+                                <div class="text-danger small mt-1">{{ suplencia_form.designacion_cubierta.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label text-dark small fw-bold">Fecha Desde de Cobertura</label>
+                            {{ suplencia_form.fecha_desde }}
+                            {% if suplencia_form.fecha_desde.errors %}
+                                <div class="text-danger small mt-1">{{ suplencia_form.fecha_desde.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-dark small fw-bold">Fecha Hasta de Cobertura</label>
+                            {{ suplencia_form.fecha_hasta }}
+                            {% if suplencia_form.fecha_hasta.errors %}
+                                <div class="text-danger small mt-1">{{ suplencia_form.fecha_hasta.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-dark small fw-bold">Instrumento Legal de Suplencia</label>
+                            {{ suplencia_form.instrumento_legal }}
+                            {% if suplencia_form.instrumento_legal.errors %}
+                                <div class="text-danger small mt-1">{{ suplencia_form.instrumento_legal.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-9">
+                            <label class="form-label text-dark small fw-bold">Observaciones de la Cobertura</label>
+                            {{ suplencia_form.observaciones }}
+                        </div>
+                        <div class="col-md-3 d-flex align-items-center">
+                            <div class="form-check form-switch mt-3">
+                                {{ suplencia_form.activo }}
+                                <label class="form-check-label text-dark small fw-bold" for="{{ suplencia_form.activo.id_for_label }}">
+                                    Suplencia Activa
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTONERA DE ENVÍO -->
+            <div class="card p-3 mb-5 shadow-sm border-0 bg-white">
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-ies px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Guardar Asignación y Horarios
+                    </button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
+
+<!-- TEMPLATE OCULTO PARA AGREGAR NUEVAS FRANJAS VÍA JS -->
+<table style="display: none;">
+    <tbody id="emptyFormTemplate">
+        <tr class="fila-franja">
+            <td>
+                <select name="horarios-__prefix__-dia_semana" class="form-select form-select-sm" id="id_horarios-__prefix__-dia_semana">
+                    <option value="Lunes">Lunes</option>
+                    <option value="Martes">Martes</option>
+                    <option value="Miércoles">Miércoles</option>
+                    <option value="Jueves">Jueves</option>
+                    <option value="Viernes">Viernes</option>
+                    <option value="Sábado">Sábado</option>
+                    <option value="Domingo">Domingo</option>
+                </select>
+            </td>
+            <td>
+                <input type="time" name="horarios-__prefix__-hora_inicio" value="18:30" class="form-control form-control-sm" id="id_horarios-__prefix__-hora_inicio">
+            </td>
+            <td>
+                <input type="time" name="horarios-__prefix__-hora_fin" value="21:00" class="form-control form-control-sm" id="id_horarios-__prefix__-hora_fin">
+            </td>
+            <td class="text-center">
+                <input type="number" name="horarios-__prefix__-horas_catedra" value="4" min="1" max="10" class="form-control form-control-sm text-center" id="id_horarios-__prefix__-horas_catedra">
+            </td>
+            <td class="text-center">
+                <div class="d-flex justify-content-center">
+                    <input type="checkbox" name="horarios-__prefix__-activo" class="form-check-input" id="id_horarios-__prefix__-activo" checked>
+                </div>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0 btn-quitar-fila" onclick="quitarFilaFranja(this)" title="Quitar franja">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+// 1. Visibilidad dinámica del bloque de suplencias según situación de revista
+function actualizarVisibilidadSuplencia() {
+    const revistaSelect = document.getElementById("id_situacion_revista");
+    const cardSuplencia = document.getElementById("cardSuplencia");
+    if (revistaSelect && cardSuplencia) {
+        if (revistaSelect.value === "SUP") {
+            cardSuplencia.classList.remove("d-none");
+        } else {
+            cardSuplencia.classList.add("d-none");
+        }
+    }
+}
+
+// 2. Visibilidad según motivo de la suplencia (vacante vs titular cubierto)
+function actualizarMotivoSuplencia() {
+    const motivoSelect = document.getElementById("id_suplencia_motivo");
+    const divCubierta = document.getElementById("divDesignacionCubierta");
+    const helpText = document.getElementById("helpDesignacionCubierta");
+    const selectCubierta = document.getElementById("id_designacion_cubierta");
+
+    if (motivoSelect && divCubierta) {
+        if (motivoSelect.value === "VACANTE") {
+            if (helpText) helpText.textContent = "Cargo vacante sin titular previo asignado.";
+            if (selectCubierta) selectCubierta.required = false;
+        } else {
+            if (helpText) helpText.textContent = "Docente titular o interino con licencia que genera la vacante temporal.";
+        }
+    }
+}
+
+// 3. Agregar franjas dinámicamente con Formset de Django
+document.getElementById("btnAgregarFranja").addEventListener("click", function() {
+    const totalFormsInput = document.getElementById("id_horarios-TOTAL_FORMS");
+    const formIdx = parseInt(totalFormsInput.value);
+    const template = document.getElementById("emptyFormTemplate").innerHTML;
+    const newHtml = template.replace(/__prefix__/g, formIdx);
+
+    const tbody = document.getElementById("franjasContainer");
+    tbody.insertAdjacentHTML("beforeend", newHtml);
+    totalFormsInput.value = formIdx + 1;
+});
+
+// 4. Quitar franja agregada en cliente
+function quitarFilaFranja(btn) {
+    const fila = btn.closest("tr");
+    if (fila) {
+        fila.remove();
+    }
+}
+
+// Inicialización en carga de página
+document.addEventListener("DOMContentLoaded", function() {
+    actualizarVisibilidadSuplencia();
+    actualizarMotivoSuplencia();
+});
+</script>
 {% endblock %}

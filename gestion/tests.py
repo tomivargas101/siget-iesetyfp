@@ -1,18 +1,18 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
-from datetime import date
+from datetime import date, time
 from io import BytesIO
 import openpyxl
 
 from .models import (
-    Agente, Carrera, Materia, Designacion, TipoLicencia,
+    Agente, Carrera, Materia, Designacion, HorarioDesignacion, Suplencia, TipoLicencia,
     Feriado, NovedadAsistencia, Disposicion, RenglonMensual, Auditoria
 )
 from .forms import RecepcionFormularioFisicoForm, DesignacionForm
 from .services import (
     ProcesadorMensualService, ExportadorExcelService,
-    CalculadorAlertasService, ImportadorCSVService
+    CalculadorAlertasService, ImportadorCSVService, HorarioService
 )
 
 class ReglasNegocioSIGETTests(TestCase):
@@ -283,4 +283,154 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertIsNotNone(auditoria)
         self.assertIn("Hugo", auditoria.detalles)
         self.assertIn("LIC", auditoria.detalles)
+
+    def test_horario_designacion_franjas_multiples_y_calculo_fecha(self):
+        """Verifica que una designación pueda tener múltiples franjas horarias y su cálculo por fecha exacta."""
+        docente = Agente.objects.create(dni="35123456", legajo="LEG-351", apellido="Navarro", nombre="Sofía")
+        
+        # Designación con 2 franjas (Martes 2hs y Jueves 4hs = 6hs semanales)
+        desig = Designacion.objects.create(
+            agente=docente,
+            materia=self.materia1,
+            situacion_revista="TIT",
+            activo=True
+        )
+        HorarioDesignacion.objects.create(
+            designacion=desig,
+            dia_semana="Martes",
+            hora_inicio=time(18, 30),
+            hora_fin=time(20, 0),
+            horas_catedra=2,
+            activo=True
+        )
+        HorarioDesignacion.objects.create(
+            designacion=desig,
+            dia_semana="Jueves",
+            hora_inicio=time(18, 30),
+            hora_fin=time(21, 30),
+            horas_catedra=4,
+            activo=True
+        )
+
+        # Total horas semanales
+        self.assertEqual(desig.total_horas_semanales, 6)
+
+        # 17/11/2026 fue Martes -> debe devolver 2 hs
+        fecha_martes = date(2026, 11, 17)
+        franjas_martes = HorarioService.obtener_franjas_docente_en_fecha(docente, fecha_martes)
+        self.assertEqual(len(franjas_martes), 1)
+        self.assertEqual(franjas_martes[0]["horas_catedra"], 2)
+        self.assertEqual(HorarioService.calcular_horas_docente_en_fecha(docente, fecha_martes), 2)
+
+        # 19/11/2026 es Jueves -> debe devolver 4 hs
+        fecha_jueves = date(2026, 11, 19)
+        franjas_jueves = HorarioService.obtener_franjas_docente_en_fecha(docente, fecha_jueves)
+        self.assertEqual(len(franjas_jueves), 1)
+        self.assertEqual(franjas_jueves[0]["horas_catedra"], 4)
+
+        # 18/11/2026 fue Miércoles (sin cátedra) -> debe devolver 0 hs
+        fecha_miercoles = date(2026, 11, 18)
+        self.assertEqual(HorarioService.calcular_horas_docente_en_fecha(docente, fecha_miercoles), 0)
+
+    def test_superposicion_horaria_validacion(self):
+        """Verifica la detección de franjas horarias superpuestas y la admisión de clases consecutivas."""
+        # 1. Superposición interna (mismo día con solape 18:30-20:30 y 19:30-21:30)
+        franjas_solapadas = [
+            {"dia_semana": "Lunes", "hora_inicio": time(18, 30), "hora_fin": time(20, 30), "horas_catedra": 2},
+            {"dia_semana": "Lunes", "hora_inicio": time(19, 30), "hora_fin": time(21, 30), "horas_catedra": 2},
+        ]
+        valido_int, msg_int = HorarioService.validar_superposicion_franjas(franjas_solapadas)
+        self.assertFalse(valido_int)
+        self.assertIn("Superposición", msg_int)
+
+        # 2. Clases consecutivas válidas (18:30 a 20:00 y 20:00 a 21:30)
+        franjas_consecutivas = [
+            {"dia_semana": "Lunes", "hora_inicio": time(18, 30), "hora_fin": time(20, 0), "horas_catedra": 2},
+            {"dia_semana": "Lunes", "hora_inicio": time(20, 0), "hora_fin": time(21, 30), "horas_catedra": 2},
+        ]
+        valido_cons, _ = HorarioService.validar_superposicion_franjas(franjas_consecutivas)
+        self.assertTrue(valido_cons)
+
+        # 3. Superposición externa con otra cátedra del mismo docente
+        docente = Agente.objects.create(dni="39999888", legajo="LEG-399", apellido="Ríos", nombre="Lucas")
+        desig1 = Designacion.objects.create(agente=docente, materia=self.materia1, situacion_revista="TIT", activo=True)
+        HorarioDesignacion.objects.create(designacion=desig1, dia_semana="Viernes", hora_inicio=time(18, 30), hora_fin=time(21, 30), horas_catedra=4, activo=True)
+
+        nuevas_franjas_viernes = [
+            {"dia_semana": "Viernes", "hora_inicio": time(19, 0), "hora_fin": time(22, 0), "horas_catedra": 4}
+        ]
+        valido_ext, msg_ext = HorarioService.validar_superposicion_franjas(nuevas_franjas_viernes, docente=docente)
+        self.assertFalse(valido_ext)
+        self.assertIn("Conflicto de horarios del docente", msg_ext)
+
+    def test_suplencia_validaciones_dominio(self):
+        """Verifica las reglas de negocio de Suplencia (anti auto-suplencia, coincidencia de materia, revista y baja histórica)."""
+        titular = Agente.objects.create(dni="24111222", legajo="LEG-241", apellido="Valdez", nombre="Jorge")
+        suplente = Agente.objects.create(dni="37333444", legajo="LEG-373", apellido="Romero", nombre="Mariana")
+
+        desig_titular = Designacion.objects.create(agente=titular, materia=self.materia1, situacion_revista="TIT", activo=True)
+        desig_suplente = Designacion.objects.create(agente=suplente, materia=self.materia1, situacion_revista="SUP", activo=True)
+
+        # 1. Suplencia válida
+        valido, msg = HorarioService.validar_suplencia(
+            designacion_suplente=desig_suplente,
+            designacion_cubierta=desig_titular,
+            motivo="LICENCIA"
+        )
+        self.assertTrue(valido)
+
+        suplencia = Suplencia.objects.create(
+            designacion_suplente=desig_suplente,
+            designacion_cubierta=desig_titular,
+            motivo="LICENCIA",
+            fecha_desde=date(2026, 10, 1),
+            fecha_hasta=date(2026, 10, 31),
+            activo=True
+        )
+        self.assertEqual(desig_suplente.suplencia_activa, suplencia)
+        self.assertEqual(desig_titular.cobertura_activa, suplencia)
+
+        # 2. Anti auto-suplencia (titular supliéndose a sí mismo)
+        desig_auto = Designacion.objects.create(agente=titular, materia=self.materia1, situacion_revista="SUP", activo=True)
+        valido_auto, msg_auto = HorarioService.validar_suplencia(
+            designacion_suplente=desig_auto,
+            designacion_cubierta=desig_titular
+        )
+        self.assertFalse(valido_auto)
+        self.assertIn("auto-suplirse", msg_auto)
+
+        # 3. Mismatch de materias
+        desig_otra_mat = Designacion.objects.create(agente=suplente, materia=self.materia2, situacion_revista="SUP", activo=True)
+        valido_mat, msg_mat = HorarioService.validar_suplencia(
+            designacion_suplente=desig_otra_mat,
+            designacion_cubierta=desig_titular
+        )
+        self.assertFalse(valido_mat)
+        self.assertIn("no coincide", msg_mat)
+
+        # 4. Desactivación histórica sin borrar al cambiar revista
+        desig_suplente.situacion_revista = "TIT"
+        desig_suplente.save()
+        suplencia.refresh_from_db()
+        self.assertFalse(suplencia.activo)  # Marcada inactiva/histórica
+        self.assertEqual(Suplencia.objects.filter(designacion_suplente=desig_suplente).count(), 1)  # No se borró el registro
+
+    def test_vistas_designaciones_list_y_detail(self):
+        """Verifica que las vistas de listado y detalle de designación respondan exitosamente."""
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(dni="31555444", legajo="LEG-315", apellido="Acosta", nombre="Silvia")
+        desig = Designacion.objects.create(agente=docente, materia=self.materia1, situacion_revista="TIT", activo=True)
+        HorarioDesignacion.objects.create(designacion=desig, dia_semana="Lunes", hora_inicio=time(18, 30), hora_fin=time(21, 30), horas_catedra=4, activo=True)
+
+        # Listado
+        res_list = self.client.get("/designaciones/")
+        self.assertEqual(res_list.status_code, 200)
+        self.assertContains(res_list, "Acosta")
+
+        # Detalle
+        res_det = self.client.get(f"/designaciones/{desig.pk}/")
+        self.assertEqual(res_det.status_code, 200)
+        self.assertContains(res_det, "Ficha Oficial de Designación")
+        self.assertContains(res_det, "Franjas Horarias Semanales")
+
 

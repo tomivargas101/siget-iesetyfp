@@ -19,6 +19,7 @@ siget.db
 *.db-shm
 *.db-wal
 *.sqlite3
+*.backup*
 
 # Reportes y planillas generadas
 reportes/*
