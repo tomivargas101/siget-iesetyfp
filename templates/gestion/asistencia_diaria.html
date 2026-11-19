@@ -713,16 +713,20 @@ document.getElementById("formModalJustificar").addEventListener("submit", functi
 
 // Despliegue de Toasts Bootstrap
 function mostrarToastNotificacion(mensaje, tipo = "success") {
-    const toastEl = document.getElementById("toastNotificacion");
-    if (!toastEl) return;
-    toastEl.className = `toast align-items-center text-white border-0 shadow-lg bg-${tipo === 'success' ? 'success' : 'danger'}`;
-    const msgEl = document.getElementById("toastMensaje");
-    if (msgEl) {
-        const icon = tipo === 'success' ? '<i class="bi bi-check-circle-fill fs-6"></i>' : '<i class="bi bi-exclamation-triangle-fill fs-6"></i>';
-        msgEl.innerHTML = `${icon} <span>${mensaje}</span>`;
+    if (typeof window.notificarToast === "function") {
+        window.notificarToast(mensaje, tipo, 4500);
+    } else {
+        const toastEl = document.getElementById("toastNotificacion");
+        if (!toastEl) return;
+        toastEl.className = `toast align-items-center text-white border-0 shadow-lg bg-${tipo === 'success' ? 'success' : 'danger'}`;
+        const msgEl = document.getElementById("toastMensaje");
+        if (msgEl) {
+            const icon = tipo === 'success' ? '<i class="bi bi-check-circle-fill fs-6"></i>' : '<i class="bi bi-exclamation-triangle-fill fs-6"></i>';
+            msgEl.innerHTML = `${icon} <span>${mensaje}</span>`;
+        }
+        const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { autohide: true, delay: 4500 });
+        toast.show();
     }
-    const toast = new bootstrap.Toast(toastEl, { delay: 3500 });
-    toast.show();
 }
 </script>
 {% endblock %}

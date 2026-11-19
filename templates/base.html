@@ -398,22 +398,6 @@
     <!-- CONTENIDO PRINCIPAL FLUIDO Y RESPONSIVE -->
     <main class="main-content">
         <div class="container-fluid px-lg-4 px-md-3 py-4">
-            <!-- Mensajes Flash de Django -->
-            {% if messages %}
-                <div class="mb-4">
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show border shadow-sm" role="alert">
-                            {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill text-success me-2"></i>
-                            {% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
-                            {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill text-warning me-2"></i>
-                            {% else %}<i class="bi bi-info-circle-fill text-info me-2"></i>{% endif %}
-                            <strong>{{ message }}</strong>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-
             {% block content %}{% endblock %}
         </div>
     </main>
@@ -433,20 +417,96 @@
         </div>
     </footer>
 
-    <!-- Toast de Notificaciones Reactivas -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
-        <div id="toastNotificacion" class="toast align-items-center text-white border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body d-flex align-items-center gap-2" id="toastMensaje">
-                    <i class="bi bi-info-circle-fill"></i> Operación completada
+    <!-- Toast Container Flotante de Notificaciones (Bottom-Right) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1095;" id="contenedorToasts">
+        <!-- Notificaciones de Django (Messages Framework) -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast align-items-center text-white border-0 shadow-lg mb-2 fade show {% if message.tags == 'success' %}bg-success{% elif message.tags == 'error' or message.tags == 'danger' %}bg-danger{% elif message.tags == 'warning' %}bg-warning text-dark{% else %}bg-primary{% endif %}"
+                     role="alert" 
+                     aria-live="assertive" 
+                     aria-atomic="true"
+                     data-bs-autohide="true" 
+                     data-bs-delay="4500">
+                    <div class="d-flex align-items-center">
+                        <div class="toast-body d-flex align-items-center gap-2 py-2 px-3">
+                            {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill fs-5 text-white"></i>
+                            {% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-exclamation-triangle-fill fs-5 text-white"></i>
+                            {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill fs-5 text-dark"></i>
+                            {% else %}<i class="bi bi-info-circle-fill fs-5 text-white"></i>{% endif %}
+                            <span class="fw-semibold">{{ message }}</span>
+                        </div>
+                        <button type="button" class="btn-close {% if message.tags != 'warning' %}btn-close-white{% endif %} me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Toast dinámico para peticiones asíncronas / JavaScript -->
+        <div id="toastNotificacion" class="toast align-items-center text-white border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="4500">
+            <div class="d-flex align-items-center">
+                <div class="toast-body d-flex align-items-center gap-2 py-2 px-3" id="toastMensaje">
+                    <i class="bi bi-info-circle-fill fs-5"></i> <span>Operación completada</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
             </div>
         </div>
     </div>
 
     <!-- Bootstrap 5.3 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Inicialización automática y efímera de Toasts (4.5 segundos con auto-hide suave)
+        document.addEventListener("DOMContentLoaded", function () {
+            const toastElements = document.querySelectorAll("#contenedorToasts .toast");
+            toastElements.forEach(function (toastEl) {
+                if (toastEl.id !== "toastNotificacion") {
+                    const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { autohide: true, delay: 4500 });
+                    toast.show();
+                }
+            });
+        });
+
+        // Función global utilitaria para disparar Toasts flotantes desde cualquier script
+        window.notificarToast = function (mensaje, tipo = "success", delay = 4500) {
+            const toastEl = document.getElementById("toastNotificacion");
+            if (!toastEl) return;
+
+            // Clases de color
+            toastEl.className = `toast align-items-center text-white border-0 shadow-lg ${
+                tipo === 'success' ? 'bg-success' : 
+                (tipo === 'danger' || tipo === 'error') ? 'bg-danger' : 
+                tipo === 'warning' ? 'bg-warning text-dark' : 'bg-primary'
+            }`;
+
+            // Contenido e ícono
+            const msgEl = document.getElementById("toastMensaje");
+            if (msgEl) {
+                let iconHtml = '<i class="bi bi-check-circle-fill fs-5"></i>';
+                if (tipo === 'danger' || tipo === 'error') {
+                    iconHtml = '<i class="bi bi-exclamation-triangle-fill fs-5"></i>';
+                } else if (tipo === 'warning') {
+                    iconHtml = '<i class="bi bi-exclamation-circle-fill fs-5 text-dark"></i>';
+                } else if (tipo === 'info' || tipo === 'primary') {
+                    iconHtml = '<i class="bi bi-info-circle-fill fs-5"></i>';
+                }
+                msgEl.innerHTML = `${iconHtml} <span class="fw-semibold">${mensaje}</span>`;
+            }
+
+            // Botón de cierre
+            const btnClose = toastEl.querySelector(".btn-close");
+            if (btnClose) {
+                if (tipo === 'warning') {
+                    btnClose.classList.remove('btn-close-white');
+                } else {
+                    btnClose.classList.add('btn-close-white');
+                }
+            }
+
+            const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { autohide: true, delay: delay });
+            toast.show();
+        };
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
