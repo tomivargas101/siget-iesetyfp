@@ -1,41 +1,67 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SIGET{% endblock %} - IESETyFP</title>
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'img/icon.ico' %}">
-    <!-- Bootstrap 5.3 CSS (Dark Mode Integrado) -->
+    <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
         :root {
-            --siget-gold: #E0C45D;
-            --siget-gold-hover: #C2A532;
-            --siget-dark-bg: #141416;
-            --siget-card-bg: #1E1E22;
-            --siget-navbar-bg: #111113;
-            --siget-border: #333338;
-            --siget-hover: #26262B;
+            /* Paleta Institucional IESETyFP */
+            --ies-primary: #17365D;       /* Azul Institucional */
+            --ies-primary-dark: #0F243E;  /* Azul Profundo */
+            --ies-secondary: #2878A5;     /* Celeste Institucional */
+            --ies-accent: #E0C45D;        /* Dorado Institucional */
+            --ies-bg: #F4F6F9;            /* Fondo General Sobrio */
+            --ies-card-bg: #FFFFFF;       /* Fondo de Tarjetas y Tablas */
+            --ies-text-main: #212529;     /* Texto Principal */
+            --ies-text-muted: #64748B;    /* Texto Secundario */
+            --ies-border: #E2E8F0;        /* Bordes Sutiles */
+            --ies-border-dark: #CBD5E1;   /* Bordes Medios */
+            
+            /* Estados Semánticos de Asistencia */
+            --badge-pr-bg: #E8F5E9;
+            --badge-pr-text: #1B5E20;
+            --badge-pr-border: #A5D6A7;
+            
+            --badge-i-bg: #FFEBEE;
+            --badge-i-text: #B71C1C;
+            --badge-i-border: #FFCDD2;
+            
+            --badge-lic-bg: #FFF8E1;
+            --badge-lic-text: #B45309;
+            --badge-lic-border: #FDE68A;
+            
+            --badge-p-bg: #E1F5FE;
+            --badge-p-text: #0277BD;
+            --badge-p-border: #B3E5FC;
+            
+            --badge-lt-bg: #F3E5F5;
+            --badge-lt-text: #6A1B9A;
+            --badge-lt-border: #E1BEE7;
         }
+
         body {
-            background-color: var(--siget-dark-bg);
-            color: #F8FAFC;
+            background-color: var(--ies-bg);
+            color: var(--ies-text-main);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
-            flex-column: column;
+            flex-direction: column;
         }
 
-        /* BARRA SUPERIOR INSTITUCIONAL (ESTILO IESETyFP) */
+        /* NAVEGACIÓN SUPERIOR INSTITUCIONAL (ESTILO IESETyFP) */
         .navbar-ies {
-            background-color: var(--siget-navbar-bg);
-            border-bottom: 2px solid var(--siget-gold);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-            padding: 0.6rem 1.5rem;
+            background-color: var(--ies-primary);
+            border-bottom: 3px solid var(--ies-secondary);
+            box-shadow: 0 4px 12px rgba(15, 36, 62, 0.15);
+            padding: 0.65rem 1.5rem;
         }
         .navbar-brand-container {
             display: flex;
@@ -47,191 +73,234 @@
             width: 42px;
             height: 42px;
             object-fit: contain;
-            border-radius: 8px;
-            background: #000;
+            border-radius: 6px;
+            background: #FFFFFF;
             padding: 2px;
-            border: 1px solid var(--siget-gold);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
-        .brand-text-title {
+        .brand-title {
             font-size: 1.25rem;
             font-weight: 800;
             color: #FFFFFF;
             line-height: 1.1;
             letter-spacing: 0.5px;
         }
-        .brand-text-subtitle {
+        .brand-subtitle {
             font-size: 0.72rem;
-            color: var(--siget-gold);
-            font-weight: 600;
+            color: #E2E8F0;
+            font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.8px;
         }
 
-        /* ENLACES DE NAVEGACIÓN SUPERIOR */
+        /* ENLACES NAVBAR */
         .navbar-nav .nav-link {
-            color: #D1D5DB;
+            color: #E2E8F0;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.92rem;
             padding: 0.55rem 0.85rem;
-            border-radius: 8px;
+            border-radius: 6px;
             transition: all 0.15s ease-in-out;
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.45rem;
         }
         .navbar-nav .nav-link:hover {
             color: #FFFFFF;
-            background-color: var(--siget-hover);
+            background-color: rgba(255, 255, 255, 0.12);
         }
         .navbar-nav .nav-link.active {
-            color: var(--siget-gold) !important;
-            background-color: rgba(224, 196, 93, 0.12);
-            font-weight: 700;
+            color: #FFFFFF !important;
+            background-color: var(--ies-secondary);
+            box-shadow: inset 0 -2px 0 var(--ies-accent);
         }
         .nav-link-asistencia {
-            background-color: rgba(224, 196, 93, 0.15);
-            color: var(--siget-gold) !important;
-            border: 1px solid rgba(224, 196, 93, 0.35);
+            background-color: rgba(40, 120, 165, 0.35);
+            color: #FFFFFF !important;
+            border: 1px solid rgba(255, 255, 255, 0.25);
         }
         .nav-link-asistencia:hover {
-            background-color: var(--siget-gold) !important;
-            color: #111111 !important;
-            border-color: var(--siget-gold);
+            background-color: var(--ies-secondary) !important;
+            color: #FFFFFF !important;
         }
 
         /* DESPLEGABLES */
-        .dropdown-menu-dark {
-            background-color: #1A1A1E;
-            border: 1px solid var(--siget-border);
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        .dropdown-menu {
+            border: 1px solid var(--ies-border-dark);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             padding: 0.5rem;
         }
-        .dropdown-menu-dark .dropdown-item {
-            color: #E2E8F0;
-            font-size: 0.86rem;
+        .dropdown-item {
+            color: var(--ies-text-main);
+            font-size: 0.88rem;
             font-weight: 500;
-            border-radius: 6px;
-            padding: 0.5rem 0.8rem;
+            border-radius: 5px;
+            padding: 0.5rem 0.85rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        .dropdown-menu-dark .dropdown-item:hover {
-            background-color: var(--siget-hover);
-            color: var(--siget-gold);
+        .dropdown-item:hover {
+            background-color: #EBF3F8;
+            color: var(--ies-primary);
         }
-        .dropdown-menu-dark .dropdown-divider {
-            border-top-color: var(--siget-border);
+        .dropdown-item.active, .dropdown-item:active {
+            background-color: var(--ies-primary);
+            color: #FFFFFF;
         }
 
-        /* CONTENEDOR PRINCIPAL Y COMPONENTES */
+        /* COMPONENTES Y TARJETAS */
         .main-content {
             flex: 1 0 auto;
             width: 100%;
         }
         .card {
-            background-color: var(--siget-card-bg);
-            border: 1px solid var(--siget-border);
-            border-radius: 12px;
-            box-shadow: 0 4px 8px -1px rgba(0, 0, 0, 0.25);
+            background-color: var(--ies-card-bg);
+            border: 1px solid var(--ies-border);
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
         }
-        .btn-gold {
-            background-color: var(--siget-gold);
-            color: #1A1A1A;
+        .card-header {
+            background-color: #FFFFFF;
+            border-bottom: 1px solid var(--ies-border);
             font-weight: 700;
+        }
+        .btn-ies {
+            background-color: var(--ies-primary);
+            color: #FFFFFF;
+            font-weight: 600;
             border: none;
             transition: all 0.15s;
         }
-        .btn-gold:hover {
-            background-color: var(--siget-gold-hover);
-            color: #111111;
+        .btn-ies:hover {
+            background-color: var(--ies-primary-dark);
+            color: #FFFFFF;
         }
-        .badge-gold {
-            background-color: rgba(224, 196, 93, 0.15);
-            color: var(--siget-gold);
-            border: 1px solid var(--siget-gold);
+        .btn-ies-secondary {
+            background-color: var(--ies-secondary);
+            color: #FFFFFF;
+            font-weight: 600;
+            border: none;
         }
-        .table {
-            --bs-table-bg: transparent;
-            --bs-table-color: #F8FAFC;
-            --bs-table-border-color: #333338;
-        }
-        .table-hover tbody tr:hover {
-            background-color: #26262B !important;
-        }
-        .hover-gold:hover {
-            color: var(--siget-gold) !important;
+        .btn-ies-secondary:hover {
+            background-color: #206287;
+            color: #FFFFFF;
         }
 
-        /* PIE DE PÁGINA INSTITUCIONAL */
-        .footer-ies {
-            background-color: #0E0E10;
-            border-top: 1px solid var(--siget-border);
-            padding: 1rem 0;
+        /* TABLAS INSTITUCIONALES */
+        .table {
+            --bs-table-bg: transparent;
+            --bs-table-color: var(--ies-text-main);
+            --bs-table-border-color: var(--ies-border);
+        }
+        .table-ies thead {
+            background-color: #F8FAFC;
+            color: var(--ies-primary);
+            border-bottom: 2px solid var(--ies-secondary);
+        }
+        .table-hover tbody tr:hover {
+            background-color: #F1F5F9 !important;
+        }
+
+        /* BADGES SEMÁNTICOS DE ASISTENCIA */
+        .badge-status {
             font-size: 0.8rem;
-            color: #94A3B8;
+            font-weight: 700;
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: 1px solid transparent;
+        }
+        .badge-status-PR {
+            background-color: var(--badge-pr-bg);
+            color: var(--badge-pr-text);
+            border-color: var(--badge-pr-border);
+        }
+        .badge-status-I {
+            background-color: var(--badge-i-bg);
+            color: var(--badge-i-text);
+            border-color: var(--badge-i-border);
+        }
+        .badge-status-LIC {
+            background-color: var(--badge-lic-bg);
+            color: var(--badge-lic-text);
+            border-color: var(--badge-lic-border);
+        }
+        .badge-status-P {
+            background-color: var(--badge-p-bg);
+            color: var(--badge-p-text);
+            border-color: var(--badge-p-border);
+        }
+        .badge-status-LT {
+            background-color: var(--badge-lt-bg);
+            color: var(--badge-lt-text);
+            border-color: var(--badge-lt-border);
+        }
+
+        /* PIE INSTITUCIONAL */
+        .footer-ies {
+            background-color: var(--ies-primary-dark);
+            color: #E2E8F0;
+            border-top: 3px solid var(--ies-secondary);
+            padding: 1.25rem 0;
+            font-size: 0.85rem;
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body>
 
     <!-- BARRA SUPERIOR DE NAVEGACIÓN INSTITUCIONAL (IESETyFP) -->
     <nav class="navbar navbar-expand-xl navbar-dark navbar-ies sticky-top">
         <div class="container-fluid px-lg-4 px-md-3">
             <!-- Identidad Institucional -->
             <a class="navbar-brand navbar-brand-container" href="{% url 'dashboard' %}">
-                <img src="{% static 'img/logo_iesetyfp.jpg' %}" alt="IESETyFP" class="brand-logo">
+                <img src="{% static 'img/logo_iesetyfp.jpg' %}" alt="Logo IESETyFP" class="brand-logo">
                 <div class="d-flex flex-column">
-                    <span class="brand-text-title">SIGET</span>
-                    <span class="brand-text-subtitle">IESETyFP · Nivel Terciario</span>
+                    <span class="brand-title">SIGET</span>
+                    <span class="brand-subtitle">IESETyFP · Nivel Terciario</span>
                 </div>
             </a>
 
             <!-- Botón Colapsable Móvil/Tablet -->
-            <button class="navbar-toggler border-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSigetMenu" aria-controls="navbarSigetMenu" aria-expanded="false" aria-label="Navegación">
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSigetMenu" aria-controls="navbarSigetMenu" aria-expanded="false" aria-label="Navegación">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <!-- Menú Horizontal de Enlaces -->
             <div class="collapse navbar-collapse" id="navbarSigetMenu">
                 <ul class="navbar-nav me-auto mb-2 mb-xl-0 ms-xl-3 gap-1">
-                    <!-- Inicio / Tablero -->
+                    <!-- 1. Inicio -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
                             <i class="bi bi-house-door-fill"></i> Inicio
                         </a>
                     </li>
 
-                    <!-- Asistencia Diaria (Destacado para Bedeles) -->
+                    <!-- 2. Asistencia Diaria (Prioridad Operativa para Bedelía) -->
                     <li class="nav-item">
                         <a class="nav-link nav-link-asistencia {% if request.resolver_match.url_name == 'asistencia_diaria' %}active{% endif %}" href="{% url 'asistencia_diaria' %}">
-                            <i class="bi bi-calendar-check-fill"></i> Asistencia Diaria
+                            <i class="bi bi-calendar-check-fill text-warning"></i> Asistencia Diaria
                         </a>
                     </li>
 
-                    <!-- Cuadros IL-01 / IL-02 -->
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'procesamiento_mensual' %}active{% endif %}" href="{% url 'procesamiento_mensual' %}">
-                            <i class="bi bi-file-earmark-ruled-fill"></i> Cuadros IL-01 / IL-02
-                        </a>
-                    </li>
-
-                    <!-- Docentes y Cátedras (Desplegable) -->
+                    <!-- 3. Personal Docente (Desplegable) -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if 'agente' in request.resolver_match.url_name or 'designacion' in request.resolver_match.url_name %}active{% endif %}" href="#" id="docentesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-people-fill"></i> Docentes & Cátedras
+                        <a class="nav-link dropdown-toggle {% if 'agente' in request.resolver_match.url_name or 'designacion' in request.resolver_match.url_name %}active{% endif %}" href="#" id="personalDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-people-fill"></i> Personal
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="docentesDropdown">
+                        <ul class="dropdown-menu shadow" aria-labelledby="personalDropdown">
                             <li>
                                 <a class="dropdown-item" href="{% url 'agentes_list' %}">
-                                    <i class="bi bi-person-lines-fill text-warning"></i> Padrón Docente
+                                    <i class="bi bi-person-lines-fill text-primary"></i> Padrón Docente
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'designaciones_list' %}">
-                                    <i class="bi bi-journal-bookmark text-info"></i> Cátedras y Horarios
+                                    <i class="bi bi-journal-bookmark-fill text-info"></i> Cátedras y Horarios
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
@@ -242,50 +311,55 @@
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'designacion_create' %}">
-                                    <i class="bi bi-plus-circle-fill text-gold"></i> Asignar Cátedra (Tope 30 hs)
+                                    <i class="bi bi-plus-circle-fill text-primary"></i> Asignar Cátedra (Tope 30 hs)
                                 </a>
                             </li>
                         </ul>
                     </li>
 
-                    <!-- Catálogos & CSV (Desplegable) -->
+                    <!-- 4. Licencias & Cuadros Mensuales (Desplegable) -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if 'carrera' in request.resolver_match.url_name or 'materia' in request.resolver_match.url_name or 'licencia' in request.resolver_match.url_name or request.resolver_match.url_name == 'importar_csv' %}active{% endif %}" href="#" id="catalogosDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-folder-fill"></i> Catálogos & CSV
+                        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name == 'procesamiento_mensual' or 'licencia' in request.resolver_match.url_name %}active{% endif %}" href="#" id="licenciasDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-file-earmark-medical-fill"></i> Licencias & Cuadros
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="catalogosDropdown">
+                        <ul class="dropdown-menu shadow" aria-labelledby="licenciasDropdown">
                             <li>
-                                <a class="dropdown-item" href="{% url 'carreras_list' %}">
-                                    <i class="bi bi-mortarboard-fill text-warning"></i> Carreras y Tecnicaturas
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'materias_list' %}">
-                                    <i class="bi bi-book-fill text-info"></i> Espacios Curriculares
+                                <a class="dropdown-item" href="{% url 'procesamiento_mensual' %}">
+                                    <i class="bi bi-calculator-fill text-primary"></i> Cuadros IL-01 / IL-02 (Mensual)
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'licencias_list' %}">
-                                    <i class="bi bi-card-checklist text-success"></i> Nomenclador Licencias (Hojas 1-6)
+                                    <i class="bi bi-card-checklist text-success"></i> Nomenclador de Licencias (Hojas 1-6)
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
+                                <a class="dropdown-item" href="{% url 'carreras_list' %}">
+                                    <i class="bi bi-mortarboard text-secondary"></i> Carreras y Tecnicaturas
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'materias_list' %}">
+                                    <i class="bi bi-book text-secondary"></i> Espacios Curriculares
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item" href="{% url 'importar_csv' %}">
-                                    <i class="bi bi-file-earmark-spreadsheet-fill text-primary"></i> Carga Masiva CSV
+                                    <i class="bi bi-file-earmark-spreadsheet text-info"></i> Carga Masiva CSV
                                 </a>
                             </li>
                         </ul>
                     </li>
 
-                    <!-- Consultas & Alertas -->
+                    <!-- 5. Consultas & Alertas -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'consultas' %}active{% endif %}" href="{% url 'consultas' %}">
                             <i class="bi bi-search"></i> Consultas & Alertas
                         </a>
                     </li>
 
-                    <!-- Auditoría (Logs) -->
+                    <!-- 6. Auditoría -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'auditoria' %}active{% endif %}" href="{% url 'auditoria' %}">
                             <i class="bi bi-shield-check"></i> Auditoría
@@ -293,21 +367,21 @@
                     </li>
                 </ul>
 
-                <!-- Estado de Sesión y Usuario a la Derecha -->
-                <div class="d-flex align-items-center gap-3 pt-2 pt-xl-0 border-top border-xl-0 border-secondary border-opacity-25">
+                <!-- Estado de Sesión / Usuario (Derecha) -->
+                <div class="d-flex align-items-center gap-3 pt-2 pt-xl-0 border-top border-xl-0 border-light border-opacity-25">
                     <div class="d-flex align-items-center gap-2">
-                        <div class="bg-secondary bg-opacity-25 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
-                            <i class="bi bi-person-fill text-warning"></i>
+                        <div class="bg-white rounded-circle p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 34px; height: 34px;">
+                            <i class="bi bi-person-fill text-primary fs-5"></i>
                         </div>
-                        <div class="d-flex flex-column text-end d-none d-md-flex">
-                            <span class="fw-bold text-white small lh-1">{{ request.user.get_full_name|default:request.user.username }}</span>
-                            <span class="text-secondary" style="font-size: 0.72rem;">Bedelía / Secretaría</span>
+                        <div class="d-flex flex-column text-end text-white d-none d-md-flex">
+                            <span class="fw-bold small lh-1">{{ request.user.get_full_name|default:request.user.username }}</span>
+                            <span class="text-white-50" style="font-size: 0.72rem;">Bedelía / Secretaría</span>
                         </div>
                     </div>
 
                     <form action="{% url 'logout' %}" method="post" class="d-inline mb-0">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 py-1 px-2" title="Cerrar Sesión Segura">
+                        <button type="submit" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1 py-1 px-2" title="Cerrar Sesión Segura">
                             <i class="bi bi-box-arrow-right"></i> <span class="d-none d-sm-inline">Salir</span>
                         </button>
                     </form>
@@ -323,12 +397,12 @@
             {% if messages %}
                 <div class="mb-4">
                     {% for message in messages %}
-                        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show border-0 shadow-sm" role="alert">
-                            {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
-                            {% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
-                            {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
-                            {{ message }}
+                        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show border shadow-sm" role="alert">
+                            {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill text-success me-2"></i>
+                            {% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                            {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill text-warning me-2"></i>
+                            {% else %}<i class="bi bi-info-circle-fill text-info me-2"></i>{% endif %}
+                            <strong>{{ message }}</strong>
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     {% endfor %}
@@ -344,12 +418,12 @@
         <div class="container-fluid px-lg-4 px-md-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <strong>IESETyFP</strong> — Instituto de Educación Superior de Educación Técnica y Formación Profesional
-                <span class="d-none d-md-inline text-secondary"> · Resistencia, Chaco</span>
+                <span class="d-none d-md-inline text-white-50"> · Resistencia, Chaco</span>
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <span>Oficina Técnica: <strong class="text-warning">1452</strong></span>
+            <div class="d-flex align-items-center gap-3 text-white-50 small">
+                <span>Dirección de Liquidaciones: <strong class="text-warning">Oficina 1452</strong></span>
                 <span>Ciclo Lectivo: <strong class="text-white">2026</strong></span>
-                <span class="badge bg-secondary-subtle text-secondary border border-secondary">SIGET Web v2.0</span>
+                <span class="badge bg-light text-dark">SIGET Web v2.0</span>
             </div>
         </div>
     </footer>

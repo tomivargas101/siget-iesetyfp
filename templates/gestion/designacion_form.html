@@ -5,24 +5,26 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h2 class="h3 fw-bold mb-1 text-white">
-                    <i class="bi bi-journal-plus text-warning me-2"></i>{{ titulo }}
-                </h2>
-                <p class="text-secondary mb-0 small">
-                    Asignación horaria semanal. El sistema valida automáticamente que el docente no exceda el tope de <strong>30 horas cátedra semanales</strong>.
-                </p>
+        <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                        <i class="bi bi-journal-plus"></i> {{ titulo }}
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        El sistema valida automáticamente que el docente no exceda el tope de <strong>30 horas cátedra semanales</strong>.
+                    </p>
+                </div>
+                <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Volver a Cátedras
+                </a>
             </div>
-            <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i>Volver a Cátedras
-            </a>
         </div>
 
-        <div class="card shadow">
-            <div class="card-header bg-transparent border-bottom border-secondary">
-                <h5 class="card-title mb-0 fw-bold fs-6 text-white">
-                    <i class="bi bi-calendar-range text-warning me-2"></i>Parámetros de la Asignación
+        <div class="card shadow-sm border-0 bg-white">
+            <div class="card-header py-3 bg-white">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-primary">
+                    <i class="bi bi-calendar-range me-1"></i> Parámetros de la Asignación y Horarios
                 </h5>
             </div>
             <div class="card-body p-4">
@@ -39,14 +41,14 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Docente Asignado *</label>
+                            <label class="form-label text-dark small fw-bold">Docente Asignado *</label>
                             {{ form.agente }}
                             {% if form.agente.errors %}
                                 <div class="text-danger small mt-1">{{ form.agente.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Materia / Asignatura *</label>
+                            <label class="form-label text-dark small fw-bold">Espacio Curricular / Materia *</label>
                             {{ form.materia }}
                             {% if form.materia.errors %}
                                 <div class="text-danger small mt-1">{{ form.materia.errors }}</div>
@@ -56,60 +58,58 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label text-secondary small fw-bold">Día de la Semana *</label>
+                            <label class="form-label text-dark small fw-bold">Día de Cursada *</label>
                             {{ form.dia_semana }}
                             {% if form.dia_semana.errors %}
                                 <div class="text-danger small mt-1">{{ form.dia_semana.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label text-secondary small fw-bold">Horas Cátedra Semanales *</label>
+                            <label class="form-label text-dark small fw-bold">Horas Cátedra ese Día *</label>
                             {{ form.horas_catedra }}
                             {% if form.horas_catedra.errors %}
                                 <div class="text-danger small mt-1">{{ form.horas_catedra.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label text-secondary small fw-bold">Turno</label>
-                            {{ form.turno }}
-                            {% if form.turno.errors %}
-                                <div class="text-danger small mt-1">{{ form.turno.errors }}</div>
+                            <label class="form-label text-dark small fw-bold">Situación de Revista</label>
+                            {{ form.situacion_revista }}
+                            {% if form.situacion_revista.errors %}
+                                <div class="text-danger small mt-1">{{ form.situacion_revista.errors }}</div>
                             {% endif %}
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Horario de Inicio</label>
-                            {{ form.horario_desde }}
-                            <div class="form-text text-secondary small">Formato: HH:MM (ej: 18:20)</div>
-                            {% if form.horario_desde.errors %}
-                                <div class="text-danger small mt-1">{{ form.horario_desde.errors }}</div>
+                            <label class="form-label text-dark small fw-bold">Hora de Inicio (HH:MM)</label>
+                            {{ form.hora_inicio }}
+                            {% if form.hora_inicio.errors %}
+                                <div class="text-danger small mt-1">{{ form.hora_inicio.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Horario de Finalización</label>
-                            {{ form.horario_hasta }}
-                            <div class="form-text text-secondary small">Formato: HH:MM (ej: 20:20)</div>
-                            {% if form.horario_hasta.errors %}
-                                <div class="text-danger small mt-1">{{ form.horario_hasta.errors }}</div>
+                            <label class="form-label text-dark small fw-bold">Hora de Finalización (HH:MM)</label>
+                            {{ form.hora_fin }}
+                            {% if form.hora_fin.errors %}
+                                <div class="text-danger small mt-1">{{ form.hora_fin.errors }}</div>
                             {% endif %}
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Vigencia Desde (RN-09)</label>
+                            <label class="form-label text-dark small fw-bold">Vigencia Desde (RN-09)</label>
                             {{ form.vigencia_desde }}
-                            <div class="form-text text-secondary small">Predeterminado: "SIN INICIO" o fecha formal.</div>
+                            <div class="form-text small">Predeterminado: "SIN INICIO" o fecha formal.</div>
                             {% if form.vigencia_desde.errors %}
                                 <div class="text-danger small mt-1">{{ form.vigencia_desde.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Vigencia Hasta (RN-09)</label>
+                            <label class="form-label text-dark small fw-bold">Vigencia Hasta (RN-09)</label>
                             {{ form.vigencia_hasta }}
-                            <div class="form-text text-secondary small">Predeterminado: "SIN TERMINO" o fecha formal de cese.</div>
+                            <div class="form-text small">Predeterminado: "SIN TERMINO" o fecha formal de cese.</div>
                             {% if form.vigencia_hasta.errors %}
                                 <div class="text-danger small mt-1">{{ form.vigencia_hasta.errors }}</div>
                             {% endif %}
@@ -119,19 +119,17 @@
                     <div class="mb-3">
                         <div class="form-check form-switch">
                             {{ form.activo }}
-                            <label class="form-check-label text-white small" for="{{ form.activo.id_for_label }}">
-                                Asignación Activa en Grilla Actual
+                            <label class="form-check-label text-dark small" for="{{ form.activo.id_for_label }}">
+                                Asignación Activa en Grilla Semanal
                             </label>
                         </div>
                     </div>
 
-                    <hr class="border-secondary my-4">
+                    <hr class="my-4">
 
                     <div class="d-flex justify-content-end gap-2">
-                        <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary">
-                            Cancelar
-                        </a>
-                        <button type="submit" class="btn btn-gold px-4">
+                        <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-ies px-4">
                             <i class="bi bi-save2-fill me-1"></i> Guardar Asignación
                         </button>
                     </div>

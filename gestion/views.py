@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Count, Q
 from datetime import date, datetime, timedelta
 
@@ -79,28 +80,100 @@ def asistencia_diaria_view(request):
     feriado_obj = Feriado.objects.filter(fecha=fecha_sel).first()
 
     if request.method == "POST":
+        accion = request.POST.get("accion")
         agente_id = request.POST.get("agente_id")
-        nuevo_estado = request.POST.get("estado")
         agente = get_object_or_404(Agente, pk=agente_id)
 
-        nov, created = NovedadAsistencia.objects.get_or_create(
-            agente=agente,
-            fecha=fecha_sel,
-            defaults={"estado": nuevo_estado, "registrado_por": request.user}
-        )
-        if not created:
-            nov.estado = nuevo_estado
-            nov.registrado_por = request.user
-            nov.save()
+        if accion == "justificar_modal" or request.POST.get("formulario_numero"):
+            form_num = request.POST.get("formulario_numero", "").strip()
+            estado = request.POST.get("estado", "LIC")
+            tipo_lic_id = request.POST.get("tipo_licencia_id")
+            suplente_id = request.POST.get("suplente_id")
+            fecha_desde_str = request.POST.get("fecha_desde")
+            fecha_hasta_str = request.POST.get("fecha_hasta")
+            obs = request.POST.get("observaciones", "").strip()
+            adjunto = request.FILES.get("adjunto_certificado")
 
-        registrar_auditoria(
-            usuario=request.user,
-            accion="MARCACION_ASISTENCIA_DIARIA",
-            detalles=f"Fecha: {fecha_sel} | Agente: {agente.nombre_completo} | Estado: {nuevo_estado}",
-            ip=request.META.get("REMOTE_ADDR")
-        )
-        messages.success(request, f"Asistencia actualizada para {agente.nombre_completo}: {nov.get_estado_display()}")
-        return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
+            try:
+                fecha_d = datetime.strptime(fecha_desde_str, "%Y-%m-%d").date() if fecha_desde_str else fecha_sel
+            except ValueError:
+                fecha_d = fecha_sel
+
+            try:
+                fecha_h = datetime.strptime(fecha_hasta_str, "%Y-%m-%d").date() if fecha_hasta_str else fecha_d
+            except ValueError:
+                fecha_h = fecha_d
+
+            if fecha_d > fecha_h:
+                messages.error(request, "La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
+                return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
+
+            tipo_lic = TipoLicencia.objects.filter(pk=tipo_lic_id).first() if tipo_lic_id else None
+
+            suplente = None
+            if suplente_id:
+                try:
+                    suplente_id_int = int(suplente_id)
+                    if suplente_id_int == agente.id:
+                        messages.error(request, f"Incompatibilidad detectada: El docente titular {agente.nombre_completo} no puede seleccionarse como su propio suplente.")
+                        return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
+                    suplente = Agente.objects.filter(pk=suplente_id_int).first()
+                except ValueError:
+                    suplente = None
+
+            dias_procesados = 0
+            with transaction.atomic():
+                cur = fecha_d
+                while cur <= fecha_h:
+                    nov, _ = NovedadAsistencia.objects.get_or_create(
+                        agente=agente,
+                        fecha=cur,
+                        defaults={"estado": estado, "registrado_por": request.user}
+                    )
+                    nov.estado = estado
+                    nov.formulario_numero = form_num
+                    nov.tipo_licencia = tipo_lic
+                    nov.suplente = suplente
+                    if obs:
+                        nov.observaciones = obs
+                    if adjunto:
+                        nov.adjunto_certificado = adjunto
+                    nov.registrado_por = request.user
+                    nov.save()
+                    dias_procesados += 1
+                    cur += timedelta(days=1)
+
+                registrar_auditoria(
+                    usuario=request.user,
+                    accion="JUSTIFICACION_FORMULARIO_MODAL",
+                    detalles=f"Formulario {form_num} cargado para {agente.nombre_completo} ({fecha_d} al {fecha_h}). Estado: {estado} | Lic: {tipo_lic.codigo if tipo_lic else 'S/C'} | Suplente: {suplente.nombre_completo if suplente else 'Ninguno'}.",
+                    ip=request.META.get("REMOTE_ADDR")
+                )
+
+            messages.success(request, f"¡Formulario {form_num} registrado con éxito para {agente.nombre_completo} ({dias_procesados} día/s registrados del {fecha_d.strftime('%d/%m/%Y')} al {fecha_h.strftime('%d/%m/%Y')})!")
+            return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
+
+        else:
+            # Marcación rápida de 1 clic
+            nuevo_estado = request.POST.get("estado", "PR")
+            nov, created = NovedadAsistencia.objects.get_or_create(
+                agente=agente,
+                fecha=fecha_sel,
+                defaults={"estado": nuevo_estado, "registrado_por": request.user}
+            )
+            if not created:
+                nov.estado = nuevo_estado
+                nov.registrado_por = request.user
+                nov.save()
+
+            registrar_auditoria(
+                usuario=request.user,
+                accion="MARCACION_ASISTENCIA_DIARIA",
+                detalles=f"Fecha: {fecha_sel} | Agente: {agente.nombre_completo} | Estado: {nuevo_estado}",
+                ip=request.META.get("REMOTE_ADDR")
+            )
+            messages.success(request, f"Asistencia actualizada para {agente.nombre_completo}: {nov.get_estado_display()}")
+            return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
 
     nombre_dia = DIAS_MAP.get(fecha_sel.weekday(), "")
     agentes = Agente.objects.filter(activo=True).prefetch_related("designaciones", "designaciones__materia").order_by("apellido", "nombre")
@@ -122,11 +195,24 @@ def asistencia_diaria_view(request):
             "horas_hoy": total_hs_hoy,
         })
 
+    resumen_dia = {
+        "total_agentes": agentes.count(),
+        "presentes": sum(1 for f in filas if f["estado"] in ["PR", "Presente"]),
+        "inasistencias": sum(1 for f in filas if f["estado"] == "I"),
+        "licencias": sum(1 for f in filas if f["estado"] in ["LIC", "LT"]),
+        "permisos": sum(1 for f in filas if f["estado"] == "P"),
+    }
+    tipos_licencia = TipoLicencia.objects.filter(activo=True).order_by("hoja", "articulo")
+    suplentes_disponibles = agentes
+
     context = {
         "fecha_sel": fecha_sel,
         "nombre_dia": nombre_dia,
         "feriado_obj": feriado_obj,
         "filas": filas,
+        "resumen_dia": resumen_dia,
+        "tipos_licencia": tipos_licencia,
+        "suplentes_disponibles": suplentes_disponibles,
         "fecha_ayer": fecha_sel - timedelta(days=1),
         "fecha_manana": fecha_sel + timedelta(days=1),
     }

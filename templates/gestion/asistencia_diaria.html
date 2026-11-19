@@ -3,194 +3,253 @@
 {% block title %}Asistencia Diaria - {{ fecha_sel|date:"d/m/Y" }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div>
-        <h2 class="h3 fw-bold mb-1 text-white">
-            <i class="bi bi-calendar3 text-warning me-2"></i>Control de Asistencia Diaria
-        </h2>
-        <p class="text-secondary mb-0 small">
-            Día: <strong class="text-warning text-uppercase">{{ nombre_dia }}</strong> | Fecha: <strong>{{ fecha_sel|date:"d/m/Y" }}</strong>
-        </p>
-    </div>
-    
-    <!-- NAVEGADOR DE FECHAS -->
-    <div class="d-flex align-items-center gap-2">
-        <a href="?fecha={{ fecha_ayer|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm" title="Día anterior">
-            <i class="bi bi-chevron-left"></i>
-        </a>
-        <form method="GET" class="d-flex align-items-center gap-2">
-            <input type="date" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}" class="form-control form-control-sm bg-dark text-white border-secondary" onchange="this.form.submit()">
-        </form>
-        <a href="?fecha={{ fecha_manana|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm" title="Día siguiente">
-            <i class="bi bi-chevron-right"></i>
-        </a>
-        <a href="?fecha=" class="btn btn-outline-warning btn-sm">Hoy</a>
+<!-- ENCABEZADO Y SELECTOR DE FECHA -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-calendar3"></i> Control Diario de Asistencia Docente
+            </h2>
+            <p class="text-muted mb-0 small">
+                Parte oficial de presentismo y novedades por cátedra · Período activo: <strong class="text-dark">{{ fecha_sel|date:"F Y"|capfirst }}</strong>
+            </p>
+        </div>
+
+        <!-- SELECTOR DE FECHA DINÁMICO -->
+        <div class="d-flex align-items-center gap-2 bg-light p-2 rounded-3 border">
+            <a href="?fecha={{ fecha_ayer|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary" title="Día Anterior">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <form method="GET" class="d-inline mb-0">
+                <input type="date" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}" class="form-control form-control-sm fw-bold border-secondary text-primary" onchange="this.form.submit()">
+            </form>
+            <a href="?fecha={{ fecha_manana|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary" title="Día Siguiente">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="?fecha=" class="btn btn-sm btn-ies">Hoy</a>
+            <span class="badge bg-primary text-white text-uppercase px-2 py-1 ms-1 fw-bold">
+                {{ nombre_dia }}
+            </span>
+        </div>
     </div>
 </div>
 
-<!-- BANNER DE FERIADO O DÍA NO LABORABLE (RF-10) -->
+<!-- BANNER INFORMATIVO DE FERIADO / DÍA INHÁBIL (RF-10) -->
 {% if feriado_obj %}
-<div class="alert alert-warning border-warning d-flex align-items-center gap-3 mb-4 shadow" role="alert">
+<div class="alert alert-warning border-warning d-flex align-items-center gap-3 mb-4 shadow-sm" role="alert">
     <i class="bi bi-calendar2-heart-fill fs-2 text-warning"></i>
     <div>
-        <h5 class="alert-heading fw-bold mb-1">¡Día No Laborable / Feriado Institucional!</h5>
+        <h5 class="alert-heading fw-bold mb-1">Indicador Institucional: {{ feriado_obj.descripcion }}</h5>
         <p class="mb-0 small">
-            <strong>{{ feriado_obj.descripcion }}</strong> (Categoría: <span class="badge bg-dark text-warning">{{ feriado_obj.tipo }}</span>).
-            No se deben computar inasistencias injustificadas para este día conforme a la reglamentación.
+            Día calificado como <strong>{{ feriado_obj.get_tipo_display }}</strong> en el Calendario Académico 2026. 
+            <span class="text-dark fw-semibold">Nota normativa (RF-10):</span> Este indicador es visual e informativo y no altera automáticamente la carga horaria ni el cómputo de novedades sin el respaldo administrativo correspondiente.
         </p>
     </div>
 </div>
 {% endif %}
 
-<!-- TABLA DE DOCENTES Y ASISTENCIA -->
-<div class="card shadow">
-    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary-subtle text-white">Total: {{ filas|length }} docentes</span>
-            <span class="text-secondary small">Cátedras programadas para este día:</span>
-        </div>
-        <div class="d-flex align-items-center gap-2 small">
-            <span class="badge bg-success">PR = Presente</span>
-            <span class="badge bg-danger">I = Injustificada</span>
-            <span class="badge bg-warning text-dark">LIC = Licencia</span>
-            <span class="badge bg-info text-dark">P = Permiso</span>
-            <span class="badge bg-primary">LT = Lic. Título</span>
+<!-- RESUMEN OPERATIVO DEL DÍA (CHIPS) -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-primary">
+            <span class="text-muted small fw-semibold text-uppercase">Padrón Activo</span>
+            <h3 class="fw-bold my-1 text-primary">{{ resumen_dia.total_agentes }}</h3>
+            <small class="text-muted">Docentes en sistema</small>
         </div>
     </div>
-    
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-success">
+            <span class="text-muted small fw-semibold text-uppercase">Presentes</span>
+            <h3 class="fw-bold my-1 text-success">{{ resumen_dia.presentes }}</h3>
+            <small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>En cátedra / sin novedad</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-danger">
+            <span class="text-muted small fw-semibold text-uppercase">Inasistencias</span>
+            <h3 class="fw-bold my-1 text-danger">{{ resumen_dia.inasistencias }}</h3>
+            <small class="text-danger fw-semibold"><i class="bi bi-x-octagon me-1"></i>Afectan haberes (IL-01)</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-warning">
+            <span class="text-muted small fw-semibold text-uppercase">Licencias / Permisos</span>
+            <h3 class="fw-bold my-1 text-warning">{{ resumen_dia.licencias|add:resumen_dia.permisos }}</h3>
+            <small class="text-warning fw-semibold"><i class="bi bi-file-medical me-1"></i>Con formulario oficial</small>
+        </div>
+    </div>
+</div>
+
+<!-- BARRA DE BÚSQUEDA Y LEYENDA DE ESTADOS -->
+<div class="card p-3 mb-3 shadow-sm border-0">
+    <div class="row g-2 align-items-center">
+        <!-- Buscador instantáneo JS -->
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" id="buscadorDocente" class="form-control border-start-0" placeholder="Filtrar por apellido, nombre o DNI en tiempo real..." onkeyup="filtrarTablaDocentes()">
+            </div>
+        </div>
+        <!-- Leyenda de Estados Semánticos -->
+        <div class="col-md-7 d-flex justify-content-md-end align-items-center gap-2 flex-wrap small">
+            <span class="text-muted fw-semibold">Leyenda:</span>
+            <span class="badge-status badge-status-PR">PR = Presente</span>
+            <span class="badge-status badge-status-I">I = Inasistencia</span>
+            <span class="badge-status badge-status-LIC">LIC = Lic. Médica</span>
+            <span class="badge-status badge-status-P">P = Permiso</span>
+            <span class="badge-status badge-status-LT">LT = Largo Tratamiento</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABLA PRINCIPAL DE ASISTENCIA DIARIA -->
+<div class="card shadow-sm border-0 overflow-hidden">
     <div class="table-responsive">
-        <table class="table table-hover table-striped table-bordered align-middle mb-0">
-            <thead class="table-dark text-secondary small text-uppercase">
+        <table class="table table-hover table-ies align-middle mb-0" id="tablaAsistencia">
+            <thead class="text-uppercase small fw-bold">
                 <tr>
-                    <th style="width: 50px;" class="text-center">#</th>
+                    <th style="width: 40px;" class="text-center">#</th>
                     <th>Docente / Legajo</th>
-                    <th>DNI</th>
+                    <th>DNI (Texto)</th>
                     <th>Cátedras del Día ({{ nombre_dia }})</th>
                     <th class="text-center" style="width: 90px;">Hs Hoy</th>
-                    <th class="text-center" style="width: 130px;">Estado Actual</th>
-                    <th class="text-center" style="width: 260px;">Acción Rápida (1 Clic)</th>
-                    <th class="text-center" style="width: 140px;">Formulario Físico</th>
+                    <th class="text-center" style="width: 130px;">Estado</th>
+                    <th class="text-center" style="width: 250px;">Acción Rápida (1 Clic)</th>
+                    <th class="text-center" style="width: 140px;">Justificación</th>
                 </tr>
             </thead>
             <tbody>
                 {% for fila in filas %}
-                <tr class="{% if not fila.tiene_catedra_hoy %}opacity-75{% endif %}">
-                    <td class="text-center text-secondary small">{{ forloop.counter }}</td>
+                <tr class="fila-docente {% if not fila.tiene_catedra_hoy %}bg-light bg-opacity-50{% endif %}"
+                    data-nombre="{{ fila.agente.nombre_completo|lower }}"
+                    data-dni="{{ fila.agente.dni }}">
+                    <td class="text-center text-muted small">{{ forloop.counter }}</td>
                     <td>
-                        <div class="fw-bold text-white">{{ fila.agente.apellido }}, {{ fila.agente.nombre }}</div>
-                        <small class="text-secondary">Legajo: {{ fila.agente.legajo|default:"S/L" }} | {{ fila.agente.condicion_revista }}</small>
+                        <a href="{% url 'agente_detail' pk=fila.agente.pk %}" class="fw-bold text-dark text-decoration-none">
+                            {{ fila.agente.apellido }}, {{ fila.agente.nombre }}
+                        </a>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            Legajo: <strong class="text-secondary">{{ fila.agente.legajo|default:"S/L" }}</strong> | 
+                            Revista: <span class="badge bg-secondary-subtle text-dark border">{{ fila.agente.situacion_revista_defecto }}</span>
+                        </div>
                     </td>
-                    <td class="font-monospace text-warning small">{{ fila.agente.dni }}</td>
+                    <td class="font-monospace text-primary fw-bold">{{ fila.agente.dni }}</td>
                     <td>
                         {% if fila.tiene_catedra_hoy %}
                             <div class="d-flex flex-wrap gap-1">
                                 {% for d in fila.desigs_hoy %}
-                                <span class="badge bg-secondary border border-secondary text-light small" title="{{ d.materia.carrera.codigo }}">
-                                    {{ d.materia.nombre }} ({{ d.horas_catedra }}hs)
+                                <span class="badge bg-light text-dark border p-1 small" title="{{ d.materia.carrera.nombre }}">
+                                    <strong class="text-primary">{{ d.materia.nombre }}</strong> ({{ d.horas_catedra }}hs · {{ d.materia.carrera.codigo }})
                                 </span>
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <span class="text-secondary small fst-italic">Sin cátedras asignadas este día</span>
+                            <span class="text-muted small fst-italic">Sin cátedras asignadas este día</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
                         {% if fila.horas_hoy > 0 %}
-                        <span class="badge badge-gold fw-bold">{{ fila.horas_hoy }} hs</span>
+                            <span class="badge bg-primary text-white fw-bold">{{ fila.horas_hoy }} hs</span>
                         {% else %}
-                        <span class="text-secondary small">0 hs</span>
+                            <span class="text-muted small">0 hs</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
                         {% if fila.estado == 'PR' or fila.estado == 'Presente' %}
-                            <span class="badge bg-success px-3 py-2"><i class="bi bi-check-lg me-1"></i>Presente</span>
+                            <span class="badge-status badge-status-PR"><i class="bi bi-check-circle-fill"></i> Presente</span>
                         {% elif fila.estado == 'I' %}
-                            <span class="badge bg-danger px-3 py-2"><i class="bi bi-x-octagon me-1"></i>Inasistencia</span>
+                            <span class="badge-status badge-status-I"><i class="bi bi-x-octagon-fill"></i> Inasistencia</span>
                         {% elif fila.estado == 'LIC' %}
-                            <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-file-medical me-1"></i>Licencia</span>
+                            <span class="badge-status badge-status-LIC"><i class="bi bi-file-medical-fill"></i> Lic. Médica</span>
                         {% elif fila.estado == 'P' %}
-                            <span class="badge bg-info text-dark px-3 py-2"><i class="bi bi-clock me-1"></i>Permiso</span>
+                            <span class="badge-status badge-status-P"><i class="bi bi-clock-fill"></i> Permiso</span>
                         {% elif fila.estado == 'LT' %}
-                            <span class="badge bg-primary px-3 py-2"><i class="bi bi-mortarboard me-1"></i>Lic. Título</span>
+                            <span class="badge-status badge-status-LT"><i class="bi bi-hospital-fill"></i> Largo Trat.</span>
                         {% else %}
-                            <span class="badge bg-secondary px-3 py-2">{{ fila.estado }}</span>
+                            <span class="badge bg-secondary">{{ fila.estado }}</span>
                         {% endif %}
 
                         {% if fila.novedad and fila.novedad.formulario_numero %}
                             <div class="mt-1">
-                                <span class="badge bg-dark border border-secondary small text-warning" title="Formulario Oficial">
+                                <span class="badge bg-white text-primary border border-primary small" title="Formulario Oficial Registrado">
                                     <i class="bi bi-receipt"></i> F-{{ fila.novedad.formulario_numero }}
                                 </span>
                             </div>
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        <!-- BOTONERA DE 1 CLIC CON FORMULARIO POST -->
-                        <div class="btn-group btn-group-sm" role="group">
-                            <!-- Botón Presente -->
+                        <!-- BOTONERA DE 1 CLIC (POST INMEDIATO) -->
+                        <div class="btn-group btn-group-sm shadow-sm" role="group">
                             <form method="POST" class="d-inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
                                 <input type="hidden" name="estado" value="PR">
-                                <button type="submit" class="btn btn-outline-success {% if fila.estado == 'PR' or fila.estado == 'Presente' %}active{% endif %}" title="Marcar Presente">
+                                <button type="submit" class="btn btn-outline-success {% if fila.estado == 'PR' or fila.estado == 'Presente' %}active fw-bold{% endif %}" title="Presente">
                                     PR
                                 </button>
                             </form>
-                            <!-- Botón Injustificada -->
                             <form method="POST" class="d-inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
                                 <input type="hidden" name="estado" value="I">
-                                <button type="submit" class="btn btn-outline-danger {% if fila.estado == 'I' %}active{% endif %}" title="Inasistencia Injustificada">
+                                <button type="submit" class="btn btn-outline-danger {% if fila.estado == 'I' %}active fw-bold{% endif %}" title="Inasistencia Injustificada">
                                     I
                                 </button>
                             </form>
-                            <!-- Botón Permiso -->
                             <form method="POST" class="d-inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
                                 <input type="hidden" name="estado" value="P">
-                                <button type="submit" class="btn btn-outline-info {% if fila.estado == 'P' %}active{% endif %}" title="Permiso de Salida / Trámite">
+                                <button type="submit" class="btn btn-outline-info {% if fila.estado == 'P' %}active fw-bold{% endif %}" title="Permiso de Salida">
                                     P
                                 </button>
                             </form>
-                            <!-- Botón Licencia Médica -->
                             <form method="POST" class="d-inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
                                 <input type="hidden" name="estado" value="LIC">
-                                <button type="submit" class="btn btn-outline-warning {% if fila.estado == 'LIC' %}active{% endif %}" title="Licencia Médica o Personal">
+                                <button type="submit" class="btn btn-outline-warning {% if fila.estado == 'LIC' %}active fw-bold{% endif %}" title="Licencia Médica">
                                     LIC
                                 </button>
                             </form>
-                            <!-- Botón Licencia Título -->
                             <form method="POST" class="d-inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
                                 <input type="hidden" name="estado" value="LT">
-                                <button type="submit" class="btn btn-outline-primary {% if fila.estado == 'LT' %}active{% endif %}" title="Licencia Mesa de Examen / Título">
+                                <button type="submit" class="btn btn-outline-primary {% if fila.estado == 'LT' %}active fw-bold{% endif %}" title="Largo Tratamiento">
                                     LT
                                 </button>
                             </form>
                         </div>
                     </td>
                     <td class="text-center">
-                        <a href="{% url 'recepcion_formulario' agente_id=fila.agente.id fecha=fecha_sel|date:'Y-m-d' %}" 
-                           class="btn btn-sm btn-outline-light d-flex align-items-center justify-content-center gap-1"
-                           title="Cargar número de formulario, artículo y adjuntar certificado">
-                            <i class="bi bi-file-earmark-text text-warning"></i>
-                            {% if fila.novedad and fila.novedad.formulario_numero %}
-                                Editar
-                            {% else %}
-                                Formulario
-                            {% endif %}
-                        </a>
+                        <!-- BOTÓN MODAL REUTILIZABLE DE JUSTIFICACIÓN -->
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#modalJustificarFormulario"
+                                data-agente-id="{{ fila.agente.id }}"
+                                data-agente-nombre="{{ fila.agente.nombre_completo }}"
+                                data-agente-dni="{{ fila.agente.dni }}"
+                                data-agente-legajo="{{ fila.agente.legajo|default:'S/L' }}"
+                                data-agente-revista="{{ fila.agente.situacion_revista_defecto }}"
+                                data-fecha="{{ fecha_sel|date:'Y-m-d' }}"
+                                data-estado="{% if fila.estado in 'LIC,LT,P' %}{{ fila.estado }}{% else %}LIC{% endif %}"
+                                data-formulario="{{ fila.novedad.formulario_numero|default:'' }}"
+                                data-tipo-licencia="{{ fila.novedad.tipo_licencia_id|default:'' }}"
+                                data-suplente="{{ fila.novedad.suplente_id|default:'' }}"
+                                data-observaciones="{{ fila.novedad.observaciones|default:'' }}"
+                                onclick="cargarDatosModal(this)"
+                                title="Cargar número de formulario físico, certificado y suplencia">
+                            <i class="bi bi-file-earmark-medical"></i>
+                            <span>{% if fila.novedad and fila.novedad.formulario_numero %}Editar F.{% else %}Justificar{% endif %}</span>
+                        </button>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center py-4 text-secondary">
-                        No hay docentes registrados en el sistema. Puedes agregarlos o importar un CSV.
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No se encontraron docentes registrados en la planta institucional.
                     </td>
                 </tr>
                 {% endfor %}
@@ -198,4 +257,278 @@
         </table>
     </div>
 </div>
+
+<!-- ========================================================================= -->
+<!-- MODAL ÚNICO REUTILIZABLE: JUSTIFICAR / CARGAR FORMULARIO FÍSICO            -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalJustificarFormulario" tabindex="-1" aria-labelledby="modalJustificarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold fs-6 d-flex align-items-center gap-2" id="modalJustificarLabel">
+                    <i class="bi bi-file-earmark-medical-fill text-warning"></i>
+                    Recepción de Formulario Físico y Justificación Oficial
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" id="formModalJustificar">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="justificar_modal">
+                <input type="hidden" name="agente_id" id="modalAgenteId">
+
+                <div class="modal-body p-4">
+                    <!-- BANNER FIJO DEL DOCENTE TITULAR (CONTEXTO OBLIGATORIO) -->
+                    <div class="p-3 mb-3 rounded-3 bg-light border border-secondary border-opacity-25">
+                        <div class="row align-items-center">
+                            <div class="col-sm-8">
+                                <span class="badge bg-primary text-white mb-1">Docente Titular Afectado</span>
+                                <h5 class="fw-bold text-dark mb-0" id="modalTitularNombre">--</h5>
+                                <div class="text-muted small mt-1">
+                                    DNI: <strong class="text-primary font-monospace" id="modalTitularDni">--</strong> · 
+                                    Legajo: <strong class="text-dark" id="modalTitularLegajo">--</strong> · 
+                                    Revista: <span class="badge bg-secondary-subtle text-dark border" id="modalTitularRevista">--</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 text-sm-end mt-2 mt-sm-0">
+                                <span class="badge bg-warning text-dark border p-2">
+                                    <i class="bi bi-building me-1"></i>Oficina 1452
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CAMPOS DEL FORMULARIO -->
+                    <div class="row g-3 mb-3">
+                        <!-- Tipo de Novedad -->
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Tipo de Novedad / Justificación *</label>
+                            <select name="estado" id="modalEstado" class="form-select" required>
+                                <option value="LIC">Licencia Médica o Personal (LIC)</option>
+                                <option value="LT">Largo Tratamiento / ART (LT)</option>
+                                <option value="P">Permiso Particular o Asunto Propio (P)</option>
+                                <option value="I">Inasistencia Injustificada (I)</option>
+                            </select>
+                        </div>
+
+                        <!-- N° de Formulario Físico -->
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">N° de Formulario Físico Recepcionado *</label>
+                            <input type="text" name="formulario_numero" id="modalFormularioNumero" class="form-control" placeholder="Ej: F-1042/26 o N° de talón oficial" required>
+                            <div class="form-text small">Número impreso en el talón entregado en Bedelía.</div>
+                        </div>
+                    </div>
+
+                    <!-- Rango de Fechas Afectadas (Desde / Hasta) -->
+                    <div class="row g-3 mb-3 p-3 bg-light rounded border">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark"><i class="bi bi-calendar-event me-1"></i>Fecha Desde *</label>
+                            <input type="date" name="fecha_desde" id="modalFechaDesde" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark"><i class="bi bi-calendar-check me-1"></i>Fecha Hasta *</label>
+                            <input type="date" name="fecha_hasta" id="modalFechaHasta" class="form-control" required>
+                            <div class="form-text small">Si es un solo día, mantener la misma fecha en ambos campos.</div>
+                        </div>
+                    </div>
+
+                    <!-- Artículo / Tipo de Licencia Normativo -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-dark">Artículo Normativo y Causal (Hojas 1 a 6) *</label>
+                        <select name="tipo_licencia_id" id="modalTipoLicencia" class="form-select" onchange="actualizarInfoLicencia()" required>
+                            <option value="">-- Seleccionar Artículo Reglamentario --</option>
+                            {% for lic in tipos_licencia %}
+                                <option value="{{ lic.id }}" 
+                                        data-codigo="{{ lic.codigo }}"
+                                        data-articulo="{{ lic.articulo }}"
+                                        data-cuadro="{{ lic.cuadro_destino }}"
+                                        data-hoja="{{ lic.hoja }}"
+                                        data-nombre="{{ lic.nombre }}">
+                                    [{{ lic.codigo }}] {{ lic.articulo }} - {{ lic.nombre }} ({{ lic.cuadro_destino }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <!-- Ayuda visual con el cuadro ministerial de destino -->
+                        <div class="p-2 mt-2 rounded bg-light border text-muted small d-flex align-items-center justify-content-between" id="modalInfoLicencia">
+                            <span><i class="bi bi-info-circle text-primary me-1"></i>Seleccione un artículo para verificar su imputación.</span>
+                            <span class="badge bg-secondary" id="modalBadgeCuadro">Cuadro Ministerial</span>
+                        </div>
+                    </div>
+
+                    <!-- Docente Suplente (Validación Anti-Auto-Suplencia) -->
+                    <div class="mb-3 p-3 rounded-3 bg-light border border-primary border-opacity-25">
+                        <label class="form-label small fw-bold text-primary d-flex align-items-center gap-1">
+                            <i class="bi bi-person-badge-fill"></i> Docente Suplente Asignado (Resolución Ministerial)
+                        </label>
+                        <select name="suplente_id" id="modalSuplente" class="form-select">
+                            <option value="">-- Sin Suplente Designado / Cátedra sin cobertura --</option>
+                            {% for sup in suplentes_disponibles %}
+                                <option value="{{ sup.id }}">{{ sup.nombre_completo }} (DNI: {{ sup.dni }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-danger small mt-1 d-none" id="alertaAutoSuplencia">
+                            <i class="bi bi-shield-x me-1"></i><strong>Incompatibilidad:</strong> Un docente no puede ser registrado como su propio suplente.
+                        </div>
+                    </div>
+
+                    <!-- Certificado Digital y Observaciones -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Adjunto Digital (PDF / Imagen)</label>
+                            <input type="file" name="adjunto_certificado" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                            <div class="form-text small">Constancia médica escaneada o foto del formulario.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Observaciones Institucionales</label>
+                            <textarea name="observaciones" id="modalObservaciones" class="form-control" rows="2" placeholder="Diagnóstico o detalle administrativo..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ies px-4" id="btnGuardarModal">
+                        <i class="bi bi-check-circle-fill me-1"></i> Guardar y Asignar Formulario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS DE CLIENTE: BÚSQUEDA INSTANTÁNEA Y CARGA DE MODAL -->
+<script>
+// Filtrado instantáneo en la tabla sin latencia
+function filtrarTablaDocentes() {
+    const input = document.getElementById("buscadorDocente").value.toLowerCase().trim();
+    const filas = document.querySelectorAll(".fila-docente");
+    
+    filas.forEach(fila => {
+        const nombre = fila.getAttribute("data-nombre") || "";
+        const dni = fila.getAttribute("data-dni") || "";
+        if (nombre.includes(input) || dni.includes(input)) {
+            fila.style.display = "";
+        } else {
+            fila.style.display = "none";
+        }
+    });
+}
+
+// Carga dinámica del modal reutilizable al hacer clic en cualquier docente
+function cargarDatosModal(btn) {
+    const agenteId = btn.getAttribute("data-agente-id");
+    const nombre = btn.getAttribute("data-agente-nombre");
+    const dni = btn.getAttribute("data-agente-dni");
+    const legajo = btn.getAttribute("data-agente-legajo");
+    const revista = btn.getAttribute("data-agente-revista");
+    const fecha = btn.getAttribute("data-fecha");
+    const estado = btn.getAttribute("data-estado");
+    const formNum = btn.getAttribute("data-formulario");
+    const tipoLicId = btn.getAttribute("data-tipo-licencia");
+    const suplenteId = btn.getAttribute("data-suplente");
+    const obs = btn.getAttribute("data-observaciones");
+
+    document.getElementById("modalAgenteId").value = agenteId;
+    document.getElementById("modalTitularNombre").textContent = nombre;
+    document.getElementById("modalTitularDni").textContent = dni;
+    document.getElementById("modalTitularLegajo").textContent = legajo;
+    document.getElementById("modalTitularRevista").textContent = revista;
+
+    document.getElementById("modalEstado").value = estado || "LIC";
+    document.getElementById("modalFormularioNumero").value = formNum || "";
+    document.getElementById("modalFechaDesde").value = fecha;
+    document.getElementById("modalFechaHasta").value = fecha;
+    document.getElementById("modalObservaciones").value = obs || "";
+
+    if (tipoLicId) {
+        document.getElementById("modalTipoLicencia").value = tipoLicId;
+    } else {
+        document.getElementById("modalTipoLicencia").selectedIndex = 0;
+    }
+    actualizarInfoLicencia();
+
+    // Configurar selector de suplente y deshabilitar al propio titular
+    const suplenteSelect = document.getElementById("modalSuplente");
+    for (let i = 0; i < suplenteSelect.options.length; i++) {
+        const opt = suplenteSelect.options[i];
+        if (opt.value === agenteId) {
+            opt.disabled = true;
+            opt.textContent = opt.textContent.replace(" [TITULAR INCOMPATIBLE]", "") + " [TITULAR INCOMPATIBLE]";
+        } else {
+            opt.disabled = false;
+            opt.textContent = opt.textContent.replace(" [TITULAR INCOMPATIBLE]", "");
+        }
+    }
+
+    if (suplenteId && suplenteId !== agenteId) {
+        suplenteSelect.value = suplenteId;
+    } else {
+        suplenteSelect.value = "";
+    }
+    validarAutoSuplencia();
+}
+
+// Actualiza indicador visual de destino según la licencia seleccionada (IL-01 vs IL-02)
+function actualizarInfoLicencia() {
+    const select = document.getElementById("modalTipoLicencia");
+    const badge = document.getElementById("modalBadgeCuadro");
+    const infoText = document.getElementById("modalInfoLicencia").querySelector("span");
+
+    const selectedOpt = select.options[select.selectedIndex];
+    if (selectedOpt && selectedOpt.value) {
+        const cuadro = selectedOpt.getAttribute("data-cuadro");
+        const articulo = selectedOpt.getAttribute("data-articulo");
+        const codigo = selectedOpt.getAttribute("data-codigo");
+        const hoja = selectedOpt.getAttribute("data-hoja");
+
+        if (cuadro === "IL-01") {
+            badge.className = "badge bg-danger text-white";
+            badge.textContent = "Cuadro IL-01 (Salud · Hojas 1-2)";
+            infoText.innerHTML = `<strong>Normativa:</strong> ${articulo} (Cód. ${codigo}) · Hoja ${hoja}. Imputación con justificación médica oficial.`;
+        } else {
+            badge.className = "badge bg-warning text-dark";
+            badge.textContent = "Cuadro IL-02 (Otras Causales · Hojas 3-6)";
+            infoText.innerHTML = `<strong>Normativa:</strong> ${articulo} (Cód. ${codigo}) · Hoja ${hoja}. Requiere resolución de suplencia ministerial.`;
+        }
+    } else {
+        badge.className = "badge bg-secondary";
+        badge.textContent = "Cuadro Ministerial";
+        infoText.innerHTML = `<i class="bi bi-info-circle text-primary me-1"></i>Seleccione un artículo para verificar su imputación.`;
+    }
+}
+
+// Validación reactiva de auto-suplencia en cliente
+function validarAutoSuplencia() {
+    const titularId = document.getElementById("modalAgenteId").value;
+    const suplenteSelect = document.getElementById("modalSuplente");
+    const alerta = document.getElementById("alertaAutoSuplencia");
+    const btnGuardar = document.getElementById("btnGuardarModal");
+
+    if (suplenteSelect.value && suplenteSelect.value === titularId) {
+        alerta.classList.remove("d-none");
+        btnGuardar.disabled = true;
+    } else {
+        alerta.classList.add("d-none");
+        btnGuardar.disabled = false;
+    }
+}
+
+document.getElementById("modalSuplente").addEventListener("change", validarAutoSuplencia);
+
+document.getElementById("formModalJustificar").addEventListener("submit", function(e) {
+    const desde = document.getElementById("modalFechaDesde").value;
+    const hasta = document.getElementById("modalFechaHasta").value;
+    if (desde && hasta && desde > hasta) {
+        e.preventDefault();
+        alert("La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.");
+        return;
+    }
+    const titularId = document.getElementById("modalAgenteId").value;
+    const suplenteId = document.getElementById("modalSuplente").value;
+    if (suplenteId && suplenteId === titularId) {
+        e.preventDefault();
+        alert("Incompatibilidad: el docente titular no puede seleccionarse como su propio suplente.");
+    }
+});
+</script>
 {% endblock %}

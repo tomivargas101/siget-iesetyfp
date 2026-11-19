@@ -5,24 +5,26 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h2 class="h3 fw-bold mb-1 text-white">
-                    <i class="bi bi-person-fill text-warning me-2"></i>{{ titulo }}
-                </h2>
-                <p class="text-secondary mb-0 small">
-                    Los datos del agente docente impactan en el cómputo de asistencia y en las planillas oficiales IL-01 / IL-02.
-                </p>
+        <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                        <i class="bi bi-person-fill"></i> {{ titulo }}
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        Los datos del docente impactan en la planilla oficial de novedades y en la asignación horaria.
+                    </p>
+                </div>
+                <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Volver al Padrón
+                </a>
             </div>
-            <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i>Volver al Padrón
-            </a>
         </div>
 
-        <div class="card shadow">
-            <div class="card-header bg-transparent border-bottom border-secondary">
-                <h5 class="card-title mb-0 fw-bold fs-6 text-white">
-                    <i class="bi bi-card-heading text-warning me-2"></i>Datos Personales y Laborales
+        <div class="card shadow-sm border-0 bg-white">
+            <div class="card-header py-3 bg-white">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-primary">
+                    <i class="bi bi-card-heading me-1"></i> Ficha de Datos Personales y Carga Horaria
                 </h5>
             </div>
             <div class="card-body p-4">
@@ -39,17 +41,17 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">DNI * (Texto / Preserva Ceros)</label>
+                            <label class="form-label text-dark small fw-bold">DNI * (Texto / Preserva Ceros Iniciales)</label>
                             {{ form.dni }}
-                            <div class="form-text text-secondary small">RN-01: Se almacena estrictamente como texto para respetar ceros a la izquierda.</div>
+                            <div class="form-text small">RN-01: Se almacena estrictamente como texto para respetar ceros a la izquierda (ej: 04812345).</div>
                             {% if form.dni.errors %}
                                 <div class="text-danger small mt-1">{{ form.dni.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">N° de Legajo</label>
+                            <label class="form-label text-dark small fw-bold">N° de Legajo</label>
                             {{ form.legajo }}
-                            <div class="form-text text-secondary small">Dejar en blanco si el agente aún no posee legajo asignado (S/L).</div>
+                            <div class="form-text small">Dejar en blanco si el agente aún no posee legajo asignado (S/L).</div>
                             {% if form.legajo.errors %}
                                 <div class="text-danger small mt-1">{{ form.legajo.errors }}</div>
                             {% endif %}
@@ -58,14 +60,14 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Apellido *</label>
+                            <label class="form-label text-dark small fw-bold">Apellido(s) *</label>
                             {{ form.apellido }}
                             {% if form.apellido.errors %}
                                 <div class="text-danger small mt-1">{{ form.apellido.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Nombre *</label>
+                            <label class="form-label text-dark small fw-bold">Nombre(s) *</label>
                             {{ form.nombre }}
                             {% if form.nombre.errors %}
                                 <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
@@ -75,18 +77,18 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Condición de Revista *</label>
-                            {{ form.condicion_revista }}
-                            {% if form.condicion_revista.errors %}
-                                <div class="text-danger small mt-1">{{ form.condicion_revista.errors }}</div>
+                            <label class="form-label text-dark small fw-bold">Situación de Revista Predeterminada *</label>
+                            {{ form.situacion_revista_defecto }}
+                            {% if form.situacion_revista_defecto.errors %}
+                                <div class="text-danger small mt-1">{{ form.situacion_revista_defecto.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Estado Activo en Planta</label>
+                            <label class="form-label text-dark small fw-bold">Estado Activo en Planta</label>
                             <div class="form-check form-switch mt-2">
                                 {{ form.activo }}
-                                <label class="form-check-label text-white small" for="{{ form.activo.id_for_label }}">
-                                    Docente Activo (Si se desmarca pasa a histórico según RN-03)
+                                <label class="form-check-label text-dark small" for="{{ form.activo.id_for_label }}">
+                                    Docente Activo (Si se desmarca pasa a histórico conforme a RN-03)
                                 </label>
                             </div>
                         </div>
@@ -94,14 +96,14 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Correo Electrónico</label>
+                            <label class="form-label text-dark small fw-bold">Correo Electrónico</label>
                             {{ form.email }}
                             {% if form.email.errors %}
                                 <div class="text-danger small mt-1">{{ form.email.errors }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary small fw-bold">Teléfono de Contacto</label>
+                            <label class="form-label text-dark small fw-bold">Teléfono de Contacto</label>
                             {{ form.telefono }}
                             {% if form.telefono.errors %}
                                 <div class="text-danger small mt-1">{{ form.telefono.errors }}</div>
@@ -109,13 +111,11 @@
                         </div>
                     </div>
 
-                    <hr class="border-secondary my-4">
+                    <hr class="my-4">
 
                     <div class="d-flex justify-content-end gap-2">
-                        <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary">
-                            Cancelar
-                        </a>
-                        <button type="submit" class="btn btn-gold px-4">
+                        <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-ies px-4">
                             <i class="bi bi-save2-fill me-1"></i> Guardar Docente
                         </button>
                     </div>
