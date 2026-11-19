@@ -462,4 +462,96 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertContains(res_det, "Ficha Oficial de Designación")
         self.assertContains(res_det, "Franjas Horarias Semanales")
 
+    def test_agente_detail_selector_periodo_resumen_anual_y_referencia_temporal(self):
+        """Verifica la consulta y presentación mensual en la Ficha del Docente (RF-14, RF-17, RF-18):
+        - Filtro mensual sin alteración de datos de otros meses.
+        - Preservación de bloques que cruzan meses (Nov a Dic) vinculados al mismo formulario.
+        - Resumen anual independiente del filtro de mes.
+        - Referencias temporales y estados RF-08.
+        """
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(dni="28444555", legajo="LEG-284", apellido="Benítez", nombre="Clara")
+        suplente = Agente.objects.create(dni="33888999", legajo="LEG-338", apellido="Paredes", nombre="Ramiro")
+        tipo_lic = self.lic_medica
+
+        # 1. Crear inasistencias en Octubre 2026
+        NovedadAsistencia.objects.create(agente=docente, fecha=date(2026, 10, 5), estado="I")
+        NovedadAsistencia.objects.create(agente=docente, fecha=date(2026, 10, 6), estado="I")
+
+        # 2. Crear bloque justificado continuo que cruza de Noviembre a Diciembre (28/11/2026 a 02/12/2026 = 5 días) (RF-14)
+        fechas_bloque = [
+            date(2026, 11, 28), date(2026, 11, 29), date(2026, 11, 30),
+            date(2026, 12, 1), date(2026, 12, 2)
+        ]
+        for f in fechas_bloque:
+            NovedadAsistencia.objects.create(
+                agente=docente,
+                fecha=f,
+                estado="LIC",
+                formulario_numero="F-9900/26",
+                tipo_licencia=tipo_lic,
+                suplente=suplente,
+                observaciones="Reposo domiciliario"
+            )
+
+        total_esperado = 2 + 5
+        self.assertEqual(NovedadAsistencia.objects.filter(agente=docente).count(), total_esperado)
+
+        # 3. Consulta de NOVIEMBRE 2026 (?mes=11&anio=2026)
+        res_nov = self.client.get(f"/agentes/{docente.pk}/?mes=11&anio=2026")
+        self.assertEqual(res_nov.status_code, 200)
+
+        # Debe mostrar únicamente los 3 días de noviembre en la tabla del período
+        novedades_mes_nov = res_nov.context["novedades_mes"]
+        self.assertEqual(novedades_mes_nov.count(), 3)
+        self.assertEqual(novedades_mes_nov[0].fecha, date(2026, 11, 28))
+        self.assertEqual(novedades_mes_nov[2].fecha, date(2026, 11, 30))
+
+        # El resumen anual (RF-18) debe reflejar todo el año 2026 (2 faltas en octubre + 5 licencias totales)
+        resumen_anual_nov = res_nov.context["resumen_anual"]
+        self.assertEqual(resumen_anual_nov["faltas"], 2)
+        self.assertEqual(resumen_anual_nov["licencias"], 5)
+        self.assertEqual(resumen_anual_nov["restantes_faltas"], 8)
+        self.assertEqual(resumen_anual_nov["cuadro_il02_count"], 5)
+
+        # En la plantilla de noviembre se visualiza el formulario y suplente
+        self.assertContains(res_nov, "F-9900/26")
+        self.assertContains(res_nov, "Paredes")
+        self.assertContains(res_nov, "Noviembre")
+
+        # 4. Consulta de DICIEMBRE 2026 (?mes=12&anio=2026)
+        res_dic = self.client.get(f"/agentes/{docente.pk}/?mes=12&anio=2026")
+        self.assertEqual(res_dic.status_code, 200)
+
+        # Debe mostrar únicamente los 2 días de diciembre en la tabla del período
+        novedades_mes_dic = res_dic.context["novedades_mes"]
+        self.assertEqual(novedades_mes_dic.count(), 2)
+        self.assertEqual(novedades_mes_dic[0].fecha, date(2026, 12, 1))
+        self.assertEqual(novedades_mes_dic[1].fecha, date(2026, 12, 2))
+
+        # El resumen anual (RF-18) permanece IDÉNTICO e INDEPENDIENTE del cambio de mes
+        resumen_anual_dic = res_dic.context["resumen_anual"]
+        self.assertEqual(resumen_anual_dic["faltas"], 2)
+        self.assertEqual(resumen_anual_dic["licencias"], 5)
+        self.assertEqual(resumen_anual_dic["restantes_faltas"], 8)
+        self.assertEqual(resumen_anual_dic["cuadro_il02_count"], 5)
+
+        # En la plantilla de diciembre también se conserva el vínculo con el formulario y suplente
+        self.assertContains(res_dic, "F-9900/26")
+        self.assertContains(res_dic, "Paredes")
+        self.assertContains(res_dic, "Diciembre")
+
+        # 5. Comprobar que ningún registro fue modificado ni eliminado
+        self.assertEqual(NovedadAsistencia.objects.filter(agente=docente).count(), total_esperado)
+
+        # 6. Comprobar referencias temporales en el HTML
+        self.assertContains(res_nov, "Ref. temporal")
+        self.assertContains(res_nov, "Futura")
+
+        # Octubre contiene fechas transcurridas
+        res_oct = self.client.get(f"/agentes/{docente.pk}/?mes=10&anio=2026")
+        self.assertEqual(res_oct.status_code, 200)
+        self.assertContains(res_oct, "Transcurrida")
+        self.assertEqual(res_oct.context["novedades_mes"].count(), 2)
+
 

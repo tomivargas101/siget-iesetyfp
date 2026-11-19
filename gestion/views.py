@@ -5,7 +5,9 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
+from django.utils import timezone
 from datetime import date, datetime, timedelta
+from calendar import monthrange
 
 from .models import (
     Agente, Carrera, Materia, Designacion, HorarioDesignacion, Suplencia,
@@ -537,15 +539,73 @@ def agente_edit_view(request, pk):
 @login_required
 def agente_detail_view(request, pk):
     agente = get_object_or_404(Agente, pk=pk)
-    designaciones = agente.designaciones.filter(activo=True).select_related("materia", "materia__carrera")
-    designaciones_hist = agente.designaciones.filter(activo=False).select_related("materia", "materia__carrera")
-    novedades_recientes = agente.novedades_asistencia.all()[:15]
+    designaciones = agente.designaciones.filter(activo=True).select_related("materia", "materia__carrera").prefetch_related("horarios")
+    designaciones_hist = agente.designaciones.filter(activo=False).select_related("materia", "materia__carrera").prefetch_related("horarios")
+
+    hoy = timezone.localdate() if hasattr(timezone, "localdate") else date.today()
+
+    # 1. Selector de período: Mes y Año (por defecto mes y año actual)
+    try:
+        mes_sel = int(request.GET.get("mes", hoy.month))
+        if not (1 <= mes_sel <= 12):
+            mes_sel = hoy.month
+    except (ValueError, TypeError):
+        mes_sel = hoy.month
+
+    try:
+        anio_sel = int(request.GET.get("anio", hoy.year))
+        if not (2000 <= anio_sel <= 2100):
+            anio_sel = hoy.year
+    except (ValueError, TypeError):
+        anio_sel = hoy.year
+
+    # Rango de fechas mensual: date(anio, mes, 1) hasta último día del mes
+    _, ultimo_dia = monthrange(anio_sel, mes_sel)
+    fecha_inicio_mes = date(anio_sel, mes_sel, 1)
+    fecha_fin_mes = date(anio_sel, mes_sel, ultimo_dia)
+
+    # 2. Tabla de novedades del período (orden cronológico)
+    # Conserva intactos todos los registros históricos y justificaciones originales (RF-14)
+    novedades_mes = agente.novedades_asistencia.filter(
+        fecha__gte=fecha_inicio_mes,
+        fecha__lte=fecha_fin_mes
+    ).select_related("tipo_licencia", "suplente").order_by("fecha")
+
+    resumen_mes = {
+        "total": novedades_mes.count(),
+        "presentes": novedades_mes.filter(estado__in=["PR", "Presente"]).count(),
+        "inasistencias": novedades_mes.filter(estado="I").count(),
+        "licencias": novedades_mes.filter(estado__in=["LIC", "LT"]).count(),
+        "permisos": novedades_mes.filter(estado="P").count(),
+        "licencias_permisos": novedades_mes.filter(estado__in=["LIC", "LT", "P"]).count(),
+    }
+
+    # 3. Resumen Anual Independiente (RF-18)
+    # Calculado sobre todo el año anio_sel sin ser afectado por el filtro de mes
+    resumen_anual = CalculadorAlertasService.obtener_resumen_docente_anual(agente, anio_sel)
+
+    meses_choices = [
+        (1, "Enero"), (2, "Febrero"), (3, "Marzo"), (4, "Abril"),
+        (5, "Mayo"), (6, "Junio"), (7, "Julio"), (8, "Agosto"),
+        (9, "Septiembre"), (10, "Octubre"), (11, "Noviembre"), (12, "Diciembre")
+    ]
+    nombre_mes_sel = dict(meses_choices).get(mes_sel, "")
+
+    anios_disponibles = sorted(set([hoy.year - 1, hoy.year, hoy.year + 1, anio_sel]), reverse=True)
 
     return render(request, "gestion/agente_detail.html", {
         "agente": agente,
         "designaciones": designaciones,
         "designaciones_hist": designaciones_hist,
-        "novedades_recientes": novedades_recientes,
+        "novedades_mes": novedades_mes,
+        "resumen_mes": resumen_mes,
+        "resumen_anual": resumen_anual,
+        "mes_sel": mes_sel,
+        "anio_sel": anio_sel,
+        "nombre_mes_sel": nombre_mes_sel,
+        "meses_choices": meses_choices,
+        "anios_disponibles": anios_disponibles,
+        "hoy": hoy,
     })
 
 

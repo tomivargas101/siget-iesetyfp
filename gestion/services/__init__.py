@@ -443,6 +443,73 @@ class ImportadorCSVService:
 
 class CalculadorAlertasService:
     @classmethod
+    def obtener_resumen_docente_anual(cls, agente: Agente, anio: int = None) -> dict:
+        if not anio:
+            anio = date.today().year
+
+        novs = NovedadAsistencia.objects.filter(agente=agente, fecha__year=anio)
+        faltas = novs.filter(estado="I").count()
+        permisos = novs.filter(estado="P").count()
+        licencias = novs.filter(estado__in=["LIC", "LT"]).count()
+        licencias_medicas = novs.filter(estado="LIC").count()
+        licencias_lt = novs.filter(estado="LT").count()
+        presentes = novs.filter(estado__in=["PR", "Presente"]).count()
+
+        tope_faltas = 10
+        tope_permisos = 6
+
+        porcentaje_faltas = min(100, int((faltas / tope_faltas) * 100))
+        porcentaje_permisos = min(100, int((permisos / tope_permisos) * 100))
+        restantes_faltas = max(0, tope_faltas - faltas)
+        restantes_permisos = max(0, tope_permisos - permisos)
+
+        if faltas >= 8 or permisos >= 5:
+            nivel = "CRITICO"
+            badge = "badge-danger"
+            badge_class = "danger"
+            mensaje = "¡Límite reglamentario próximo a agotarse!"
+        elif faltas >= 5 or permisos >= 3:
+            nivel = "ADVERTENCIA"
+            badge = "badge-warning"
+            badge_class = "warning"
+            mensaje = "Atención: Más del 50% del cupo anual consumido."
+        else:
+            nivel = "NORMAL"
+            badge = "badge-success"
+            badge_class = "success"
+            mensaje = "Dentro de los márgenes reglamentarios."
+
+        cuadro_il01_count = novs.filter(tipo_licencia__cuadro_destino="IL-01").count()
+        cuadro_il02_count = novs.filter(tipo_licencia__cuadro_destino="IL-02").count()
+
+        return {
+            "agente": agente,
+            "anio": anio,
+            "faltas": faltas,
+            "total_inasistencias": faltas,
+            "tope_faltas": tope_faltas,
+            "limite_anual": tope_faltas,
+            "restantes": restantes_faltas,
+            "restantes_faltas": restantes_faltas,
+            "porcentaje_faltas": porcentaje_faltas,
+            "permisos": permisos,
+            "tope_permisos": tope_permisos,
+            "restantes_permisos": restantes_permisos,
+            "porcentaje_permisos": porcentaje_permisos,
+            "licencias": licencias,
+            "licencias_medicas": licencias_medicas,
+            "licencias_lt": licencias_lt,
+            "presentes": presentes,
+            "total_registros": novs.count(),
+            "cuadro_il01_count": cuadro_il01_count,
+            "cuadro_il02_count": cuadro_il02_count,
+            "nivel": nivel,
+            "badge": badge,
+            "badge_class": badge_class,
+            "mensaje": mensaje,
+        }
+
+    @classmethod
     def obtener_alertas_docentes(cls, anio: int = None) -> list[dict]:
         if not anio:
             anio = date.today().year
@@ -451,50 +518,7 @@ class CalculadorAlertasService:
         resultado = []
 
         for ag in agentes:
-            novs = NovedadAsistencia.objects.filter(agente=ag, fecha__year=anio)
-            faltas = novs.filter(estado="I").count()
-            permisos = novs.filter(estado="P").count()
-            licencias = novs.filter(estado__in=["LIC", "LT"]).count()
-
-            tope_faltas = 10
-            tope_permisos = 6
-
-            porcentaje_faltas = min(100, int((faltas / tope_faltas) * 100))
-            porcentaje_permisos = min(100, int((permisos / tope_permisos) * 100))
-            restantes_faltas = max(0, tope_faltas - faltas)
-            restantes_permisos = max(0, tope_permisos - permisos)
-
-            if faltas >= 8 or permisos >= 5:
-                nivel = "CRITICO"
-                badge = "badge-danger"
-                mensaje = "¡Límite reglamentario próximo a agotarse!"
-            elif faltas >= 5 or permisos >= 3:
-                nivel = "ADVERTENCIA"
-                badge = "badge-warning"
-                mensaje = "Atención: Más del 50% del cupo anual consumido."
-            else:
-                nivel = "NORMAL"
-                badge = "badge-success"
-                mensaje = "Dentro de los márgenes reglamentarios."
-
-            resultado.append({
-                "agente": ag,
-                "faltas": faltas,
-                "total_inasistencias": faltas,
-                "tope_faltas": tope_faltas,
-                "limite_anual": tope_faltas,
-                "restantes": restantes_faltas,
-                "restantes_faltas": restantes_faltas,
-                "porcentaje_faltas": porcentaje_faltas,
-                "permisos": permisos,
-                "tope_permisos": tope_permisos,
-                "restantes_permisos": restantes_permisos,
-                "porcentaje_permisos": porcentaje_permisos,
-                "licencias": licencias,
-                "nivel": nivel,
-                "badge": badge,
-                "mensaje": mensaje,
-            })
+            resultado.append(cls.obtener_resumen_docente_anual(ag, anio))
 
         return resultado
 
