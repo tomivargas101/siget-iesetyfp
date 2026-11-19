@@ -460,6 +460,8 @@ class CalculadorAlertasService:
 
             porcentaje_faltas = min(100, int((faltas / tope_faltas) * 100))
             porcentaje_permisos = min(100, int((permisos / tope_permisos) * 100))
+            restantes_faltas = max(0, tope_faltas - faltas)
+            restantes_permisos = max(0, tope_permisos - permisos)
 
             if faltas >= 8 or permisos >= 5:
                 nivel = "CRITICO"
@@ -474,9 +476,6 @@ class CalculadorAlertasService:
                 badge = "badge-success"
                 mensaje = "Dentro de los márgenes reglamentarios."
 
-            restantes_faltas = max(0, tope_faltas - faltas)
-            restantes_permisos = max(0, tope_permisos - permisos)
-
             resultado.append({
                 "agente": ag,
                 "faltas": faltas,
@@ -484,6 +483,7 @@ class CalculadorAlertasService:
                 "tope_faltas": tope_faltas,
                 "limite_anual": tope_faltas,
                 "restantes": restantes_faltas,
+                "restantes_faltas": restantes_faltas,
                 "porcentaje_faltas": porcentaje_faltas,
                 "permisos": permisos,
                 "tope_permisos": tope_permisos,
@@ -496,3 +496,4 @@ class CalculadorAlertasService:
             })
 
         return resultado
+
