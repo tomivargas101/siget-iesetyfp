@@ -845,6 +845,51 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertContains(resp, "columna obligatoria")
         self.assertEqual(Agente.objects.count(), total_agentes_antes)
 
+    def test_rol_bedelia_unificado_y_credenciales_demostracion_login(self):
+        """
+        Valida que el rol de Bedelía esté unificado (sin diferenciar Bedelía Tarde / Noche):
+        1. login.html muestra 'Bedelía' de forma unificada (no muestra 'Bedelía Tarde' ni 'Bedelía Noche').
+        2. El comando cargar_datos_iniciales crea o actualiza los usuarios con su rol unificado.
+        3. El inicio de sesión con las credenciales mostradas (meduarte / meduarte123) funciona y permite operar.
+        """
+        from django.core.management import call_command
+        from django.contrib.auth.models import Group
+
+        # Ejecutar carga de datos iniciales
+        call_command("cargar_datos_iniciales")
+
+        # 1. Verificar grupos en BD: 'Bedelía' existe, no existen grupos divididos por turno
+        self.assertTrue(Group.objects.filter(name="Bedelía").exists())
+        self.assertFalse(Group.objects.filter(name="Bedelía Tarde").exists())
+        self.assertFalse(Group.objects.filter(name="Bedelía Noche").exists())
+
+        # 2. Verificar que los usuarios de prueba tengan asignado el rol unificado
+        user_bedel = User.objects.get(username="meduarte")
+        self.assertTrue(user_bedel.groups.filter(name="Bedelía").exists())
+
+        user_sosa = User.objects.get(username="msosa")
+        self.assertTrue(user_sosa.groups.filter(name="Bedelía").exists())
+
+        user_sec = User.objects.get(username="zaquino")
+        self.assertTrue(user_sec.groups.filter(name="Secretaría").exists())
+
+        # 3. Comprobar que en la pantalla de login figura 'Bedelía' y no 'Bedelía Tarde' / 'Bedelía Noche'
+        resp_login_page = self.client.get("/login/")
+        self.assertEqual(resp_login_page.status_code, 200)
+        self.assertContains(resp_login_page, "Bedelía:")
+        self.assertContains(resp_login_page, "meduarte")
+        self.assertNotContains(resp_login_page, "Bedelía Tarde")
+        self.assertNotContains(resp_login_page, "Bedelía Noche")
+
+        # 4. Comprobar autenticación funcional con credenciales de Bedelía
+        login_success = self.client.login(username="meduarte", password="meduarte123")
+        self.assertTrue(login_success)
+
+        # Acceso a vistas operativas de bedelía
+        resp_asistencia = self.client.get("/asistencia/")
+        self.assertEqual(resp_asistencia.status_code, 200)
+        self.assertContains(resp_asistencia, "Asistencia Diaria")
+
 
 
 

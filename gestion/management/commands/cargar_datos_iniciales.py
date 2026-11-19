@@ -40,15 +40,28 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.NOTICE("=== Iniciando carga inicial de datos institucionales SIGET ==="))
 
-        # 1. Usuarios del relevamiento (RF-19)
+        # 1. Grupos y Roles Oficiales Unificados (RF-19)
+        grupo_bedelia, _ = Group.objects.get_or_create(name="Bedelía")
+        grupo_secretaria, _ = Group.objects.get_or_create(name="Secretaría")
+        grupo_admin, _ = Group.objects.get_or_create(name="Administración")
+
+        # Unificación de roles: Migrar usuarios de grupos obsoletos divididos por turno
+        for viejo_nombre in ["Bedelía Tarde", "Bedelía Noche", "Bedelia Tarde", "Bedelia Noche"]:
+            g_viejo = Group.objects.filter(name=viejo_nombre).first()
+            if g_viejo:
+                for u in g_viejo.user_set.all():
+                    u.groups.add(grupo_bedelia)
+                g_viejo.delete()
+
+        # Usuarios del relevamiento (RF-19)
         usuarios_datos = [
-            ("zaquino", "Zunilda", "Aquino", "zaquino@iesetyfp.edu.ar", "zaquino123", "Bedel Principal"),
-            ("meduarte", "María Eva", "Duarte", "meduarte@iesetyfp.edu.ar", "meduarte123", "Secretaria Académica"),
-            ("msosa", "Mirtha", "Sosa", "msosa@iesetyfp.edu.ar", "msosa123", "Subsecretaria"),
-            ("admin", "Administrador", "SIGET", "admin@iesetyfp.edu.ar", "admin123", "Superusuario del Sistema"),
+            ("zaquino", "Zunilda", "Aquino", "zaquino@iesetyfp.edu.ar", "zaquino123", "Secretaria Académica", grupo_secretaria),
+            ("meduarte", "María Eva", "Duarte", "meduarte@iesetyfp.edu.ar", "meduarte123", "Bedel Institucional", grupo_bedelia),
+            ("msosa", "Mirtha", "Sosa", "msosa@iesetyfp.edu.ar", "msosa123", "Bedel Institucional", grupo_bedelia),
+            ("admin", "Administrador", "SIGET", "admin@iesetyfp.edu.ar", "admin123", "Superusuario del Sistema", grupo_admin),
         ]
 
-        for username, fname, lname, email, pwd, cargo in usuarios_datos:
+        for username, fname, lname, email, pwd, cargo, grupo in usuarios_datos:
             user, created = User.objects.get_or_create(
                 username=username,
                 defaults={
@@ -56,19 +69,23 @@ class Command(BaseCommand):
                     "last_name": lname,
                     "email": email,
                     "is_staff": True,
-                    "is_superuser": True
+                    "is_superuser": (username == "admin")
                 }
             )
-            if created:
-                user.set_password(pwd)
-                user.save()
-                self.stdout.write(self.style.SUCCESS(f"  [+] Usuario creado: {username} ({cargo}) - Contraseña: {pwd}"))
-            else:
-                user.set_password(pwd)
-                user.is_staff = True
+            user.first_name = fname
+            user.last_name = lname
+            user.email = email
+            user.is_staff = True
+            if username == "admin":
                 user.is_superuser = True
-                user.save()
-                self.stdout.write(self.style.WARNING(f"  [*] Usuario existente actualizado: {username}"))
+            user.set_password(pwd)
+            user.save()
+            user.groups.clear()
+            user.groups.add(grupo)
+            if created:
+                self.stdout.write(self.style.SUCCESS(f"  [+] Usuario creado: {username} ({cargo} - Rol: {grupo.name}) - Contraseña: {pwd}"))
+            else:
+                self.stdout.write(self.style.WARNING(f"  [*] Usuario existente actualizado: {username} ({cargo} - Rol: {grupo.name})"))
 
         # 2. Catálogo Oficial de Tipos de Licencia (Hojas 1-6)
         c_lic = 0

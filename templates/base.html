@@ -380,7 +380,7 @@
                         </div>
                         <div class="d-flex flex-column text-end text-white d-none d-md-flex">
                             <span class="fw-bold small lh-1">{{ request.user.get_full_name|default:request.user.username }}</span>
-                            <span class="text-white-50" style="font-size: 0.72rem;">Bedelía / Secretaría</span>
+                            <span class="text-white-50" style="font-size: 0.72rem;">{% if request.user.groups.first %}{{ request.user.groups.first.name }}{% elif request.user.is_superuser %}Administración{% else %}Bedelía / Secretaría{% endif %}</span>
                         </div>
                     </div>
 
