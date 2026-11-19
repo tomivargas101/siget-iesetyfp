@@ -251,7 +251,23 @@ class ReglasNegocioSIGETTests(TestCase):
         self.client.login(username="testadmin", password="password123")
         docente = Agente.objects.create(dni="18555666", legajo="LEG-185", apellido="Medina", nombre="Hugo")
 
-        # 1. Enviar cambio de estado a Licencia Médica (LIC) por 3 días vía AJAX
+        # 1. Enviar cambio de estado a Inasistencia (I) sin especificar 'dias' (default 1 jornada) vía AJAX
+        resp_directo = self.client.post(
+            "/asistencia/?fecha=2026-11-09",
+            data={
+                "agente_id": docente.id,
+                "estado": "I",
+                "ajax": "1"
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
+        self.assertEqual(resp_directo.status_code, 200)
+        json_directo = resp_directo.json()
+        self.assertEqual(json_directo["status"], "ok")
+        self.assertEqual(json_directo["estado"], "I")
+        self.assertEqual(json_directo["dias"], 1)
+
+        # 2. Enviar cambio de estado a Licencia Médica (LIC) por 3 días vía AJAX
         response = self.client.post(
             "/asistencia/?fecha=2026-11-10",
             data={
@@ -269,8 +285,8 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertEqual(json_data["dias"], 3)
         self.assertIn("resumen", json_data)
 
-        # 2. Verificar que se crearon los 3 días continuos en NovedadAsistencia
-        novs = NovedadAsistencia.objects.filter(agente=docente).order_by("fecha")
+        # 3. Verificar que se crearon los 3 días continuos en NovedadAsistencia
+        novs = NovedadAsistencia.objects.filter(agente=docente, fecha__gte=date(2026, 11, 10)).order_by("fecha")
         self.assertEqual(novs.count(), 3)
         self.assertEqual(novs[0].fecha, date(2026, 11, 10))
         self.assertEqual(novs[1].fecha, date(2026, 11, 11))
@@ -278,11 +294,24 @@ class ReglasNegocioSIGETTests(TestCase):
         for n in novs:
             self.assertEqual(n.estado, "LIC")
 
-        # 3. Verificar registro en Auditoría
-        auditoria = Auditoria.objects.filter(accion="CAMBIO_ESTADO_ASISTENCIA").last()
-        self.assertIsNotNone(auditoria)
-        self.assertIn("Hugo", auditoria.detalles)
-        self.assertIn("LIC", auditoria.detalles)
+        # 4. Verificar registros en Auditoría (el modelo ordena por -timestamp: first() es el más reciente)
+        auditoria_lic = Auditoria.objects.filter(accion="CAMBIO_ESTADO_ASISTENCIA").first()
+        self.assertIsNotNone(auditoria_lic)
+        self.assertIn("Hugo", auditoria_lic.detalles)
+        self.assertIn("LIC", auditoria_lic.detalles)
+
+        auditoria_i = Auditoria.objects.filter(accion="CAMBIO_ESTADO_ASISTENCIA").last()
+        self.assertIsNotNone(auditoria_i)
+        self.assertIn("Hugo", auditoria_i.detalles)
+        self.assertIn("Estado: I", auditoria_i.detalles)
+
+        # 5. Verificar que la pantalla GET renderiza la columna 'Formulario / Cobertura' y no tiene inputs editables de días
+        resp_get = self.client.get("/asistencia/?fecha=2026-11-10")
+        self.assertEqual(resp_get.status_code, 200)
+        contenido = resp_get.content.decode("utf-8")
+        self.assertIn("Formulario / Cobertura", contenido)
+        self.assertNotIn("input_dias_", contenido)
+        self.assertNotIn("modificarDias", contenido)
 
     def test_horario_designacion_franjas_multiples_y_calculo_fecha(self):
         """Verifica que una designación pueda tener múltiples franjas horarias y su cálculo por fecha exacta."""
