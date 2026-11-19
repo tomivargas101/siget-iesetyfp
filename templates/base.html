@@ -289,7 +289,7 @@
 
                     <!-- 3. Personal Docente (Desplegable) -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if 'agente' in request.resolver_match.url_name or 'designacion' in request.resolver_match.url_name %}active{% endif %}" href="#" id="personalDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle {% if 'agente' in request.resolver_match.url_name or 'designacion' in request.resolver_match.url_name or 'suplencia' in request.resolver_match.url_name %}active{% endif %}" href="#" id="personalDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-people-fill"></i> Personal
                         </a>
                         <ul class="dropdown-menu shadow" aria-labelledby="personalDropdown">
@@ -312,6 +312,11 @@
                             <li>
                                 <a class="dropdown-item" href="{% url 'designacion_create' %}">
                                     <i class="bi bi-plus-circle-fill text-primary"></i> Asignar Cátedra (Tope 30 hs)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'suplencia_create' %}">
+                                    <i class="bi bi-person-badge-fill text-warning"></i> Asignar Suplencia
                                 </a>
                             </li>
                         </ul>

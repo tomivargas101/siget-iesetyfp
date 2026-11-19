@@ -13,9 +13,14 @@
                 Gestión estructurada de asignaciones docentes, franjas horarias semanales (1:N) y trazabilidad de suplencias institucionales.
             </p>
         </div>
-        <a href="{% url 'designacion_create' %}" class="btn btn-ies btn-sm d-flex align-items-center gap-1 shadow-sm">
-            <i class="bi bi-plus-circle-fill"></i> Nueva Asignación
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'suplencia_create' %}" class="btn btn-warning btn-sm d-flex align-items-center gap-1 shadow-sm text-dark fw-semibold">
+                <i class="bi bi-person-badge-fill"></i> Asignar Suplencia
+            </a>
+            <a href="{% url 'designacion_create' %}" class="btn btn-ies btn-sm d-flex align-items-center gap-1 shadow-sm">
+                <i class="bi bi-plus-circle-fill"></i> Nueva Asignación
+            </a>
+        </div>
     </div>
 </div>
 

@@ -554,4 +554,96 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertContains(res_oct, "Transcurrida")
         self.assertEqual(res_oct.context["novedades_mes"].count(), 2)
 
+    def test_asignar_suplencia_vista_formulario_y_reglas_negocio(self):
+        """Verifica la pantalla y flujo completo de Asignar Suplencia:
+        - Renderizado del formulario y metadata reactiva.
+        - Bloqueo de auto-suplencia institucional.
+        - Creación de Designación en revista 'SUP' con herencia de materia, carrera y horarios (1:N).
+        - Vinculación de Suplencia y registro en Auditoría (RF-20).
+        - Reflejo en la tabla de Cátedras y Horarios.
+        """
+        self.client.login(username="testadmin", password="password123")
+        titular = Agente.objects.create(dni="27111222", legajo="LEG-271", apellido="Gómez", nombre="Carlos")
+        suplente = Agente.objects.create(dni="34333444", legajo="LEG-343", apellido="Fernández", nombre="Laura")
+
+        desig_titular = Designacion.objects.create(
+            agente=titular,
+            materia=self.materia1,
+            situacion_revista="TIT",
+            activo=True
+        )
+        HorarioDesignacion.objects.create(
+            designacion=desig_titular,
+            dia_semana="Lunes",
+            hora_inicio=time(18, 30),
+            hora_fin=time(21, 30),
+            horas_catedra=4,
+            activo=True
+        )
+
+        # 1. GET /designaciones/suplencia/nueva/
+        resp_get = self.client.get("/designaciones/suplencia/nueva/")
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "Asignar Suplencia Institucional")
+        self.assertContains(resp_get, "Docente Suplente")
+        self.assertContains(resp_get, "Cátedra y Docente Titular o Interino a Suplantar")
+
+        # 2. Intento de Auto-Suplencia (titular intenta suplirse a sí mismo)
+        resp_auto = self.client.post("/designaciones/suplencia/nueva/", data={
+            "docente_suplente": titular.id,
+            "designacion_cubierta": desig_titular.id,
+            "motivo": "LICENCIA",
+            "fecha_desde": "2026-11-20",
+            "sin_termino": "on"
+        })
+        self.assertEqual(resp_auto.status_code, 200)
+        self.assertIn("docente_suplente", resp_auto.context["form"].errors)
+        self.assertIn("no puede auto-suplirse", resp_auto.context["form"].errors["docente_suplente"][0])
+        self.assertContains(resp_auto, "no puede auto-suplirse")
+
+        # 3. Asignación válida de Suplencia
+        resp_post = self.client.post("/designaciones/suplencia/nueva/", data={
+            "docente_suplente": suplente.id,
+            "designacion_cubierta": desig_titular.id,
+            "motivo": "LICENCIA",
+            "fecha_desde": "2026-11-20",
+            "sin_termino": "on",
+            "instrumento_legal": "Disp. N° 099/26",
+            "observaciones": "Cobertura por licencia médica del titular"
+        })
+        self.assertRedirects(resp_post, "/designaciones/")
+
+        # 4. Verificar creación de la Designación Suplente (revista SUP y herencia de horarios)
+        desig_sup = Designacion.objects.filter(agente=suplente, materia=self.materia1).first()
+        self.assertIsNotNone(desig_sup)
+        self.assertEqual(desig_sup.situacion_revista, "SUP")
+        self.assertEqual(desig_sup.total_horas_semanales, 4)
+
+        # Franja horaria replicada
+        franjas_sup = desig_sup.horarios.filter(activo=True)
+        self.assertEqual(franjas_sup.count(), 1)
+        self.assertEqual(franjas_sup[0].dia_semana, "Lunes")
+        self.assertEqual(franjas_sup[0].horas_catedra, 4)
+
+        # 5. Verificar creación del registro Suplencia
+        suplencia = Suplencia.objects.filter(designacion_suplente=desig_sup).first()
+        self.assertIsNotNone(suplencia)
+        self.assertEqual(suplencia.designacion_cubierta, desig_titular)
+        self.assertEqual(suplencia.motivo, "LICENCIA")
+        self.assertEqual(suplencia.instrumento_legal, "Disp. N° 099/26")
+        self.assertTrue(suplencia.activo)
+
+        # 6. Verificar Auditoría inmutable (RF-20)
+        audit = Auditoria.objects.filter(accion="ASIGNAR_SUPLENCIA").first()
+        self.assertIsNotNone(audit)
+        self.assertIn("Laura", audit.detalles)
+        self.assertIn("Carlos", audit.detalles)
+        self.assertIn("Disp. N° 099/26", audit.detalles)
+
+        # 7. Verificar reflejo en la tabla de Cátedras y Horarios
+        res_list = self.client.get("/designaciones/")
+        self.assertEqual(res_list.status_code, 200)
+        self.assertContains(res_list, "Suple a:")
+        self.assertContains(res_list, "Gómez, Carlos")
+
 

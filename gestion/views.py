@@ -8,13 +8,14 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import date, datetime, timedelta
 from calendar import monthrange
+import json
 
 from .models import (
     Agente, Carrera, Materia, Designacion, HorarioDesignacion, Suplencia,
     TipoLicencia, Feriado, NovedadAsistencia, Disposicion, RenglonMensual, Auditoria
 )
 from .forms import (
-    AgenteForm, DesignacionForm, HorarioFormSet, SuplenciaForm, CarreraForm, MateriaForm,
+    AgenteForm, DesignacionForm, HorarioFormSet, SuplenciaForm, AsignarSuplenciaForm, CarreraForm, MateriaForm,
     RecepcionFormularioFisicoForm, ImportarCSVForm
 )
 from .services import (
@@ -754,6 +755,152 @@ def designacion_create_view(request):
         "horario_formset": horario_formset,
         "suplencia_form": suplencia_form,
         "titulo": "Nueva Designación de Cátedra"
+    })
+
+
+@login_required
+def suplencia_create_view(request):
+    agente_preseleccionado_id = request.GET.get("agente_id")
+    designacion_preseleccionada_id = request.GET.get("designacion_id")
+
+    if request.method == "POST":
+        form = AsignarSuplenciaForm(request.POST)
+        if form.is_valid():
+            docente_suplente = form.cleaned_data["docente_suplente"]
+            designacion_cubierta = form.cleaned_data["designacion_cubierta"]
+            motivo = form.cleaned_data["motivo"]
+            fecha_desde = form.cleaned_data["fecha_desde"]
+            fecha_hasta = form.cleaned_data["fecha_hasta"]
+            sin_termino = form.cleaned_data["sin_termino"]
+            instrumento_legal = form.cleaned_data["instrumento_legal"]
+            observaciones = form.cleaned_data["observaciones"]
+
+            str_desde = fecha_desde.strftime("%d/%m/%Y") if fecha_desde else ""
+            str_hasta = "SIN TERMINO" if (sin_termino or not fecha_hasta) else fecha_hasta.strftime("%d/%m/%Y")
+
+            with transaction.atomic():
+                # 1. Crear la Designación del suplente en situación de revista 'SUP'
+                nueva_desig = Designacion.objects.create(
+                    agente=docente_suplente,
+                    materia=designacion_cubierta.materia,
+                    situacion_revista="SUP",
+                    cargo_codigo=designacion_cubierta.cargo_codigo or "Cátedra",
+                    dia_semana=designacion_cubierta.dia_semana,
+                    hora_inicio=designacion_cubierta.hora_inicio,
+                    hora_fin=designacion_cubierta.hora_fin,
+                    horas_catedra=designacion_cubierta.horas_catedra,
+                    vigencia_desde=str_desde,
+                    vigencia_hasta=str_hasta,
+                    activo=True,
+                )
+
+                # 2. Replicar franjas horarias 1:N de la cátedra cubierta
+                horarios_cubiertos = designacion_cubierta.horarios.filter(activo=True)
+                if horarios_cubiertos.exists():
+                    for h in horarios_cubiertos:
+                        HorarioDesignacion.objects.create(
+                            designacion=nueva_desig,
+                            dia_semana=h.dia_semana,
+                            hora_inicio=h.hora_inicio,
+                            hora_fin=h.hora_fin,
+                            horas_catedra=h.horas_catedra,
+                            activo=True,
+                        )
+                elif designacion_cubierta.dia_semana and designacion_cubierta.horas_catedra:
+                    HorarioDesignacion.objects.create(
+                        designacion=nueva_desig,
+                        dia_semana=designacion_cubierta.dia_semana,
+                        hora_inicio=designacion_cubierta.hora_inicio or "18:30",
+                        hora_fin=designacion_cubierta.hora_fin or "21:00",
+                        horas_catedra=designacion_cubierta.horas_catedra,
+                        activo=True,
+                    )
+
+                # 3. Crear registro de Suplencia / Cobertura
+                suplencia = Suplencia.objects.create(
+                    designacion_suplente=nueva_desig,
+                    designacion_cubierta=designacion_cubierta,
+                    motivo=motivo,
+                    fecha_desde=fecha_desde,
+                    fecha_hasta=None if sin_termino else fecha_hasta,
+                    instrumento_legal=instrumento_legal,
+                    observaciones=observaciones,
+                    activo=True,
+                )
+
+                # 4. Registrar en Auditoría inmutable (RF-20)
+                registrar_auditoria(
+                    usuario=request.user,
+                    accion="ASIGNAR_SUPLENCIA",
+                    detalles=(
+                        f"Suplencia creada: {docente_suplente.nombre_completo} (DNI: {docente_suplente.dni}) "
+                        f"suple a {designacion_cubierta.agente.nombre_completo} en '{designacion_cubierta.materia.nombre}' "
+                        f"({designacion_cubierta.materia.carrera.codigo}) con {nueva_desig.total_horas_semanales} hs semanales. "
+                        f"Vigencia: {str_desde} al {str_hasta}. Instrumento: {instrumento_legal or 'S/I'}."
+                    ),
+                    ip=request.META.get("REMOTE_ADDR")
+                )
+
+            messages.success(
+                request,
+                f"¡Suplencia asignada exitosamente! {docente_suplente.nombre_completo} quedó designado como Suplente (SUP) "
+                f"en '{designacion_cubierta.materia.nombre}' cubriendo a {designacion_cubierta.agente.nombre_completo}."
+            )
+            return redirect("designaciones_list")
+    else:
+        initial_data = {}
+        if agente_preseleccionado_id:
+            initial_data["docente_suplente"] = agente_preseleccionado_id
+        if designacion_preseleccionada_id:
+            initial_data["designacion_cubierta"] = designacion_preseleccionada_id
+
+        form = AsignarSuplenciaForm(initial=initial_data)
+
+    # Preparar metadata serializada en JSON para preview reactivo en el frontend
+    designaciones_activas = Designacion.objects.filter(
+        activo=True,
+        situacion_revista__in=["TIT", "INT"]
+    ).select_related("agente", "materia", "materia__carrera").prefetch_related("horarios")
+
+    metadata_desigs = {}
+    for d in designaciones_activas:
+        horarios_list = []
+        for h in d.horarios.filter(activo=True):
+            hi = h.hora_inicio.strftime('%H:%M') if hasattr(h.hora_inicio, 'strftime') else str(h.hora_inicio)
+            hf = h.hora_fin.strftime('%H:%M') if hasattr(h.hora_fin, 'strftime') else str(h.hora_fin)
+            horarios_list.append(f"{h.dia_semana} {hi} a {hf} ({h.horas_catedra} hs)")
+        
+        metadata_desigs[str(d.id)] = {
+            "id": d.id,
+            "titular_id": d.agente.id,
+            "titular_nombre": d.agente.nombre_completo,
+            "titular_dni": d.agente.dni,
+            "titular_revista": d.situacion_revista,
+            "materia_nombre": d.materia.nombre,
+            "materia_codigo": d.materia.codigo,
+            "carrera_nombre": d.materia.carrera.nombre,
+            "carrera_codigo": d.materia.carrera.codigo,
+            "total_horas": d.total_horas_semanales,
+            "resumen_horarios": d.resumen_horarios,
+            "horarios_detalle": horarios_list,
+        }
+
+    agentes_activos = Agente.objects.filter(activo=True)
+    metadata_agentes = {}
+    for ag in agentes_activos:
+        metadata_agentes[str(ag.id)] = {
+            "id": ag.id,
+            "nombre": ag.nombre_completo,
+            "dni": ag.dni,
+            "horas_actuales": ag.horas_activas_semanales,
+            "max_horas": ag.max_horas_semanales,
+            "horas_disponibles": max(0, ag.max_horas_semanales - ag.horas_activas_semanales),
+        }
+
+    return render(request, "gestion/suplencia_form.html", {
+        "form": form,
+        "metadata_desigs_json": json.dumps(metadata_desigs),
+        "metadata_agentes_json": json.dumps(metadata_agentes),
     })
 
 

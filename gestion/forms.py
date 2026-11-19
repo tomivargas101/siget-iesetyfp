@@ -1,5 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from datetime import date
 from .models import (
     Agente, Carrera, Materia, Designacion, HorarioDesignacion, Suplencia,
     TipoLicencia, NovedadAsistencia
@@ -179,6 +180,146 @@ class SuplenciaForm(forms.ModelForm):
         if excluir_agente_id:
             qs = qs.exclude(agente_id=excluir_agente_id)
         self.fields["designacion_cubierta"].queryset = qs
+
+
+class AsignarSuplenciaForm(forms.Form):
+    docente_suplente = forms.ModelChoiceField(
+        queryset=Agente.objects.filter(activo=True).order_by("apellido", "nombre"),
+        label="Docente Suplente (Personal Activo)",
+        empty_label="-- Seleccionar Docente que Asumirá la Suplencia --",
+        widget=forms.Select(attrs={
+            "class": "form-select fw-semibold",
+            "id": "id_docente_suplente",
+            "onchange": "actualizarPreviewSuplencia()"
+        })
+    )
+    designacion_cubierta = forms.ModelChoiceField(
+        queryset=Designacion.objects.filter(
+            activo=True,
+            situacion_revista__in=["TIT", "INT"]
+        ).select_related("agente", "materia", "materia__carrera").prefetch_related("horarios").order_by("agente__apellido", "materia__nombre"),
+        label="Cátedra / Docente a Suplantar (Titular o Interino)",
+        empty_label="-- Seleccionar Cátedra Activa a Cubrir --",
+        widget=forms.Select(attrs={
+            "class": "form-select fw-semibold",
+            "id": "id_designacion_cubierta",
+            "onchange": "actualizarPreviewSuplencia()"
+        })
+    )
+    motivo = forms.ChoiceField(
+        choices=Suplencia.MOTIVO_CHOICES,
+        initial="LICENCIA",
+        label="Causal o Motivo de la Cobertura",
+        widget=forms.Select(attrs={"class": "form-select", "id": "id_motivo"})
+    )
+    fecha_desde = forms.DateField(
+        initial=date.today,
+        label="Fecha Desde (Inicio de Suplencia)",
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date", "id": "id_fecha_desde"})
+    )
+    fecha_hasta = forms.DateField(
+        required=False,
+        label="Fecha Hasta (Fin de Suplencia)",
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date", "id": "id_fecha_hasta"})
+    )
+    sin_termino = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Sin término fijado (vigencia SIN TERMINO)",
+        widget=forms.CheckboxInput(attrs={
+            "class": "form-check-input",
+            "id": "id_sin_termino",
+            "onchange": "toggleFechaHasta()"
+        })
+    )
+    instrumento_legal = forms.CharField(
+        required=False,
+        label="Instrumento Legal de Designación",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ej: Disp. N° 045/26 o Res. Ministerial N° 1022/26"
+        })
+    )
+    observaciones = forms.CharField(
+        required=False,
+        label="Observaciones Institucionales",
+        widget=forms.Textarea(attrs={
+            "class": "form-control",
+            "rows": 3,
+            "placeholder": "Detalle administrativo de la cobertura, reemplazo o motivo pedagógico..."
+        })
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["designacion_cubierta"].label_from_instance = lambda obj: (
+            f"{obj.agente.nombre_completo} (DNI: {obj.agente.dni}) · {obj.materia.nombre} "
+            f"({obj.materia.carrera.codigo}) · {obj.resumen_horarios} ({obj.total_horas_semanales} hs) [{obj.situacion_revista}]"
+        )
+        self.fields["docente_suplente"].label_from_instance = lambda ag: (
+            f"{ag.nombre_completo} (DNI: {ag.dni}) · {ag.horas_activas_semanales} hs activas / {ag.max_horas_semanales} hs tope"
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        docente_suplente = cleaned_data.get("docente_suplente")
+        designacion_cubierta = cleaned_data.get("designacion_cubierta")
+        fecha_desde = cleaned_data.get("fecha_desde")
+        fecha_hasta = cleaned_data.get("fecha_hasta")
+        sin_termino = cleaned_data.get("sin_termino")
+
+        if not docente_suplente:
+            self.add_error("docente_suplente", "Debe seleccionar el docente suplente.")
+            return cleaned_data
+
+        if not designacion_cubierta:
+            self.add_error("designacion_cubierta", "Debe seleccionar la cátedra titular o interina a suplantar.")
+            return cleaned_data
+
+        # 1. Bloqueo de auto-suplencia (el docente suplente no puede ser el mismo de la designación suplantada)
+        if docente_suplente.id == designacion_cubierta.agente_id:
+            self.add_error(
+                "docente_suplente",
+                f"Incompatibilidad institucional: El docente {docente_suplente.nombre_completo} es el titular/interino de esta cátedra y no puede auto-suplirse."
+            )
+
+        # 2. Coherencia de fechas
+        if not sin_termino and fecha_desde and fecha_hasta:
+            if fecha_hasta < fecha_desde:
+                self.add_error("fecha_hasta", "La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.")
+
+        # 3. Validar tope de 30 hs semanales y superposición horaria
+        franjas = []
+        horarios_activos = designacion_cubierta.horarios.filter(activo=True)
+        if horarios_activos.exists():
+            for h in horarios_activos:
+                franjas.append({
+                    "dia_semana": h.dia_semana,
+                    "hora_inicio": h.hora_inicio,
+                    "hora_fin": h.hora_fin,
+                    "horas_catedra": h.horas_catedra,
+                })
+            total_horas_cubiertas = sum(h.horas_catedra for h in horarios_activos)
+        else:
+            franjas.append({
+                "dia_semana": designacion_cubierta.dia_semana,
+                "hora_inicio": designacion_cubierta.hora_inicio or "18:30",
+                "hora_fin": designacion_cubierta.hora_fin or "21:00",
+                "horas_catedra": designacion_cubierta.horas_catedra or 0,
+            })
+            total_horas_cubiertas = designacion_cubierta.horas_catedra or 0
+
+        # Validar tope de 30 hs semanales
+        valido_tope, msg_tope = HorarioService.validar_tope_semanal(docente_suplente, total_horas_cubiertas)
+        if not valido_tope:
+            self.add_error("docente_suplente", msg_tope)
+
+        # Validar no superposición horaria con otras cátedras activas del suplente
+        valido_superp, msg_superp = HorarioService.validar_superposicion_franjas(franjas, docente=docente_suplente)
+        if not valido_superp:
+            self.add_error("designacion_cubierta", msg_superp)
+
+        return cleaned_data
 
 
 class CarreraForm(forms.ModelForm):
