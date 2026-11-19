@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Importación Masiva CSV - SIGET{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="h3 fw-bold mb-1 text-white">
+                    <i class="bi bi-file-earmark-arrow-up text-warning me-2"></i>Importación Masiva de Docentes
+                </h2>
+                <p class="text-secondary mb-0 small">
+                    Carga masiva de agentes docentes desde archivos en formato CSV o texto tabulado / delimitado por comas o punto y coma.
+                </p>
+            </div>
+            <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Volver al Padrón
+            </a>
+        </div>
+
+        <!-- TARJETA DE INSTRUCCIONES DE FORMATO -->
+        <div class="card mb-4 border-secondary bg-dark shadow-sm">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex align-items-center gap-2">
+                <i class="bi bi-info-circle-fill text-warning"></i>
+                <span class="fw-bold text-white small">Instrucciones y Formato de Columnas Requerido</span>
+            </div>
+            <div class="card-body small text-secondary">
+                <p class="mb-2">El archivo CSV puede estar separado por comas (<code>,</code>) o por punto y coma (<code>;</code>) y debe contener las siguientes cabeceras (el orden no es estricto):</p>
+                <div class="p-2 rounded bg-black text-warning font-monospace mb-2" style="font-size: 0.8rem;">
+                    apellido,nombre,dni,legajo,condicion_revista,email,telefono
+                </div>
+                <ul class="mb-0 ps-3">
+                    <li><strong>dni:</strong> Campo obligatorio. Los ceros a la izquierda (ej: <code>04812345</code>) se preservan automáticamente según <strong>RN-01</strong>.</li>
+                    <li><strong>apellido</strong> y <strong>nombre:</strong> Obligatorios.</li>
+                    <li><strong>condicion_revista:</strong> Opcional (por defecto: <code>INTERINO</code>). Valores: <code>TITULAR</code>, <code>INTERINO</code>, <code>SUPLENTE</code>.</li>
+                    <li><strong>legajo:</strong> Opcional. Si el docente no tiene, se deja en blanco (S/L).</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- FORMULARIO DE CARGA -->
+        <div class="card shadow mb-4">
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">Seleccionar Archivo CSV *</label>
+                        {{ form.archivo_csv }}
+                        {% if form.archivo_csv.errors %}
+                            <div class="text-danger small mt-1">{{ form.archivo_csv.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-gold px-4">
+                            <i class="bi bi-cloud-upload-fill me-1"></i> Subir y Procesar CSV
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- RESULTADOS DE LA IMPORTACIÓN -->
+        {% if resultado %}
+        <div class="card border-info shadow">
+            <div class="card-header bg-info bg-opacity-10 border-bottom border-info text-info fw-bold">
+                <i class="bi bi-check-all me-1"></i>Resumen de la Importación Masiva
+            </div>
+            <div class="card-body">
+                <div class="row g-3 text-center mb-3">
+                    <div class="col-4">
+                        <div class="p-3 bg-dark rounded border border-secondary">
+                            <h3 class="fw-bold text-success mb-0">{{ resultado.creados }}</h3>
+                            <small class="text-secondary">Nuevos Docentes Creados</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 bg-dark rounded border border-secondary">
+                            <h3 class="fw-bold text-warning mb-0">{{ resultado.actualizados }}</h3>
+                            <small class="text-secondary">Docentes Actualizados</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 bg-dark rounded border border-secondary">
+                            <h3 class="fw-bold text-danger mb-0">{{ resultado.errores|length }}</h3>
+                            <small class="text-secondary">Filas con Error</small>
+                        </div>
+                    </div>
+                </div>
+
+                {% if resultado.errores %}
+                <div class="alert alert-danger mb-0 small">
+                    <h6 class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Observaciones detectadas:</h6>
+                    <ul class="mb-0 ps-3">
+                        {% for err in resultado.errores %}
+                            <li>{{ err }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

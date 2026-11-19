@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Designaciones de Cátedras - SIGET{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 fw-bold mb-1 text-white">
+            <i class="bi bi-journal-bookmark text-warning me-2"></i>Designaciones y Cátedras
+        </h2>
+        <p class="text-secondary mb-0 small">
+            Asignación de asignaturas, días de la semana y carga horaria para el cómputo de inasistencias por cátedra (RN-10).
+        </p>
+    </div>
+    <a href="{% url 'designacion_create' %}" class="btn btn-gold btn-sm d-flex align-items-center gap-1">
+        <i class="bi bi-plus-circle-fill"></i> Nueva Asignación
+    </a>
+</div>
+
+<!-- BUSCADOR -->
+<div class="card p-3 mb-4 shadow-sm">
+    <form method="GET" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ q }}" class="form-control bg-dark text-white border-secondary" placeholder="Buscar por docente, cátedra o día...">
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-outline-warning">Buscar</button>
+            {% if q %}
+            <a href="{% url 'designaciones_list' %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+        <div class="col-auto ms-auto text-secondary small">
+            Total asignaciones: <strong>{{ page_obj.paginator.count }}</strong>
+        </div>
+    </form>
+</div>
+
+<!-- TABLA DE DESIGNACIONES -->
+<div class="card shadow">
+    <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle mb-0 small">
+            <thead class="table-dark text-secondary text-uppercase">
+                <tr>
+                    <th>Docente</th>
+                    <th>Cátedra / Carrera</th>
+                    <th class="text-center">Día</th>
+                    <th class="text-center">Horario</th>
+                    <th class="text-center">Hs Cátedra</th>
+                    <th class="text-center">Turno</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in page_obj %}
+                <tr class="{% if not d.activo %}opacity-50{% endif %}">
+                    <td>
+                        <a href="{% url 'agente_detail' pk=d.agente.pk %}" class="fw-bold text-white text-decoration-none hover-gold">
+                            {{ d.agente.apellido }}, {{ d.agente.nombre }}
+                        </a>
+                        <div class="text-secondary" style="font-size: 0.75rem;">DNI: {{ d.agente.dni }}</div>
+                    </td>
+                    <td>
+                        <strong class="text-light">{{ d.materia.nombre }}</strong>
+                        <div class="text-secondary" style="font-size: 0.75rem;">{{ d.materia.carrera.codigo }} - {{ d.materia.carrera.nombre }}</div>
+                    </td>
+                    <td class="text-center fw-bold text-warning text-uppercase">{{ d.dia_semana }}</td>
+                    <td class="text-center text-light">{{ d.horario_desde|default:"-" }} a {{ d.horario_hasta|default:"-" }}</td>
+                    <td class="text-center fw-bold">{{ d.horas_catedra }} hs</td>
+                    <td class="text-center"><span class="badge bg-dark border border-secondary">{{ d.turno|default:"Vespertino" }}</span></td>
+                    <td class="text-center">
+                        {% if d.activo %}
+                            <span class="badge bg-success-subtle text-success border border-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Histórica</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-light" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% if d.activo %}
+                            <a href="{% url 'designacion_baja' pk=d.pk %}" class="btn btn-outline-danger" title="Baja lógica (Histórico)" onclick="return confirm('¿Confirma pasar esta designación al archivo histórico?');">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-secondary">
+                        No se encontraron asignaciones de cátedras.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINACIÓN -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-transparent border-top border-secondary d-flex justify-content-between align-items-center">
+        <span class="text-secondary small">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link bg-dark text-white border-secondary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Anterior</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link bg-warning text-dark border-warning fw-bold">{{ page_obj.number }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link bg-dark text-white border-secondary" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Siguiente</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

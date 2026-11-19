@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Nomenclador de Licencias - SIGET{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 fw-bold mb-1 text-white">
+            <i class="bi bi-card-checklist text-warning me-2"></i>Nomenclador Oficial de Licencias y Artículos
+        </h2>
+        <p class="text-secondary mb-0 small">
+            Codificación reglamentaria según el <strong>PDF Maestro de Criterios (Hojas 1 a 6)</strong> e imputación a Cuadros <strong>IL-01</strong> e <strong>IL-02</strong> (RN-04 / RN-05).
+        </p>
+    </div>
+    <span class="badge bg-secondary-subtle text-light p-2">Total: {{ licencias|length }} Tipos Normativos</span>
+</div>
+
+<div class="card shadow">
+    <div class="table-responsive">
+        <table class="table table-hover table-striped table-bordered align-middle mb-0 small">
+            <thead class="table-dark text-secondary text-uppercase font-monospace" style="font-size: 0.75rem;">
+                <tr>
+                    <th class="text-center" style="width: 70px;">Hoja</th>
+                    <th class="text-center" style="width: 80px;">Código</th>
+                    <th>Artículo Normativo</th>
+                    <th>Causa / Descripción Legal</th>
+                    <th class="text-center">Cuadro Asignado</th>
+                    <th class="text-center">Haberes</th>
+                    <th class="text-center">Certificado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lic in licencias %}
+                <tr>
+                    <td class="text-center fw-bold text-secondary font-monospace">H-{{ lic.hoja }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-dark border border-secondary text-warning font-monospace">{{ lic.codigo }}</span>
+                    </td>
+                    <td class="fw-bold text-white">{{ lic.articulo }}</td>
+                    <td class="text-light">{{ lic.descripcion }}</td>
+                    <td class="text-center">
+                        {% if lic.cuadro == 'IL-01' %}
+                            <span class="badge bg-danger">IL-01 (Descuento)</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">IL-02 (Justificada)</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if lic.con_goce_haberes %}
+                            <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>Con Goce</span>
+                        {% else %}
+                            <span class="badge bg-danger-subtle text-danger"><i class="bi bi-x-circle me-1"></i>Sin Goce</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if lic.requiere_certificado %}
+                            <span class="badge bg-info text-dark">Obligatorio</span>
+                        {% else %}
+                            <span class="text-secondary">Opcional</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-secondary">
+                        No hay licencias registradas. Ejecuta `python manage.py cargar_datos_iniciales` para cargarlas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

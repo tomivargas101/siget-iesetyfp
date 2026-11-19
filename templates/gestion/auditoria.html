@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Pistas de Auditoría - SIGET{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 fw-bold mb-1 text-white">
+            <i class="bi bi-shield-lock-fill text-warning me-2"></i>Pistas de Auditoría y Trazabilidad
+        </h2>
+        <p class="text-secondary mb-0 small">
+            Bitácora inmutable de transacciones, altas, modificaciones, procesamientos y exportaciones del sistema.
+        </p>
+    </div>
+</div>
+
+<!-- BUSCADOR -->
+<div class="card p-3 mb-4 shadow-sm">
+    <form method="GET" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ q }}" class="form-control bg-dark text-white border-secondary" placeholder="Buscar por usuario, acción o detalles...">
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-outline-warning">Buscar</button>
+            {% if q %}
+            <a href="{% url 'auditoria' %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+        <div class="col-auto ms-auto text-secondary small">
+            Total eventos registrados: <strong>{{ page_obj.paginator.count }}</strong>
+        </div>
+    </form>
+</div>
+
+<!-- TABLA DE AUDITORÍA -->
+<div class="card shadow">
+    <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle mb-0 small font-monospace">
+            <thead class="table-dark text-secondary text-uppercase" style="font-size: 0.75rem;">
+                <tr>
+                    <th style="width: 170px;">Timestamp</th>
+                    <th>Usuario Responsable</th>
+                    <th>Acción</th>
+                    <th>Detalles de la Operación</th>
+                    <th style="width: 140px;">IP Origen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in page_obj %}
+                <tr>
+                    <td class="text-secondary text-nowrap">{{ a.timestamp|date:"d/m/Y H:i:s" }}</td>
+                    <td class="fw-bold text-white font-sans-serif">
+                        <i class="bi bi-person-circle text-warning me-1"></i>{{ a.usuario_nombre }}
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary font-sans-serif">{{ a.accion }}</span>
+                    </td>
+                    <td class="text-light font-sans-serif">{{ a.detalles }}</td>
+                    <td class="text-secondary">{{ a.ip_origen|default:"Localhost" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-secondary font-sans-serif">
+                        No se encontraron registros de auditoría.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINACIÓN -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-transparent border-top border-secondary d-flex justify-content-between align-items-center">
+        <span class="text-secondary small">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link bg-dark text-white border-secondary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Anterior</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link bg-warning text-dark border-warning fw-bold">{{ page_obj.number }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link bg-dark text-white border-secondary" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Siguiente</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

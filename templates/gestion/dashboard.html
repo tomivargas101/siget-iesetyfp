@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}Tablero Principal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 fw-bold mb-1 text-white">
+            <i class="bi bi-speedometer2 text-warning me-2"></i>Tablero de Control Operativo
+        </h2>
+        <p class="text-secondary mb-0 small">
+            Período Activo: <strong>{{ mes_actual }}/{{ anio_actual }}</strong> | Oficina Técnica de Liquidaciones: <strong>1452</strong>
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'asistencia_diaria' %}" class="btn btn-gold btn-sm d-flex align-items-center gap-1">
+            <i class="bi bi-calendar-check"></i> Tomar Asistencia Hoy
+        </a>
+        <a href="{% url 'procesamiento_mensual' %}" class="btn btn-outline-light btn-sm d-flex align-items-center gap-1">
+            <i class="bi bi-gear-fill"></i> Procesar Cuadros IL
+        </a>
+        <a href="{% url 'exportar_excel_mensual' %}" class="btn btn-success btn-sm d-flex align-items-center gap-1">
+            <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+        </a>
+    </div>
+</div>
+
+<!-- TARJETAS DE INDICADORES (KPIs) -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 border-start border-4 border-info">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small text-uppercase fw-semibold">Agentes Activos</span>
+                    <h3 class="fw-bold my-1 text-white">{{ total_agentes }}</h3>
+                    <span class="badge bg-secondary-subtle text-info-emphasis small">En planta docente</span>
+                </div>
+                <div class="p-2 bg-info bg-opacity-10 rounded text-info fs-4">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 border-start border-4 border-success">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small text-uppercase fw-semibold">Presentes Hoy</span>
+                    <h3 class="fw-bold my-1 text-success">{{ presentes_hoy }}</h3>
+                    <span class="badge bg-success-subtle text-success small">Asistieron o sin novedad</span>
+                </div>
+                <div class="p-2 bg-success bg-opacity-10 rounded text-success fs-4">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 border-start border-4 border-danger">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small text-uppercase fw-semibold">Inasistencias Hoy</span>
+                    <h3 class="fw-bold my-1 text-danger">{{ inasistencias_hoy }}</h3>
+                    <span class="badge bg-danger-subtle text-danger small">Afectan liquidación</span>
+                </div>
+                <div class="p-2 bg-danger bg-opacity-10 rounded text-danger fs-4">
+                    <i class="bi bi-x-octagon-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 border-start border-4 border-warning">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small text-uppercase fw-semibold">Licencias Hoy</span>
+                    <h3 class="fw-bold my-1 text-warning">{{ licencias_hoy }}</h3>
+                    <span class="badge bg-warning-subtle text-warning small">Formulario / Certificado</span>
+                </div>
+                <div class="p-2 bg-warning bg-opacity-10 rounded text-warning fs-4">
+                    <i class="bi bi-file-medical-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN INTERMEDIA: CUADROS Y ALERTAS -->
+<div class="row g-4 mb-4">
+    <!-- Estado de Procesamiento Mensual IL-01 / IL-02 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-white">
+                    <i class="bi bi-calculator me-2 text-warning"></i>Estado de Cuadros Mensuales (Mes {{ mes_actual }}/{{ anio_actual }})
+                </h5>
+                <span class="badge bg-secondary-subtle text-secondary small">RN-04 / RN-05</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <div class="p-3 rounded bg-dark border border-secondary text-center">
+                            <span class="badge bg-primary mb-1">Cuadro IL-01</span>
+                            <div class="text-secondary small mb-1">Inasistencias Injustificadas</div>
+                            <h2 class="fw-bold text-white mb-0">{{ procesado_il01 }}</h2>
+                            <small class="text-secondary">Renglones generados</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 rounded bg-dark border border-secondary text-center">
+                            <span class="badge bg-warning text-dark mb-1">Cuadro IL-02</span>
+                            <div class="text-secondary small mb-1">Licencias Normativas</div>
+                            <h2 class="fw-bold text-white mb-0">{{ procesado_il02 }}</h2>
+                            <small class="text-secondary">Renglones generados</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-secondary d-flex align-items-center gap-2 mb-0 py-2 small" role="alert">
+                    <i class="bi bi-info-circle-fill text-warning fs-5"></i>
+                    <div>
+                        Los cuadros se generan desagregando cátedras y horas de cada docente por día de la semana según <strong>RN-10</strong>.
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top border-secondary text-end">
+                <a href="{% url 'procesamiento_mensual' %}" class="btn btn-sm btn-outline-warning">
+                    Ver Cuadros Detallados <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas Preventivas de Límite Anual -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-white">
+                    <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>Alertas de Consumo de Inasistencias ({{ anio_actual }})
+                </h5>
+                <a href="{% url 'consultas' %}" class="btn btn-link btn-sm text-warning p-0 text-decoration-none small">Ver Todos</a>
+            </div>
+            <div class="card-body p-0">
+                {% if alertas_criticas %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-dark text-secondary small">
+                            <tr>
+                                <th>Docente</th>
+                                <th class="text-center">Consumidas</th>
+                                <th class="text-center">Restantes</th>
+                                <th class="text-center">Nivel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in alertas_criticas %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold text-white">{{ a.agente.nombre_completo }}</div>
+                                    <small class="text-secondary">DNI: {{ a.agente.dni }}</small>
+                                </td>
+                                <td class="text-center fw-bold">{{ a.total_inasistencias }} / {{ a.limite_anual }}</td>
+                                <td class="text-center">
+                                    <span class="badge {% if a.restantes <= 0 %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                        {{ a.restantes }} restantes
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% if a.nivel == 'CRITICO' %}
+                                    <span class="badge bg-danger"><i class="bi bi-shield-slash me-1"></i>Límite Agotado</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-circle me-1"></i>Advertencia</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-secondary">
+                    <i class="bi bi-check-circle text-success fs-1 d-block mb-2"></i>
+                    <p class="mb-0">Todos los docentes se encuentran dentro de los márgenes reglamentarios sin alertas críticas.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AUDITORÍA RECIENTE -->
+<div class="card">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0 fw-bold fs-6 text-white">
+            <i class="bi bi-shield-check me-2 text-warning"></i>Últimos Eventos de Auditoría del Sistema
+        </h5>
+        <a href="{% url 'auditoria' %}" class="btn btn-outline-secondary btn-sm small">Bitácora Completa</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle mb-0">
+                <thead class="table-dark text-secondary small">
+                    <tr>
+                        <th>Fecha y Hora</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Detalle Técnico</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody class="small">
+                    {% for aud in ultimas_auditorias %}
+                    <tr>
+                        <td class="text-nowrap text-secondary">{{ aud.timestamp|date:"d/m/Y H:i:s" }}</td>
+                        <td class="fw-semibold text-white">
+                            <i class="bi bi-person-fill text-warning me-1"></i>{{ aud.usuario_nombre }}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ aud.accion }}</span>
+                        </td>
+                        <td class="text-light">{{ aud.detalles }}</td>
+                        <td class="text-secondary font-monospace">{{ aud.ip_origen|default:"Localhost" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-3 text-secondary">No hay registros de auditoría aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

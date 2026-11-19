@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Asistencia Diaria - {{ fecha_sel|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 fw-bold mb-1 text-white">
+            <i class="bi bi-calendar3 text-warning me-2"></i>Control de Asistencia Diaria
+        </h2>
+        <p class="text-secondary mb-0 small">
+            Día: <strong class="text-warning text-uppercase">{{ nombre_dia }}</strong> | Fecha: <strong>{{ fecha_sel|date:"d/m/Y" }}</strong>
+        </p>
+    </div>
+    
+    <!-- NAVEGADOR DE FECHAS -->
+    <div class="d-flex align-items-center gap-2">
+        <a href="?fecha={{ fecha_ayer|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm" title="Día anterior">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <form method="GET" class="d-flex align-items-center gap-2">
+            <input type="date" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}" class="form-control form-control-sm bg-dark text-white border-secondary" onchange="this.form.submit()">
+        </form>
+        <a href="?fecha={{ fecha_manana|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm" title="Día siguiente">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        <a href="?fecha=" class="btn btn-outline-warning btn-sm">Hoy</a>
+    </div>
+</div>
+
+<!-- BANNER DE FERIADO O DÍA NO LABORABLE (RF-10) -->
+{% if feriado_obj %}
+<div class="alert alert-warning border-warning d-flex align-items-center gap-3 mb-4 shadow" role="alert">
+    <i class="bi bi-calendar2-heart-fill fs-2 text-warning"></i>
+    <div>
+        <h5 class="alert-heading fw-bold mb-1">¡Día No Laborable / Feriado Institucional!</h5>
+        <p class="mb-0 small">
+            <strong>{{ feriado_obj.descripcion }}</strong> (Categoría: <span class="badge bg-dark text-warning">{{ feriado_obj.tipo }}</span>).
+            No se deben computar inasistencias injustificadas para este día conforme a la reglamentación.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- TABLA DE DOCENTES Y ASISTENCIA -->
+<div class="card shadow">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary-subtle text-white">Total: {{ filas|length }} docentes</span>
+            <span class="text-secondary small">Cátedras programadas para este día:</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 small">
+            <span class="badge bg-success">PR = Presente</span>
+            <span class="badge bg-danger">I = Injustificada</span>
+            <span class="badge bg-warning text-dark">LIC = Licencia</span>
+            <span class="badge bg-info text-dark">P = Permiso</span>
+            <span class="badge bg-primary">LT = Lic. Título</span>
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover table-striped table-bordered align-middle mb-0">
+            <thead class="table-dark text-secondary small text-uppercase">
+                <tr>
+                    <th style="width: 50px;" class="text-center">#</th>
+                    <th>Docente / Legajo</th>
+                    <th>DNI</th>
+                    <th>Cátedras del Día ({{ nombre_dia }})</th>
+                    <th class="text-center" style="width: 90px;">Hs Hoy</th>
+                    <th class="text-center" style="width: 130px;">Estado Actual</th>
+                    <th class="text-center" style="width: 260px;">Acción Rápida (1 Clic)</th>
+                    <th class="text-center" style="width: 140px;">Formulario Físico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in filas %}
+                <tr class="{% if not fila.tiene_catedra_hoy %}opacity-75{% endif %}">
+                    <td class="text-center text-secondary small">{{ forloop.counter }}</td>
+                    <td>
+                        <div class="fw-bold text-white">{{ fila.agente.apellido }}, {{ fila.agente.nombre }}</div>
+                        <small class="text-secondary">Legajo: {{ fila.agente.legajo|default:"S/L" }} | {{ fila.agente.condicion_revista }}</small>
+                    </td>
+                    <td class="font-monospace text-warning small">{{ fila.agente.dni }}</td>
+                    <td>
+                        {% if fila.tiene_catedra_hoy %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for d in fila.desigs_hoy %}
+                                <span class="badge bg-secondary border border-secondary text-light small" title="{{ d.materia.carrera.codigo }}">
+                                    {{ d.materia.nombre }} ({{ d.horas_catedra }}hs)
+                                </span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <span class="text-secondary small fst-italic">Sin cátedras asignadas este día</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if fila.horas_hoy > 0 %}
+                        <span class="badge badge-gold fw-bold">{{ fila.horas_hoy }} hs</span>
+                        {% else %}
+                        <span class="text-secondary small">0 hs</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if fila.estado == 'PR' or fila.estado == 'Presente' %}
+                            <span class="badge bg-success px-3 py-2"><i class="bi bi-check-lg me-1"></i>Presente</span>
+                        {% elif fila.estado == 'I' %}
+                            <span class="badge bg-danger px-3 py-2"><i class="bi bi-x-octagon me-1"></i>Inasistencia</span>
+                        {% elif fila.estado == 'LIC' %}
+                            <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-file-medical me-1"></i>Licencia</span>
+                        {% elif fila.estado == 'P' %}
+                            <span class="badge bg-info text-dark px-3 py-2"><i class="bi bi-clock me-1"></i>Permiso</span>
+                        {% elif fila.estado == 'LT' %}
+                            <span class="badge bg-primary px-3 py-2"><i class="bi bi-mortarboard me-1"></i>Lic. Título</span>
+                        {% else %}
+                            <span class="badge bg-secondary px-3 py-2">{{ fila.estado }}</span>
+                        {% endif %}
+
+                        {% if fila.novedad and fila.novedad.formulario_numero %}
+                            <div class="mt-1">
+                                <span class="badge bg-dark border border-secondary small text-warning" title="Formulario Oficial">
+                                    <i class="bi bi-receipt"></i> F-{{ fila.novedad.formulario_numero }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <!-- BOTONERA DE 1 CLIC CON FORMULARIO POST -->
+                        <div class="btn-group btn-group-sm" role="group">
+                            <!-- Botón Presente -->
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
+                                <input type="hidden" name="estado" value="PR">
+                                <button type="submit" class="btn btn-outline-success {% if fila.estado == 'PR' or fila.estado == 'Presente' %}active{% endif %}" title="Marcar Presente">
+                                    PR
+                                </button>
+                            </form>
+                            <!-- Botón Injustificada -->
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
+                                <input type="hidden" name="estado" value="I">
+                                <button type="submit" class="btn btn-outline-danger {% if fila.estado == 'I' %}active{% endif %}" title="Inasistencia Injustificada">
+                                    I
+                                </button>
+                            </form>
+                            <!-- Botón Permiso -->
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
+                                <input type="hidden" name="estado" value="P">
+                                <button type="submit" class="btn btn-outline-info {% if fila.estado == 'P' %}active{% endif %}" title="Permiso de Salida / Trámite">
+                                    P
+                                </button>
+                            </form>
+                            <!-- Botón Licencia Médica -->
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
+                                <input type="hidden" name="estado" value="LIC">
+                                <button type="submit" class="btn btn-outline-warning {% if fila.estado == 'LIC' %}active{% endif %}" title="Licencia Médica o Personal">
+                                    LIC
+                                </button>
+                            </form>
+                            <!-- Botón Licencia Título -->
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
+                                <input type="hidden" name="estado" value="LT">
+                                <button type="submit" class="btn btn-outline-primary {% if fila.estado == 'LT' %}active{% endif %}" title="Licencia Mesa de Examen / Título">
+                                    LT
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <a href="{% url 'recepcion_formulario' agente_id=fila.agente.id fecha=fecha_sel|date:'Y-m-d' %}" 
+                           class="btn btn-sm btn-outline-light d-flex align-items-center justify-content-center gap-1"
+                           title="Cargar número de formulario, artículo y adjuntar certificado">
+                            <i class="bi bi-file-earmark-text text-warning"></i>
+                            {% if fila.novedad and fila.novedad.formulario_numero %}
+                                Editar
+                            {% else %}
+                                Formulario
+                            {% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-secondary">
+                        No hay docentes registrados en el sistema. Puedes agregarlos o importar un CSV.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

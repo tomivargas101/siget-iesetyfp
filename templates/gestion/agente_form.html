@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} - SIGET{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="h3 fw-bold mb-1 text-white">
+                    <i class="bi bi-person-fill text-warning me-2"></i>{{ titulo }}
+                </h2>
+                <p class="text-secondary mb-0 small">
+                    Los datos del agente docente impactan en el cómputo de asistencia y en las planillas oficiales IL-01 / IL-02.
+                </p>
+            </div>
+            <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Volver al Padrón
+            </a>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-transparent border-bottom border-secondary">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-white">
+                    <i class="bi bi-card-heading text-warning me-2"></i>Datos Personales y Laborales
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for err in form.non_field_errors %}
+                            <div><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">DNI * (Texto / Preserva Ceros)</label>
+                            {{ form.dni }}
+                            <div class="form-text text-secondary small">RN-01: Se almacena estrictamente como texto para respetar ceros a la izquierda.</div>
+                            {% if form.dni.errors %}
+                                <div class="text-danger small mt-1">{{ form.dni.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">N° de Legajo</label>
+                            {{ form.legajo }}
+                            <div class="form-text text-secondary small">Dejar en blanco si el agente aún no posee legajo asignado (S/L).</div>
+                            {% if form.legajo.errors %}
+                                <div class="text-danger small mt-1">{{ form.legajo.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Apellido *</label>
+                            {{ form.apellido }}
+                            {% if form.apellido.errors %}
+                                <div class="text-danger small mt-1">{{ form.apellido.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Nombre *</label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Condición de Revista *</label>
+                            {{ form.condicion_revista }}
+                            {% if form.condicion_revista.errors %}
+                                <div class="text-danger small mt-1">{{ form.condicion_revista.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Estado Activo en Planta</label>
+                            <div class="form-check form-switch mt-2">
+                                {{ form.activo }}
+                                <label class="form-check-label text-white small" for="{{ form.activo.id_for_label }}">
+                                    Docente Activo (Si se desmarca pasa a histórico según RN-03)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Correo Electrónico</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Teléfono de Contacto</label>
+                            {{ form.telefono }}
+                            {% if form.telefono.errors %}
+                                <div class="text-danger small mt-1">{{ form.telefono.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="border-secondary my-4">
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-gold px-4">
+                            <i class="bi bi-save2-fill me-1"></i> Guardar Docente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

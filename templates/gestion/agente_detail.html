@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ agente.nombre_completo }} - Ficha Técnica{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="h3 fw-bold mb-1 text-white">
+            <i class="bi bi-person-lines-fill text-warning me-2"></i>Ficha del Agente Docente
+        </h2>
+        <p class="text-secondary mb-0 small">
+            Historial de cátedras, carga horaria semanal y registro histórico de asistencias/licencias.
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Volver al Padrón
+        </a>
+        <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="btn btn-gold btn-sm">
+            <i class="bi bi-journal-plus me-1"></i>Asignar Cátedra
+        </a>
+        <a href="{% url 'agente_edit' pk=agente.id %}" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-pencil me-1"></i>Editar Docente
+        </a>
+    </div>
+</div>
+
+<!-- TARJETA DE PERFIL Y DATOS PERSONALES -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card p-4 h-100 shadow">
+            <div class="text-center mb-3">
+                <div class="d-inline-flex p-3 rounded-circle bg-warning bg-opacity-10 text-warning fs-1 mb-2">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <h4 class="fw-bold text-white mb-0">{{ agente.apellido }}, {{ agente.nombre }}</h4>
+                <span class="badge bg-secondary-subtle text-light mt-1">{{ agente.condicion_revista }}</span>
+            </div>
+            <hr class="border-secondary my-2">
+            <ul class="list-unstyled mb-0 small">
+                <li class="py-2 border-bottom border-secondary d-flex justify-content-between">
+                    <span class="text-secondary">DNI (RN-01):</span>
+                    <strong class="text-warning font-monospace">{{ agente.dni }}</strong>
+                </li>
+                <li class="py-2 border-bottom border-secondary d-flex justify-content-between">
+                    <span class="text-secondary">N° Legajo:</span>
+                    <strong class="text-light">{{ agente.legajo|default:"Sin Legajo (S/L)" }}</strong>
+                </li>
+                <li class="py-2 border-bottom border-secondary d-flex justify-content-between">
+                    <span class="text-secondary">Carga Horaria:</span>
+                    {% with hs=agente.horas_semanales_totales %}
+                        <strong class="{% if hs > 30 %}text-danger{% elif hs >= 25 %}text-warning{% else %}text-success{% endif %}">
+                            {{ hs }} hs semanales / 30 hs tope
+                        </strong>
+                    {% endwith %}
+                </li>
+                <li class="py-2 border-bottom border-secondary d-flex justify-content-between">
+                    <span class="text-secondary">Correo:</span>
+                    <span class="text-light">{{ agente.email|default:"No informado" }}</span>
+                </li>
+                <li class="py-2 border-bottom border-secondary d-flex justify-content-between">
+                    <span class="text-secondary">Teléfono:</span>
+                    <span class="text-light">{{ agente.telefono|default:"No informado" }}</span>
+                </li>
+                <li class="py-2 d-flex justify-content-between">
+                    <span class="text-secondary">Estado en Planta:</span>
+                    {% if agente.activo %}
+                        <span class="badge bg-success">Activo</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Histórico (Baja)</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- CÁTEDRAS ACTIVAS -->
+    <div class="col-lg-8">
+        <div class="card h-100 shadow">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-white">
+                    <i class="bi bi-book-half text-warning me-2"></i>Cátedras Asignadas Activas
+                </h5>
+                <span class="badge badge-gold">{{ designaciones|length }} Materias</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0 small">
+                    <thead class="table-dark text-secondary text-uppercase">
+                        <tr>
+                            <th>Materia / Carrera</th>
+                            <th class="text-center">Día</th>
+                            <th class="text-center">Horario</th>
+                            <th class="text-center">Hs Cátedra</th>
+                            <th class="text-center">Turno</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in designaciones %}
+                        <tr>
+                            <td>
+                                <strong class="text-white">{{ d.materia.nombre }}</strong>
+                                <div class="text-secondary" style="font-size: 0.75rem;">
+                                    {{ d.materia.carrera.nombre }} ({{ d.materia.carrera.codigo }})
+                                </div>
+                            </td>
+                            <td class="text-center fw-bold text-warning text-uppercase">{{ d.dia_semana }}</td>
+                            <td class="text-center text-light">{{ d.horario_desde|default:"-" }} a {{ d.horario_hasta|default:"-" }}</td>
+                            <td class="text-center fw-bold">{{ d.horas_catedra }} hs</td>
+                            <td class="text-center"><span class="badge bg-dark border border-secondary">{{ d.turno|default:"Vespertino" }}</span></td>
+                            <td class="text-end">
+                                <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-light btn-sm" title="Editar horario/horas">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'designacion_baja' pk=d.pk %}" class="btn btn-outline-danger btn-sm" title="Dar de baja lógica (pase a histórico)" onclick="return confirm('¿Confirma la baja lógica de esta designación? Pasará a histórico para preservar los antecedentes.');">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-secondary">
+                                No posee cátedras activas actualmente. <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="text-warning">Asignar cátedra ahora</a>.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CÁTEDRAS HISTÓRICAS (RN-03: PERSISTENCIA HISTÓRICA INMUTABLE) -->
+{% if designaciones_hist %}
+<div class="card mb-4 shadow">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0 fw-bold fs-6 text-secondary">
+            <i class="bi bi-archive-fill me-2"></i>Historial de Cátedras Pasadas (RN-03 - No se eliminan físicamente)
+        </h5>
+        <span class="badge bg-secondary">{{ designaciones_hist|length }} Históricas</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle mb-0 small opacity-75">
+            <thead class="table-dark text-secondary text-uppercase">
+                <tr>
+                    <th>Materia / Carrera</th>
+                    <th>Día</th>
+                    <th>Hs Cátedra</th>
+                    <th>Vigencia Hasta</th>
+                    <th>Motivo de Cese</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dh in designaciones_hist %}
+                <tr>
+                    <td>{{ dh.materia.nombre }} ({{ dh.materia.carrera.codigo }})</td>
+                    <td>{{ dh.dia_semana }}</td>
+                    <td>{{ dh.horas_catedra }} hs</td>
+                    <td>{{ dh.vigencia_hasta|default:"-" }}</td>
+                    <td class="text-secondary">Cese reglamentario / Modificación de planta</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- NOVEDADES RECIENTES DEL AGENTE -->
+<div class="card shadow">
+    <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0 fw-bold fs-6 text-white">
+            <i class="bi bi-clock-history text-warning me-2"></i>Últimas Novedades y Asistencias Registradas
+        </h5>
+        <span class="badge bg-secondary-subtle text-secondary small">Últimos 15 registros</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle mb-0 small">
+            <thead class="table-dark text-secondary text-uppercase">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Formulario Oficial</th>
+                    <th>Licencia / Artículo</th>
+                    <th>Suplente Asignado</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in novedades_recientes %}
+                <tr>
+                    <td class="text-white fw-semibold">{{ n.fecha|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if n.estado == 'PR' or n.estado == 'Presente' %}
+                            <span class="badge bg-success">Presente</span>
+                        {% elif n.estado == 'I' %}
+                            <span class="badge bg-danger">Inasistencia</span>
+                        {% elif n.estado == 'LIC' %}
+                            <span class="badge bg-warning text-dark">Licencia</span>
+                        {% elif n.estado == 'P' %}
+                            <span class="badge bg-info text-dark">Permiso</span>
+                        {% elif n.estado == 'LT' %}
+                            <span class="badge bg-primary">Lic. Título</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if n.formulario_numero %}
+                            <span class="badge bg-dark border border-secondary text-warning">F-{{ n.formulario_numero }}</span>
+                        {% else %}
+                            <span class="text-secondary">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ n.tipo_licencia|default:"-" }}</td>
+                    <td>
+                        {% if n.suplente %}
+                            <span class="text-info"><i class="bi bi-person-fill"></i> {{ n.suplente.nombre_completo }}</span>
+                        {% else %}
+                            <span class="text-secondary">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-secondary">{{ n.observaciones|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-3 text-secondary">
+                        No hay novedades de asistencia registradas para este docente.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SIGET{% endblock %} - IESETyFP</title>
+    <!-- Bootstrap 5.3 CSS (Dark Mode Integrado) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --siget-gold: #E0C45D;
+            --siget-gold-hover: #C2A532;
+            --siget-dark-bg: #18181B;
+            --siget-card-bg: #242424;
+            --siget-sidebar-bg: #1E1E1E;
+            --siget-border: #3D3D3D;
+        }
+        body {
+            background-color: var(--siget-dark-bg);
+            color: #F8FAFC;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+        .sidebar {
+            background-color: var(--siget-sidebar-bg);
+            border-right: 1px solid var(--siget-border);
+            min-height: 100vh;
+            width: 260px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .main-content {
+            margin-left: 260px;
+            padding: 1.5rem 2rem;
+            min-height: 100vh;
+        }
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 100%;
+                position: relative;
+                min-height: auto;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+            }
+        }
+        .nav-link {
+            color: #D1D5DB;
+            font-weight: 600;
+            font-size: 0.88rem;
+            border-radius: 8px;
+            padding: 0.65rem 0.9rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.15s ease-in-out;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .nav-link:hover {
+            color: #FFFFFF;
+            background-color: #2D2D30;
+        }
+        .nav-link.active {
+            background-color: var(--siget-gold);
+            color: #1A1A1A !important;
+            font-weight: 700;
+        }
+        .card {
+            background-color: var(--siget-card-bg);
+            border: 1px solid var(--siget-border);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        .btn-gold {
+            background-color: var(--siget-gold);
+            color: #1A1A1A;
+            font-weight: 700;
+            border: none;
+            transition: all 0.15s;
+        }
+        .btn-gold:hover {
+            background-color: var(--siget-gold-hover);
+            color: #111111;
+        }
+        .badge-gold {
+            background-color: rgba(224, 196, 93, 0.15);
+            color: var(--siget-gold);
+            border: 1px solid var(--siget-gold);
+        }
+        .table {
+            --bs-table-bg: transparent;
+            --bs-table-color: #F8FAFC;
+            --bs-table-border-color: #383838;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #2A2A2E !important;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+        }
+        .status-PR { background-color: #064E3B; color: #34D399; }
+        .status-P { background-color: #1E3A8A; color: #93C5FD; }
+        .status-I { background-color: #7F1D1D; color: #F87171; }
+        .status-LIC { background-color: #78350F; color: #FCD34D; }
+        .status-LT { background-color: #3B0764; color: #C084FC; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar p-3 d-flex flex-column justify-content-between">
+        <div>
+            <!-- Branding Institucional -->
+            <div class="d-flex align-items-center gap-3 pb-3 mb-3 border-bottom border-secondary border-opacity-25">
+                <div class="bg-black p-1 rounded-3 border border-warning" style="width: 44px; height: 44px;">
+                    <img src="{% static 'img/logo_iesetyfp.jpg' %}" alt="IESETyFP" class="w-100 h-100 object-fit-contain rounded">
+                </div>
+                <div>
+                    <h1 class="h6 mb-0 fw-bold text-white tracking-wide" style="font-size: 1.05rem;">SIGET</h1>
+                    <small class="text-secondary" style="font-size: 0.72rem;">IESETyFP · Chaco</small>
+                </div>
+            </div>
+
+            <!-- Menú de Navegación -->
+            <nav class="nav flex-column">
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'asistencia_diaria' %}active{% endif %}" href="{% url 'asistencia_diaria' %}">
+                    <i class="bi bi-clipboard-check"></i> Asistencia Diaria
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'procesamiento_mensual' %}active{% endif %}" href="{% url 'procesamiento_mensual' %}">
+                    <i class="bi bi-calendar2-range"></i> Cuadros IL-01 / IL-02
+                </a>
+                <div class="my-2 border-top border-secondary border-opacity-25"></div>
+                <a class="nav-link {% if 'agente' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'agentes_list' %}">
+                    <i class="bi bi-people"></i> Agentes Docentes
+                </a>
+                <a class="nav-link {% if 'designacion' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'designaciones_list' %}">
+                    <i class="bi bi-journal-bookmark"></i> Cátedras / Horarios
+                </a>
+                <a class="nav-link {% if 'carrera' in request.resolver_match.url_name or 'materia' in request.resolver_match.url_name or 'licencia' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'carreras_list' %}">
+                    <i class="bi bi-collection"></i> Catálogos & Carreras
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'importar_csv' %}active{% endif %}" href="{% url 'importar_csv' %}">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Carga Masiva CSV
+                </a>
+                <div class="my-2 border-top border-secondary border-opacity-25"></div>
+                <a class="nav-link {% if request.resolver_match.url_name == 'consultas' %}active{% endif %}" href="{% url 'consultas' %}">
+                    <i class="bi bi-search"></i> Consultas & Alertas
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'auditoria' %}active{% endif %}" href="{% url 'auditoria' %}">
+                    <i class="bi bi-shield-check"></i> Auditoría (Logs)
+                </a>
+            </nav>
+        </div>
+
+        <!-- Footer Sidebar: Usuario y Logout -->
+        <div class="pt-3 mt-3 border-top border-secondary border-opacity-25">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                    <div class="bg-secondary bg-opacity-25 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                        <i class="bi bi-person-fill text-warning"></i>
+                    </div>
+                    <div class="text-truncate">
+                        <div class="fw-bold text-white small text-truncate">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <div class="text-secondary" style="font-size: 0.7rem;">Operador/a Activo</div>
+                    </div>
+                </div>
+            </div>
+            <form action="{% url 'logout' %}" method="post" class="d-grid">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center gap-2">
+                    <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+        <!-- Notificaciones y Mensajes Flash -->
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show border-0 shadow-sm" role="alert">
+                        {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+                        {% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% elif message.tags == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+                        {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap 5.3 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

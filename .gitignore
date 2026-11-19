@@ -24,12 +24,14 @@ siget.db
 reportes/*
 !reportes/.gitkeep
 
-# Archivos de resguardo y certificados adjuntos
+# Archivos de resguardo, certificados adjuntos y uploads media
+media/*
+!media/.gitkeep
+media/certificados/*
+!media/certificados/.gitkeep
+legacy_desktop_archive/
 resguardo/*
 !resguardo/.gitkeep
-!resguardo/certificados/
-resguardo/certificados/*
-!resguardo/certificados/.gitkeep
 
 # Compilación, empaquetado y logs
 dist/
