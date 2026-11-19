@@ -1,8 +1,25 @@
 # ==============================================================================
-# SIGET - Sistema Integral de Gestión Educativa Terciaria (IESETyFP)
-# Dependencias Oficiales Python y Django (Stack 100% Web)
+# SIGET - Sistema de Gestión de Asistencia Docente (IESETyFP - Resistencia, Chaco)
+# Dependencias Oficiales Python & Django (Stack 100% Web)
+# Fecha de consolidación: 19/11/2026
 # ==============================================================================
 
-Django>=5.1,<6.2
-openpyxl>=3.1.5
-pandas>=2.2.0
+# Framework Web Central
+Django==6.1.3
+asgiref==3.13.0
+sqlparse==0.6.1
+tzdata==2026.5
+
+# Procesamiento de Planillas y Exportación Ministerial (Cuadros IL-01 / IL-02)
+openpyxl==3.1.5
+et_xmlfile==2.0.0
+pandas==3.0.6
+numpy==2.5.4
+python-dateutil==2.9.0.post0
+
+# Manejo de Certificados y Archivos Digitales Adjuntos
+Pillow==13.0.0
+
+# Soporte de Base de Datos y Criptografía
+cryptography==50.0.2
+PyMySQL==1.2.3

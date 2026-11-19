@@ -1,52 +1,61 @@
-# Python & Bytecode
-__pycache__/
-*.py[cod]
-*$py.class
+# ==============================================================================
+# SIGET - Git Ignore Configuration (Python & Django)
+# Consolidado al 19/11/2026
+# ==============================================================================
+
+# Entornos Virtuales y Dependencias Python
 .venv/
 venv/
 ENV/
 env/
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Node.js & Gestores de paquetes
+# Node.js & Empaquetadores Legacy (Archivados)
 node_modules/
 pnpm-lock.yaml
 pnpm-workspace.yaml
 package-lock.json
 
 # Base de datos local
-siget.db
+db.sqlite3
+*.sqlite3
 *.db
 *.db-shm
 *.db-wal
-*.sqlite3
 *.backup*
+*.bak
 
-# Reportes y planillas generadas
+# Reportes y Planillas Generadas
 reportes/*
 !reportes/.gitkeep
 
-# Archivos de resguardo, certificados adjuntos y uploads media
+# Archivos de Medios y Certificados Adjuntos
 media/*
 !media/.gitkeep
 media/certificados/*
 !media/certificados/.gitkeep
+
+# Archivo Histórico Desktop y Resguardo
 legacy_desktop_archive/
 resguardo/*
 !resguardo/.gitkeep
 
-# Compilación, empaquetado y logs
+# Compilación y Logs
 dist/
 build/
 *.log
 .pytest_cache/
 
-# Entornos y variables de configuración sensible
+# Entornos y Secretos
 .env
 .env.*
 *.local
 
-# Sistema Operativo / IDE
+# IDEs y Sistema Operativo
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.swp
