@@ -28,11 +28,6 @@
             <a href="{% url 'designacion_edit' pk=desig.pk %}" class="btn btn-ies btn-sm">
                 <i class="bi bi-pencil-fill me-1"></i>Editar Designación
             </a>
-            {% if desig.activo %}
-            <a href="{% url 'designacion_baja' pk=desig.pk %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('¿Confirma pasar esta designación al archivo histórico?');">
-                <i class="bi bi-trash me-1"></i>Dar de Baja
-            </a>
-            {% endif %}
         </div>
     </div>
 </div>

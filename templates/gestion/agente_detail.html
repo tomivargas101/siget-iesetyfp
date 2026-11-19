@@ -130,9 +130,6 @@
                                 <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="{% url 'designacion_baja' pk=d.pk %}" class="btn btn-outline-danger btn-sm" title="Baja Lógica (RN-03)" onclick="return confirm('¿Confirma la baja lógica de esta designación? Pasará a histórico para preservar los antecedentes.');">
-                                    <i class="bi bi-trash"></i>
-                                </a>
                             </td>
                         </tr>
                         {% empty %}
