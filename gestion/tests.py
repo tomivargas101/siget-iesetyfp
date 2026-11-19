@@ -245,3 +245,42 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertEqual(alerta_doc["faltas"], 9)
         self.assertEqual(alerta_doc["restantes"], 1)
         self.assertIn(alerta_doc["nivel"], ["ADVERTENCIA", "CRITICO"])
+
+    def test_cambio_estado_combo_box_y_dias(self):
+        """Verifica la actualización de estado vía combo box y la propagación de días de suplencia/licencia."""
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(dni="18555666", legajo="LEG-185", apellido="Medina", nombre="Hugo")
+
+        # 1. Enviar cambio de estado a Licencia Médica (LIC) por 3 días vía AJAX
+        response = self.client.post(
+            "/asistencia/?fecha=2026-11-10",
+            data={
+                "agente_id": docente.id,
+                "estado": "LIC",
+                "dias": 3,
+                "ajax": "1"
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertEqual(json_data["status"], "ok")
+        self.assertEqual(json_data["estado"], "LIC")
+        self.assertEqual(json_data["dias"], 3)
+        self.assertIn("resumen", json_data)
+
+        # 2. Verificar que se crearon los 3 días continuos en NovedadAsistencia
+        novs = NovedadAsistencia.objects.filter(agente=docente).order_by("fecha")
+        self.assertEqual(novs.count(), 3)
+        self.assertEqual(novs[0].fecha, date(2026, 11, 10))
+        self.assertEqual(novs[1].fecha, date(2026, 11, 11))
+        self.assertEqual(novs[2].fecha, date(2026, 11, 12))
+        for n in novs:
+            self.assertEqual(n.estado, "LIC")
+
+        # 3. Verificar registro en Auditoría
+        auditoria = Auditoria.objects.filter(accion="CAMBIO_ESTADO_ASISTENCIA").last()
+        self.assertIsNotNone(auditoria)
+        self.assertIn("Hugo", auditoria.detalles)
+        self.assertIn("LIC", auditoria.detalles)
+

@@ -154,30 +154,149 @@ def asistencia_diaria_view(request):
             return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
 
         else:
-            # Marcación rápida de 1 clic
+            # Cambio de estado vía combo box o actualización de días (asociada a suplencia / lic. / permiso / LT)
             nuevo_estado = request.POST.get("estado", "PR")
-            nov, created = NovedadAsistencia.objects.get_or_create(
-                agente=agente,
-                fecha=fecha_sel,
-                defaults={"estado": nuevo_estado, "registrado_por": request.user}
-            )
-            if not created:
-                nov.estado = nuevo_estado
-                nov.registrado_por = request.user
-                nov.save()
+            dias_param = request.POST.get("dias", "1")
+            try:
+                dias = max(1, min(365, int(dias_param)))
+            except (ValueError, TypeError):
+                dias = 1
 
-            registrar_auditoria(
-                usuario=request.user,
-                accion="MARCACION_ASISTENCIA_DIARIA",
-                detalles=f"Fecha: {fecha_sel} | Agente: {agente.nombre_completo} | Estado: {nuevo_estado}",
-                ip=request.META.get("REMOTE_ADDR")
+            if nuevo_estado not in ["PR", "I", "P", "LIC", "LT"]:
+                nuevo_estado = "PR"
+
+            with transaction.atomic():
+                if dias > 1 and nuevo_estado in ["LIC", "LT", "P", "I"]:
+                    cur = fecha_sel
+                    fecha_fin = fecha_sel + timedelta(days=dias - 1)
+                    while cur <= fecha_fin:
+                        nov, _ = NovedadAsistencia.objects.get_or_create(
+                            agente=agente,
+                            fecha=cur,
+                            defaults={"estado": nuevo_estado, "registrado_por": request.user}
+                        )
+                        nov.estado = nuevo_estado
+                        nov.registrado_por = request.user
+                        nov.save()
+                        cur += timedelta(days=1)
+
+                    detalles_auditoria = (
+                        f"Período de {dias} días ({fecha_sel.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}) | "
+                        f"Agente: {agente.nombre_completo} | Estado: {nuevo_estado}"
+                    )
+                else:
+                    nov, _ = NovedadAsistencia.objects.get_or_create(
+                        agente=agente,
+                        fecha=fecha_sel,
+                        defaults={"estado": nuevo_estado, "registrado_por": request.user}
+                    )
+                    nov.estado = nuevo_estado
+                    nov.registrado_por = request.user
+                    nov.save()
+                    detalles_auditoria = (
+                        f"Fecha: {fecha_sel.strftime('%d/%m/%Y')} | Agente: {agente.nombre_completo} | Estado: {nuevo_estado}"
+                    )
+
+                registrar_auditoria(
+                    usuario=request.user,
+                    accion="CAMBIO_ESTADO_ASISTENCIA",
+                    detalles=detalles_auditoria,
+                    ip=request.META.get("REMOTE_ADDR")
+                )
+
+            # Respuesta JSON para peticiones asíncronas (AJAX / Fetch)
+            if (
+                request.headers.get("x-requested-with") == "XMLHttpRequest"
+                or request.POST.get("ajax") == "1"
+                or "application/json" in request.headers.get("Accept", "")
+            ):
+                agentes_activos = Agente.objects.filter(activo=True)
+                novedades_dia = {
+                    n.agente_id: n.estado 
+                    for n in NovedadAsistencia.objects.filter(fecha=fecha_sel)
+                }
+                presentes = sum(
+                    1 for ag in agentes_activos 
+                    if novedades_dia.get(ag.id, "PR") in ["PR", "Presente"]
+                )
+                inasistencias = sum(
+                    1 for ag in agentes_activos 
+                    if novedades_dia.get(ag.id) == "I"
+                )
+                licencias = sum(
+                    1 for ag in agentes_activos 
+                    if novedades_dia.get(ag.id) in ["LIC", "LT"]
+                )
+                permisos = sum(
+                    1 for ag in agentes_activos 
+                    if novedades_dia.get(ag.id) == "P"
+                )
+
+                estado_dict = {
+                    "PR": "Presente (PR)",
+                    "I": "Inasistencia (I)",
+                    "P": "Permiso (P)",
+                    "LIC": "Lic. Médica (LIC)",
+                    "LT": "Largo Tratamiento (LT)",
+                }
+
+                return JsonResponse({
+                    "status": "ok",
+                    "mensaje": f"Asistencia actualizada para {agente.nombre_completo}: {estado_dict.get(nuevo_estado, nuevo_estado)} ({dias} día/s).",
+                    "agente_id": agente.id,
+                    "estado": nuevo_estado,
+                    "estado_display": estado_dict.get(nuevo_estado, nuevo_estado),
+                    "dias": dias,
+                    "resumen": {
+                        "total_agentes": agentes_activos.count(),
+                        "presentes": presentes,
+                        "inasistencias": inasistencias,
+                        "licencias": licencias,
+                        "permisos": permisos,
+                        "licencias_permisos": licencias + permisos,
+                    }
+                })
+
+            messages.success(
+                request,
+                f"Asistencia actualizada para {agente.nombre_completo}: {nuevo_estado} ({dias} día/s)."
             )
-            messages.success(request, f"Asistencia actualizada para {agente.nombre_completo}: {nov.get_estado_display()}")
             return redirect(f"{request.path}?fecha={fecha_sel.strftime('%Y-%m-%d')}")
 
     nombre_dia = DIAS_MAP.get(fecha_sel.weekday(), "")
     agentes = Agente.objects.filter(activo=True).prefetch_related("designaciones", "designaciones__materia").order_by("apellido", "nombre")
     novedades_dict = {n.agente_id: n for n in NovedadAsistencia.objects.filter(fecha=fecha_sel).select_related("tipo_licencia", "suplente")}
+
+    # Días de período para agentes con formularios físicos o rangos continuos
+    forms_nums = [n.formulario_numero for n in novedades_dict.values() if n.formulario_numero]
+    form_counts = {}
+    if forms_nums:
+        qs_forms = NovedadAsistencia.objects.filter(formulario_numero__in=forms_nums).values("formulario_numero", "agente_id").annotate(total_dias=Count("id"))
+        for item in qs_forms:
+            form_counts[(item["agente_id"], item["formulario_numero"])] = item["total_dias"]
+
+    agentes_sin_form = [ag.id for ag in agentes if novedades_dict.get(ag.id) and not novedades_dict.get(ag.id).formulario_numero and novedades_dict.get(ag.id).estado != 'PR']
+    consecutivos_dict = {}
+    if agentes_sin_form:
+        novs_futuras = NovedadAsistencia.objects.filter(
+            agente_id__in=agentes_sin_form,
+            fecha__gte=fecha_sel,
+            fecha__lte=fecha_sel + timedelta(days=60)
+        ).values("agente_id", "fecha", "estado").order_by("agente_id", "fecha")
+
+        from collections import defaultdict
+        por_ag = defaultdict(dict)
+        for nf in novs_futuras:
+            por_ag[nf["agente_id"]][nf["fecha"]] = nf["estado"]
+
+        for aid, fechas_map in por_ag.items():
+            estado_base = novedades_dict[aid].estado
+            conteo = 0
+            cur = fecha_sel
+            while cur in fechas_map and fechas_map[cur] == estado_base:
+                conteo += 1
+                cur += timedelta(days=1)
+            consecutivos_dict[aid] = max(1, conteo)
 
     filas = []
     for ag in agentes:
@@ -186,10 +305,18 @@ def asistencia_diaria_view(request):
         desigs_hoy = [d for d in ag.designaciones.all() if d.activo and d.dia_semana.lower() == nombre_dia.lower()]
         total_hs_hoy = sum(d.horas_catedra for d in desigs_hoy)
 
+        dias_periodo = 1
+        if nov:
+            if nov.formulario_numero:
+                dias_periodo = form_counts.get((ag.id, nov.formulario_numero), 1)
+            elif ag.id in consecutivos_dict:
+                dias_periodo = consecutivos_dict[ag.id]
+
         filas.append({
             "agente": ag,
             "novedad": nov,
             "estado": estado_actual,
+            "dias_periodo": dias_periodo,
             "tiene_catedra_hoy": len(desigs_hoy) > 0,
             "desigs_hoy": desigs_hoy,
             "horas_hoy": total_hs_hoy,
