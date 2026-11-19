@@ -8,6 +8,7 @@ from django.db.models import Count, Q, Min, Max
 from django.utils import timezone
 from datetime import date, datetime, timedelta
 from calendar import monthrange
+import os
 import json
 
 from .models import (
@@ -1144,24 +1145,84 @@ def licencias_list_view(request):
 
 @login_required
 def importar_csv_view(request):
+    res = None
     if request.method == "POST":
         form = ImportarCSVForm(request.POST, request.FILES)
         if form.is_valid():
             archivo = form.cleaned_data["archivo_csv"]
-            try:
-                contenido = archivo.read().decode("utf-8")
-            except UnicodeDecodeError:
-                contenido = archivo.read().decode("latin-1")
 
-            res = ImportadorCSVService.importar_agentes(contenido, usuario=request.user)
-            messages.success(
-                request,
-                f"Importación completada: {res['creados']} docentes creados, {res['actualizados']} actualizados."
-            )
+            # 1. Validación de extensión defensiva adicional
+            ext = os.path.splitext(archivo.name)[1].lower()
+            if ext not in [".csv", ".txt"]:
+                messages.error(
+                    request,
+                    f"Tipo de archivo no permitido: '{ext or 'desconocido'}'. "
+                    "Solo se admiten archivos estructurados de texto (.csv o .txt)."
+                )
+                return render(request, "gestion/importar_csv.html", {"form": form})
+
+            # 2. Lectura segura con manejo de bytes nulos y codificaciones
+            try:
+                raw_bytes = archivo.read()
+                if b"\x00" in raw_bytes:
+                    messages.error(
+                        request,
+                        "El archivo contiene contenido binario o caracteres no legibles (bytes nulos). "
+                        "Asegúrese de cargar un archivo de texto plano estructurado en CSV."
+                    )
+                    return render(request, "gestion/importar_csv.html", {"form": form})
+
+                try:
+                    contenido = raw_bytes.decode("utf-8-sig")
+                except UnicodeDecodeError:
+                    try:
+                        contenido = raw_bytes.decode("latin-1")
+                    except Exception as dec_err:
+                        messages.error(
+                            request,
+                            f"No fue posible decodificar el archivo como texto (UTF-8 / Latin-1): {dec_err}."
+                        )
+                        return render(request, "gestion/importar_csv.html", {"form": form})
+
+            except Exception as e:
+                messages.error(request, f"Error al procesar la lectura del archivo: {e}")
+                return render(request, "gestion/importar_csv.html", {"form": form})
+
+            # 3. Procesamiento seguro de importación mediante el servicio
+            try:
+                res = ImportadorCSVService.importar_agentes(contenido, usuario=request.user)
+            except Exception as proc_err:
+                messages.error(
+                    request,
+                    f"Error de estructura al procesar el archivo CSV: {proc_err}."
+                )
+                return render(request, "gestion/importar_csv.html", {"form": form})
+
+            if res.get("errores") and res.get("creados", 0) == 0 and res.get("actualizados", 0) == 0:
+                messages.error(
+                    request,
+                    "No se pudo procesar ningún registro válido. Verifique las observaciones de formato detalladas abajo."
+                )
+            elif res.get("creados", 0) > 0 or res.get("actualizados", 0) > 0:
+                messages.success(
+                    request,
+                    f"Importación completada: {res['creados']} docentes creados, {res['actualizados']} actualizados."
+                )
+            else:
+                messages.warning(
+                    request,
+                    "El archivo fue procesado pero no se detectaron filas válidas."
+                )
+
             return render(request, "gestion/importar_csv.html", {"form": form, "resultado": res})
+        else:
+            for campo, errores_campo in form.errors.items():
+                for err in errores_campo:
+                    messages.error(request, err)
     else:
         form = ImportarCSVForm()
-    return render(request, "gestion/importar_csv.html", {"form": form})
+
+    return render(request, "gestion/importar_csv.html", {"form": form, "resultado": res})
 
 
 @login_required

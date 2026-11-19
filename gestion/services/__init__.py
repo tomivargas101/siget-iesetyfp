@@ -372,70 +372,155 @@ class ExportadorExcelService:
 class ImportadorCSVService:
     @classmethod
     def importar_agentes(cls, archivo_texto, usuario=None) -> dict:
-        lineas = archivo_texto.splitlines()
+        if not archivo_texto or not archivo_texto.strip():
+            return {
+                "creados": 0,
+                "actualizados": 0,
+                "errores": ["El archivo se encuentra vacío o no contiene líneas legibles."]
+            }
+
+        # Detección defensiva de caracteres binarios / bytes nulos
+        if "\x00" in archivo_texto:
+            return {
+                "creados": 0,
+                "actualizados": 0,
+                "errores": [
+                    "El archivo contiene caracteres binarios no permitidos (bytes nulos). "
+                    "Asegúrese de cargar un archivo de texto plano estructurado en CSV (.csv o .txt)."
+                ]
+            }
+
+        lineas = [l for l in archivo_texto.splitlines() if l.strip()]
         if not lineas:
-            return {"creados": 0, "actualizados": 0, "errores": ["El archivo CSV se encuentra vacío."]}
+            return {
+                "creados": 0,
+                "actualizados": 0,
+                "errores": ["El archivo se encuentra vacío o no contiene líneas de datos legibles."]
+            }
 
         primera = lineas[0]
         delimitador = ";" if ";" in primera else ","
-        reader = csv.DictReader(lineas, delimiter=delimitador)
+
+        try:
+            reader = csv.DictReader(lineas, delimiter=delimitador)
+            fieldnames = reader.fieldnames
+        except csv.Error as e:
+            return {
+                "creados": 0,
+                "actualizados": 0,
+                "errores": [f"Error de sintaxis o delimitación en el archivo CSV: {e}"]
+            }
+
+        if not fieldnames:
+            return {
+                "creados": 0,
+                "actualizados": 0,
+                "errores": ["No se pudieron identificar cabeceras de columnas válidas en el archivo."]
+            }
+
+        # Validar presencia de columna de identificación (DNI / Documento)
+        cols_lower = [str(f).strip().lower() for f in fieldnames if f]
+        tiene_col_dni = any(
+            c in ["dni", "documento", "doc", "nro_documento", "numero_documento", "dni_agente"]
+            for c in cols_lower
+        )
+        if not tiene_col_dni:
+            return {
+                "creados": 0,
+                "actualizados": 0,
+                "errores": [
+                    "Estructura no válida: El archivo no contiene la columna obligatoria 'dni' o 'documento'. "
+                    f"Cabeceras leídas: {', '.join(fieldnames)}."
+                ]
+            }
 
         creados = 0
         actualizados = 0
         errores = []
 
-        for idx, row in enumerate(reader, start=2):
-            dni_raw = row.get("dni") or row.get("DNI") or row.get("Documento") or ""
-            dni = str(dni_raw).strip().replace(".", "").replace(" ", "")
-            if not dni:
-                errores.append(f"Fila {idx}: DNI vacío, fila ignorada.")
-                continue
+        with transaction.atomic():
+            for idx, row in enumerate(reader, start=2):
+                try:
+                    dni_raw = (
+                        row.get("dni") or row.get("DNI") or row.get("Documento") or
+                        row.get("documento") or row.get("nro_documento") or ""
+                    )
+                    dni = str(dni_raw).strip().replace(".", "").replace(" ", "")
+                    if not dni:
+                        errores.append(f"Fila {idx}: DNI vacío o ausente, fila ignorada.")
+                        continue
 
-            apellido = (row.get("apellido") or row.get("Apellido") or row.get("Apellidos") or "").strip()
-            nombre = (row.get("nombre") or row.get("Nombre") or row.get("Nombres") or "").strip()
-            if not apellido or not nombre:
-                nom_comp = (row.get("nombre_completo") or row.get("Docente") or "").strip()
-                if "," in nom_comp:
-                    partes = nom_comp.split(",", 1)
-                    apellido = partes[0].strip()
-                    nombre = partes[1].strip()
-                elif nom_comp:
-                    apellido = nom_comp
-                    nombre = "—"
+                    apellido = (
+                        row.get("apellido") or row.get("Apellido") or row.get("Apellidos") or ""
+                    ).strip()
+                    nombre = (
+                        row.get("nombre") or row.get("Nombre") or row.get("Nombres") or ""
+                    ).strip()
 
-            legajo = (row.get("legajo") or row.get("Legajo") or f"LEG-{dni}").strip()
-            sexo = (row.get("sexo") or row.get("Sexo") or "M").strip().upper()
-            if sexo not in ["M", "F", "X"]:
-                sexo = "M"
+                    if not apellido or not nombre:
+                        nom_comp = (
+                            row.get("nombre_completo") or row.get("Docente") or
+                            row.get("docente") or ""
+                        ).strip()
+                        if "," in nom_comp:
+                            partes = nom_comp.split(",", 1)
+                            apellido = partes[0].strip()
+                            nombre = partes[1].strip()
+                        elif nom_comp:
+                            apellido = nom_comp
+                            nombre = "—"
 
-            email = (row.get("email") or row.get("Email") or row.get("Correo") or "").strip()
-            telefono = (row.get("telefono") or row.get("Telefono") or "").strip()
-            revista = (row.get("revista") or row.get("Revista") or "TIT").strip().upper()
-            if revista not in ["TIT", "INT", "SUP"]:
-                revista = "TIT"
+                    legajo = (row.get("legajo") or row.get("Legajo") or f"LEG-{dni}").strip()
+                    sexo = (row.get("sexo") or row.get("Sexo") or "M").strip().upper()
+                    if sexo not in ["M", "F", "X"]:
+                        sexo = "M"
 
-            agente, created = Agente.objects.update_or_create(
-                dni=dni,
-                defaults={
-                    "legajo": legajo,
-                    "apellido": apellido or "DOCENTE",
-                    "nombre": nombre or "S/N",
-                    "sexo": sexo,
-                    "email": email or None,
-                    "telefono": telefono or None,
-                    "situacion_revista_defecto": revista,
-                    "activo": True
-                }
-            )
-            if created:
-                creados += 1
-            else:
-                actualizados += 1
+                    email = (row.get("email") or row.get("Email") or row.get("Correo") or "").strip()
+                    telefono = (row.get("telefono") or row.get("Telefono") or "").strip()
+
+                    # Reconocimiento de revista (TIT, INT, SUP) admitiendo variantes
+                    revista_raw = (
+                        row.get("revista") or row.get("Revista") or
+                        row.get("condicion_revista") or row.get("Condicion_Revista") or
+                        row.get("situacion_revista") or "TIT"
+                    ).strip().upper()
+
+                    if "TIT" in revista_raw:
+                        revista = "TIT"
+                    elif "INT" in revista_raw:
+                        revista = "INT"
+                    elif "SUP" in revista_raw:
+                        revista = "SUP"
+                    else:
+                        revista = "TIT"
+
+                    agente, created = Agente.objects.update_or_create(
+                        dni=dni,
+                        defaults={
+                            "legajo": legajo,
+                            "apellido": apellido or "DOCENTE",
+                            "nombre": nombre or "S/N",
+                            "sexo": sexo,
+                            "email": email or None,
+                            "telefono": telefono or None,
+                            "situacion_revista_defecto": revista,
+                            "activo": True
+                        }
+                    )
+                    if created:
+                        creados += 1
+                    else:
+                        actualizados += 1
+
+                except csv.Error as csv_err:
+                    errores.append(f"Fila {idx}: Error de parseo CSV: {csv_err}")
+                except Exception as row_err:
+                    errores.append(f"Fila {idx}: Error al procesar datos: {row_err}")
 
         registrar_auditoria(
             usuario=usuario,
             accion="IMPORTACION_CSV_AGENTES",
-            detalles=f"Se importaron {creados} agentes nuevos y se actualizaron {actualizados}. Errores: {len(errores)}."
+            detalles=f"Se importaron {creados} agentes nuevos y se actualizaron {actualizados}. Filas con observación: {len(errores)}."
         )
 
         return {"creados": creados, "actualizados": actualizados, "errores": errores}

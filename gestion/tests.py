@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from datetime import date, time
 from io import BytesIO
 import openpyxl
@@ -756,6 +757,94 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertIn("F-1042/26", audit_mod.detalles)
         self.assertIn("Valenzuela, Marcos", audit_mod.detalles)
         self.assertIn("Días desvinculados fuera de rango restaurados a Inasistencia (I): 5", audit_mod.detalles)
+
+    def test_importar_csv_valido_preserva_ceros_y_crea_agentes(self):
+        """Valida que un CSV bien formateado cree docentes, preserve ceros a la izquierda (RN-01) y registre auditoría."""
+        self.client.login(username="testadmin", password="password123")
+        csv_content = (
+            "dni,apellido,nombre,legajo,condicion_revista,email,telefono\n"
+            "04812345,Gómez,Laura,LEG-048,TITULAR,laura@ies.edu.ar,3624123456\n"
+            "28999888,Pérez,Carlos,LEG-289,INTERINO,carlos@ies.edu.ar,3624999888\n"
+        ).encode("utf-8")
+
+        archivo = SimpleUploadedFile("docentes_validos.csv", csv_content, content_type="text/csv")
+        resp = self.client.post("/importar-csv/", data={"archivo_csv": archivo})
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Importación completada")
+
+        # Verificar RN-01: preservación estricta de ceros a la izquierda en DNI
+        agente_cero = Agente.objects.filter(dni="04812345").first()
+        self.assertIsNotNone(agente_cero)
+        self.assertEqual(agente_cero.dni, "04812345")
+        self.assertEqual(agente_cero.apellido, "Gómez")
+        self.assertEqual(agente_cero.situacion_revista_defecto, "TIT")
+
+        agente_dos = Agente.objects.filter(dni="28999888").first()
+        self.assertIsNotNone(agente_dos)
+        self.assertEqual(agente_dos.situacion_revista_defecto, "INT")
+
+        # Verificar Auditoría
+        audit = Auditoria.objects.filter(accion="IMPORTACION_CSV_AGENTES").first()
+        self.assertIsNotNone(audit)
+        self.assertIn("Se importaron 2 agentes nuevos", audit.detalles)
+
+    def test_importar_csv_rechaza_extensiones_invalidas(self):
+        """Valida que archivos ejecutables o documentos no aptos (.exe, .pdf, .docx, .pptx) sean rechazados limpiamente sin error 500."""
+        self.client.login(username="testadmin", password="password123")
+
+        archivos_invalidos = [
+            ("malicioso.exe", b"MZ\x90\x00BinaryExeContent", "application/x-msdownload"),
+            ("documento.pdf", b"%PDF-1.4 Fake PDF Content", "application/pdf"),
+            ("informe.docx", b"PK\x03\x04WordDocumentFakeContent", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            ("presentacion.pptx", b"PK\x03\x04PowerPointFakeContent", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+        ]
+
+        total_agentes_antes = Agente.objects.count()
+
+        for nombre_archivo, bytes_contenido, mime in archivos_invalidos:
+            archivo = SimpleUploadedFile(nombre_archivo, bytes_contenido, content_type=mime)
+            resp = self.client.post("/importar-csv/", data={"archivo_csv": archivo})
+
+            # Nunca debe arrojar error 500 ni romperse
+            self.assertEqual(resp.status_code, 200)
+            self.assertContains(resp, "no permitida")
+            # Ningún agente debe ser creado
+            self.assertEqual(Agente.objects.count(), total_agentes_antes)
+
+    def test_importar_csv_rechaza_contenido_binario_en_archivo_csv(self):
+        """Valida que un archivo con extensión .csv pero contenido binario (bytes nulos) sea rechazado sin error 500."""
+        self.client.login(username="testadmin", password="password123")
+        archivo_binario = SimpleUploadedFile(
+            "trampa.csv",
+            b"dni,apellido,nombre\n\x00\x01\x02\x03\x04",
+            content_type="text/csv"
+        )
+
+        total_agentes_antes = Agente.objects.count()
+        resp = self.client.post("/importar-csv/", data={"archivo_csv": archivo_binario})
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "binario")
+        self.assertEqual(Agente.objects.count(), total_agentes_antes)
+
+    def test_importar_csv_rechaza_archivo_sin_columna_dni(self):
+        """Valida que un CSV sin columna obligatoria de DNI/documento sea rechazado con mensaje descriptivo sin error 500."""
+        self.client.login(username="testadmin", password="password123")
+        csv_invalido = (
+            "nombre,apellido,email,telefono\n"
+            "Juan,Perez,juan@mail.com,123456\n"
+        ).encode("utf-8")
+
+        archivo = SimpleUploadedFile("sin_dni.csv", csv_invalido, content_type="text/csv")
+        total_agentes_antes = Agente.objects.count()
+
+        resp = self.client.post("/importar-csv/", data={"archivo_csv": archivo})
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "columna obligatoria")
+        self.assertEqual(Agente.objects.count(), total_agentes_antes)
+
 
 
 

@@ -1,3 +1,4 @@
+import os
 from django import forms
 from django.core.exceptions import ValidationError
 from datetime import date
@@ -428,7 +429,52 @@ class RecepcionFormularioFisicoForm(forms.Form):
 
 
 class ImportarCSVForm(forms.Form):
+    EXTENSIONES_VALIDAS = {".csv", ".txt"}
+    MAX_TAMANIO_BYTES = 5 * 1024 * 1024  # 5 MB
+
     archivo_csv = forms.FileField(
-        label="Seleccionar Archivo CSV",
-        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".csv,.txt"})
+        label="Seleccionar Archivo CSV / TXT",
+        widget=forms.ClearableFileInput(attrs={
+            "class": "form-control",
+            "accept": ".csv,.txt,text/csv,text/plain"
+        })
     )
+
+    def clean_archivo_csv(self):
+        archivo = self.cleaned_data.get("archivo_csv")
+        if not archivo:
+            raise ValidationError("Debe seleccionar un archivo para importar.")
+
+        nombre_archivo = archivo.name
+        ext = os.path.splitext(nombre_archivo)[1].lower()
+
+        if ext not in self.EXTENSIONES_VALIDAS:
+            raise ValidationError(
+                f"Extensión '{ext or 'sin extensión'}' no permitida. "
+                f"Solo se admiten archivos estructurados .csv o .txt delimitados. "
+                f"Archivos ejecutables, binarios o documentos (.exe, .pdf, .doc, .docx, .ppt, .pptx) son rechazados."
+            )
+
+        if archivo.size > self.MAX_TAMANIO_BYTES:
+            max_mb = self.MAX_TAMANIO_BYTES / (1024 * 1024)
+            actual_mb = archivo.size / (1024 * 1024)
+            raise ValidationError(
+                f"El archivo supera el tamaño máximo permitido de {max_mb:.0f} MB (tamaño actual: {actual_mb:.1f} MB)."
+            )
+
+        # Inspección rápida de los primeros bytes para detectar archivos binarios o bytes nulos (\x00)
+        try:
+            primer_chunk = archivo.read(2048)
+            archivo.seek(0)
+            if b"\x00" in primer_chunk:
+                raise ValidationError(
+                    "El archivo contiene caracteres binarios no permitidos (bytes nulos). "
+                    "Asegúrese de subir un archivo de texto plano delimitado (.csv o .txt)."
+                )
+        except ValidationError:
+            raise
+        except Exception as e:
+            archivo.seek(0)
+            raise ValidationError(f"Error al verificar la estructura del archivo: {e}")
+
+        return archivo
