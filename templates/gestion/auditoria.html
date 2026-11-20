@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Pistas de Auditoría - SIGET{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-shield-check"></i> Bitácora de Auditoría y Trazabilidad (RF-20)
+            </h2>
+            <p class="text-muted mb-0 small">
+                Registro inmutable de transacciones, altas, justificaciones, procesamientos y exportaciones ministeriales.
+            </p>
+        </div>
+        <span class="badge bg-primary text-white p-2">Total Eventos: {{ page_obj.paginator.count }}</span>
+    </div>
+</div>
+
+<!-- BUSCADOR -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <form method="GET" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por usuario, acción o detalles técnicos...">
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-ies btn-sm">Buscar</button>
+            {% if q %}
+            <a href="{% url 'auditoria' %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+        <div class="col-auto ms-auto text-muted small">
+            Mostrando <strong>{{ page_obj|length }}</strong> registros de esta página
+        </div>
+    </form>
+</div>
+
+<!-- TABLA DE AUDITORÍA -->
+<div class="card shadow-sm border-0 overflow-hidden bg-white">
+    <div class="table-responsive">
+        <table class="table table-hover table-ies align-middle mb-0 small font-monospace">
+            <thead class="table-light text-muted text-uppercase" style="font-size: 0.74rem;">
+                <tr>
+                    <th style="width: 170px;">Timestamp</th>
+                    <th>Operador / Usuario</th>
+                    <th>Acción</th>
+                    <th>Detalles Técnicos de la Operación</th>
+                    <th style="width: 140px;">IP Origen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in page_obj %}
+                <tr>
+                    <td class="text-muted text-nowrap">{{ a.timestamp|date:"d/m/Y H:i:s" }}</td>
+                    <td class="fw-bold text-dark font-sans-serif">
+                        <i class="bi bi-person-fill text-primary me-1"></i>{{ a.usuario_nombre }}
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary font-sans-serif">{{ a.accion }}</span>
+                    </td>
+                    <td class="text-dark font-sans-serif">{{ a.detalles }}</td>
+                    <td class="text-muted">{{ a.ip|default:"Localhost" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted font-sans-serif">
+                        No se encontraron registros en la bitácora de auditoría.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINACIÓN -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+        <span class="text-muted small">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link text-primary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Anterior</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link bg-primary text-white border-primary fw-bold">{{ page_obj.number }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link text-primary" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Siguiente</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

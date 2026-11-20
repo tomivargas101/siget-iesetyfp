@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} - SIGET{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                        <i class="bi bi-person-fill"></i> {{ titulo }}
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        Los datos del docente impactan en la planilla oficial de novedades y en la asignación horaria.
+                    </p>
+                </div>
+                <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Volver al Padrón
+                </a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 bg-white">
+            <div class="card-header py-3 bg-white">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-primary">
+                    <i class="bi bi-card-heading me-1"></i> Ficha de Datos Personales y Carga Horaria
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger shadow-sm border-danger">
+                        <h6 class="fw-bold mb-2">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Por favor corrija los siguientes errores:
+                        </h6>
+                        <ul class="mb-0 ps-3 small">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">DNI * (Texto / Preserva Ceros Iniciales)</label>
+                            {{ form.dni }}
+                            <div class="form-text small">RN-01: Se almacena estrictamente como texto para respetar ceros a la izquierda (ej: 04812345).</div>
+                            {% if form.dni.errors %}
+                                <div class="text-danger small mt-1">{{ form.dni.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">N° de Legajo</label>
+                            {{ form.legajo }}
+                            <div class="form-text small">Dejar en blanco si el agente aún no posee legajo asignado (S/L).</div>
+                            {% if form.legajo.errors %}
+                                <div class="text-danger small mt-1">{{ form.legajo.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Apellido(s) *</label>
+                            {{ form.apellido }}
+                            {% if form.apellido.errors %}
+                                <div class="text-danger small mt-1">{{ form.apellido.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Nombre(s) *</label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Sexo / Género</label>
+                            {{ form.sexo }}
+                            {% if form.sexo.errors %}
+                                <div class="text-danger small mt-1">{{ form.sexo.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">CUIL</label>
+                            {{ form.cuil }}
+                            {% if form.cuil.errors %}
+                                <div class="text-danger small mt-1">{{ form.cuil.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Situación de Revista Predeterminada *</label>
+                            {{ form.situacion_revista_defecto }}
+                            {% if form.situacion_revista_defecto.errors %}
+                                <div class="text-danger small mt-1">{{ form.situacion_revista_defecto.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Tope Máximo Semanal (Hs Cátedra)</label>
+                            {{ form.max_horas_semanales }}
+                            <div class="form-text small">RN-02: Tope institucional estándar de 30 hs semanales.</div>
+                            {% if form.max_horas_semanales.errors %}
+                                <div class="text-danger small mt-1">{{ form.max_horas_semanales.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Correo Electrónico</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Teléfono de Contacto</label>
+                            {{ form.telefono }}
+                            {% if form.telefono.errors %}
+                                <div class="text-danger small mt-1">{{ form.telefono.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark small fw-bold">Estado Activo en Planta</label>
+                        <div class="card bg-light border p-3">
+                            <div class="form-check form-switch mb-0">
+                                {{ form.activo }}
+                                <label class="form-check-label text-dark small fw-semibold" for="{{ form.activo.id_for_label }}">
+                                    Docente Activo (Si se desmarca pasa a histórico conforme a RN-03)
+                                </label>
+                                <div class="form-text small text-muted mt-1">
+                                    Conforme a RN-03, los agentes dados de baja no se eliminan físicamente; pasan a archivo histórico para preservar los antecedentes institucionales y pueden ser reactivados volviendo a marcar esta opción.
+                                </div>
+                            </div>
+                            {% if form.activo.errors %}
+                                <div class="text-danger small mt-1">{{ form.activo.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-ies px-4">
+                            <i class="bi bi-save2-fill me-1"></i> Guardar Docente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Nomenclador de Licencias - SIGET{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-card-checklist"></i> Nomenclador Oficial de Licencias y Artículos
+            </h2>
+            <p class="text-muted mb-0 small">
+                Codificación reglamentaria según el <strong>PDF Maestro de Criterios (Hojas 1 a 6)</strong> e imputación a Cuadros <strong>IL-01</strong> e <strong>IL-02</strong>.
+            </p>
+        </div>
+        <span class="badge bg-primary text-white p-2">Total: {{ licencias|length }} Tipos Normativos</span>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 overflow-hidden bg-white">
+    <div class="table-responsive">
+        <table class="table table-hover table-ies table-bordered align-middle mb-0 small">
+            <thead class="table-light text-uppercase font-monospace" style="font-size: 0.74rem;">
+                <tr>
+                    <th class="text-center" style="width: 70px;">Hoja</th>
+                    <th class="text-center" style="width: 80px;">Código</th>
+                    <th>Artículo Normativo</th>
+                    <th>Causal / Descripción Legal</th>
+                    <th class="text-center">Cuadro Asignado</th>
+                    <th class="text-center">Haberes</th>
+                    <th class="text-center">Tope Anual</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lic in licencias %}
+                <tr>
+                    <td class="text-center fw-bold text-muted font-monospace">H-{{ lic.hoja }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-primary border border-primary font-monospace">{{ lic.codigo }}</span>
+                    </td>
+                    <td class="fw-bold text-dark">{{ lic.articulo }}</td>
+                    <td class="text-dark">{{ lic.nombre }}</td>
+                    <td class="text-center">
+                        {% if lic.cuadro_destino == 'IL-01' %}
+                            <span class="badge bg-danger text-white">IL-01 (Salud)</span>
+                        {% else %}
+                            <span class="badge bg-primary text-white">IL-02 (Otras Causales)</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if lic.es_medica or lic.cuadro_destino == 'IL-01' %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border"><i class="bi bi-file-medical me-1"></i>Salud</span>
+                        {% else %}
+                            <span class="badge bg-info-subtle text-info-emphasis border"><i class="bi bi-check-circle me-1"></i>Reglamentaria</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center font-monospace">
+                        {% if lic.tope_anual_dias %}
+                            <span class="badge bg-light text-dark border">{{ lic.tope_anual_dias }} días</span>
+                        {% else %}
+                            <span class="text-muted">Sin tope fijo</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        No hay licencias registradas en la base de datos.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

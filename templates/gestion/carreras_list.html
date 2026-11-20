@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Carreras Institucionales - SIGET{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-mortarboard-fill"></i> Oferta Académica y Carreras
+            </h2>
+            <p class="text-muted mb-0 small">
+                Tecnicaturas Superiores y planes de estudio formativos vigentes en el IESETyFP.
+            </p>
+        </div>
+        <a href="{% url 'carrera_create' %}" class="btn btn-ies btn-sm d-flex align-items-center gap-1 shadow-sm">
+            <i class="bi bi-plus-circle-fill"></i> Nueva Carrera
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    {% for c in carreras %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm border-0 bg-white border-top border-4 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge bg-primary text-white fw-bold">{{ c.codigo }}</span>
+                    {% if c.activo %}
+                        <span class="badge bg-success-subtle text-success border border-success">Vigente</span>
+                    {% else %}
+                        <span class="badge bg-secondary text-white">Inactiva</span>
+                    {% endif %}
+                </div>
+                <h5 class="card-title fw-bold text-dark mb-2">{{ c.nombre }}</h5>
+                <p class="text-muted small mb-3">
+                    <i class="bi bi-file-earmark-ruled me-1 text-primary"></i>Plan: {{ c.resolucion|default:"Res. Ministerial Oficial" }}
+                </p>
+                <div class="border-top pt-2">
+                    <div class="d-flex justify-content-between align-items-center text-muted small">
+                        <span>Espacios curriculares:</span>
+                        <strong class="text-primary">{{ c.materias.count }} materias</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white border-top text-end">
+                <a href="{% url 'materias_list' %}" class="btn btn-sm btn-outline-primary">
+                    Ver Asignaturas <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card p-4 text-center text-muted border-0 shadow-sm bg-white">
+            <i class="bi bi-folder-x fs-1 mb-2"></i>
+            <p class="mb-0">No hay carreras registradas aún.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

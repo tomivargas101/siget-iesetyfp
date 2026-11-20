@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}Espacios Curriculares - SIGET{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-book-fill"></i> Catálogo de Espacios Curriculares
+            </h2>
+            <p class="text-muted mb-0 small">
+                Asignaturas correspondientes a los planes de formación técnica del IESETyFP.
+            </p>
+        </div>
+        <a href="{% url 'materia_create' %}" class="btn btn-ies btn-sm d-flex align-items-center gap-1 shadow-sm">
+            <i class="bi bi-plus-circle-fill"></i> Nueva Asignatura
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 overflow-hidden bg-white">
+    <div class="table-responsive">
+        <table class="table table-hover table-ies align-middle mb-0 small">
+            <thead class="table-light text-uppercase fw-bold">
+                <tr>
+                    <th>Carrera</th>
+                    <th>Asignatura / Espacio Curricular</th>
+                    <th class="text-center">Año de Cursada</th>
+                    <th class="text-center">Hs Semanales</th>
+                    <th class="text-center">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in materias %}
+                <tr>
+                    <td>
+                        <span class="badge bg-primary text-white fw-bold">{{ m.carrera.codigo }}</span>
+                        <span class="text-muted ms-1 small">{{ m.carrera.nombre }}</span>
+                    </td>
+                    <td class="fw-bold text-dark fs-6">{{ m.nombre }}</td>
+                    <td class="text-center text-muted">{{ m.anio_cursada }}° Año</td>
+                    <td class="text-center fw-bold text-primary">{{ m.horas_semanales }} hs</td>
+                    <td class="text-center">
+                        {% if m.activo %}
+                            <span class="badge bg-success-subtle text-success border border-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-secondary text-white">Inactiva</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                        No hay asignaturas registradas. Haz clic en "Nueva Asignatura" para dar de alta.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

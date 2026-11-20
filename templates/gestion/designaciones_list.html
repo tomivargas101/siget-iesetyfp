@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block title %}Cátedras, Horarios y Suplencias - SIGET{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-journal-bookmark-fill"></i> Designaciones, Horarios y Suplencias
+            </h2>
+            <p class="text-muted mb-0 small">
+                Gestión estructurada de asignaciones docentes, franjas horarias semanales (1:N) y trazabilidad de suplencias institucionales.
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'suplencia_create' %}" class="btn btn-warning btn-sm d-flex align-items-center gap-1 shadow-sm text-dark fw-semibold">
+                <i class="bi bi-person-badge-fill"></i> Asignar Suplencia
+            </a>
+            <a href="{% url 'designacion_create' %}" class="btn btn-ies btn-sm d-flex align-items-center gap-1 shadow-sm">
+                <i class="bi bi-plus-circle-fill"></i> Nueva Asignación
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- BUSCADOR Y FILTROS -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <form method="GET" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ q }}" class="form-control border-start-0" placeholder="Buscar por docente, DNI, cátedra, carrera o día...">
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-ies btn-sm">Buscar</button>
+            {% if q %}
+            <a href="{% url 'designaciones_list' %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+        <div class="col-auto ms-auto text-muted small">
+            Total asignaciones: <strong>{{ page_obj.paginator.count }}</strong>
+        </div>
+    </form>
+</div>
+
+<!-- TABLA DE DESIGNACIONES -->
+<div class="card shadow-sm border-0 overflow-hidden bg-white">
+    <div class="table-responsive">
+        <table class="table table-hover table-ies align-middle mb-0 small">
+            <thead class="table-light text-uppercase fw-bold">
+                <tr>
+                    <th>Docente / Legajo</th>
+                    <th>Cátedra / Carrera</th>
+                    <th>Horarios y Franjas (1:N)</th>
+                    <th class="text-center" style="width: 80px;">Total Hs</th>
+                    <th>Situación / Suplencia</th>
+                    <th>Vigencia</th>
+                    <th class="text-center" style="width: 90px;">Estado</th>
+                    <th class="text-end" style="width: 130px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in page_obj %}
+                <tr class="{% if not d.activo %}bg-light bg-opacity-75{% endif %}">
+                    <!-- DOCENTE -->
+                    <td>
+                        <a href="{% url 'agente_detail' pk=d.agente.pk %}" class="fw-bold text-dark text-decoration-none">
+                            {{ d.agente.apellido }}, {{ d.agente.nombre }}
+                        </a>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            DNI: <span class="font-monospace text-primary">{{ d.agente.dni }}</span> · Leg: {{ d.agente.legajo|default:"S/L" }}
+                        </div>
+                    </td>
+
+                    <!-- CÁTEDRA -->
+                    <td>
+                        <strong class="text-dark">{{ d.materia.nombre }}</strong>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            {{ d.materia.carrera.codigo }} - {{ d.materia.carrera.nombre }} (Año {{ d.materia.anio_cursada }})
+                        </div>
+                    </td>
+
+                    <!-- HORARIOS AGRUPADOS (1:N) -->
+                    <td>
+                        {% with horarios=d.horarios.all %}
+                            {% if horarios %}
+                                <div class="d-flex flex-column gap-1">
+                                    {% for h in horarios %}
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span class="badge bg-primary text-white text-uppercase" style="width: 75px; font-size: 0.7rem;">{{ h.dia_semana }}</span>
+                                            <span class="text-muted font-monospace" style="font-size: 0.78rem;">
+                                                {{ h.hora_inicio|time:"H:i" }} a {{ h.hora_fin|time:"H:i" }}
+                                            </span>
+                                            <span class="badge bg-light text-dark border p-1" style="font-size: 0.7rem;">{{ h.horas_catedra }} hs</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {% if d.dia_semana and d.horas_catedra %}
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="badge bg-secondary text-white text-uppercase" style="width: 75px; font-size: 0.7rem;">{{ d.dia_semana }}</span>
+                                        <span class="text-muted font-monospace" style="font-size: 0.78rem;">{{ d.hora_inicio|default:"-" }} a {{ d.hora_fin|default:"-" }}</span>
+                                        <span class="badge bg-light text-dark border p-1" style="font-size: 0.7rem;">{{ d.horas_catedra }} hs</span>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted fst-italic">Sin franjas asignadas</span>
+                                {% endif %}
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+
+                    <!-- TOTAL HORAS -->
+                    <td class="text-center">
+                        <span class="badge bg-primary-subtle text-primary border border-primary fw-bold fs-7">
+                            {{ d.total_horas_semanales }} hs
+                        </span>
+                    </td>
+
+                    <!-- SITUACIÓN DE REVISTA Y SUPLENCIA -->
+                    <td>
+                        {% if d.situacion_revista == 'TIT' %}
+                            <span class="badge bg-success-subtle text-success border border-success">Titular (TIT)</span>
+                            {% if d.cobertura_activa %}
+                                <div class="text-warning-emphasis small mt-1" style="font-size: 0.75rem;">
+                                    <i class="bi bi-person-fill-exclamation me-1"></i>Cubierto por: <strong>{{ d.cobertura_activa.designacion_suplente.agente.nombre_completo }}</strong>
+                                </div>
+                            {% endif %}
+                        {% elif d.situacion_revista == 'INT' %}
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info">Interino (INT)</span>
+                            {% if d.cobertura_activa %}
+                                <div class="text-warning-emphasis small mt-1" style="font-size: 0.75rem;">
+                                    <i class="bi bi-person-fill-exclamation me-1"></i>Cubierto por: <strong>{{ d.cobertura_activa.designacion_suplente.agente.nombre_completo }}</strong>
+                                </div>
+                            {% endif %}
+                        {% elif d.situacion_revista == 'SUP' %}
+                            <span class="badge bg-warning-subtle text-dark border border-warning fw-bold">Suplente (SUP)</span>
+                            {% with sup=d.suplencia_activa %}
+                                {% if sup %}
+                                    <div class="mt-1" style="font-size: 0.75rem;">
+                                        {% if sup.designacion_cubierta %}
+                                            <span class="text-primary fw-semibold"><i class="bi bi-arrow-return-right me-1"></i>Suple a:</span> 
+                                            <strong>{{ sup.designacion_cubierta.agente.nombre_completo }}</strong> 
+                                            <span class="badge bg-light text-dark border">{{ sup.designacion_cubierta.situacion_revista }}</span>
+                                            <div class="text-muted">
+                                                Motivo: {{ sup.get_motivo_display }} · Vig: {{ sup.fecha_desde|date:"d/m/Y"|default:"-" }} al {{ sup.fecha_hasta|date:"d/m/Y"|default:"-" }}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-secondary fw-semibold"><i class="bi bi-dash-circle me-1"></i>Cubre: Vacante sin titular</span>
+                                            <div class="text-muted">Motivo: {{ sup.get_motivo_display }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-muted small mt-1 fst-italic" style="font-size: 0.72rem;">Sin cobertura asociada</div>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <span class="badge bg-secondary">{{ d.situacion_revista }}</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- VIGENCIA -->
+                    <td>
+                        <span class="text-dark fw-semibold" style="font-size: 0.75rem;">
+                            {{ d.vigencia_desde|default:"SIN INICIO" }}
+                        </span>
+                        <div class="text-muted" style="font-size: 0.72rem;">
+                            hasta: {{ d.vigencia_hasta|default:"SIN TERMINO" }}
+                        </div>
+                    </td>
+
+                    <!-- ESTADO -->
+                    <td class="text-center">
+                        {% if d.activo %}
+                            <span class="badge bg-success-subtle text-success border border-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-secondary text-white">Histórica</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- ACCIONES -->
+                    <td class="text-end">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'designacion_detail' pk=d.pk %}" class="btn btn-outline-primary" title="Ver ficha completa">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-secondary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No se encontraron asignaciones de cátedras con los filtros seleccionados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINACIÓN -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+        <span class="text-muted small">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link text-primary" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Anterior</a>
+            </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link bg-primary text-white border-primary fw-bold">{{ page_obj.number }}</span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link text-primary" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Siguiente</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

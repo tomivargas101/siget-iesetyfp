@@ -1,0 +1,493 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ agente.nombre_completo }} - Ficha Docente{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-person-lines-fill"></i> Ficha del Agente Docente
+            </h2>
+            <p class="text-muted mb-0 small">
+                Carga horaria semanal, asignaciones de cátedras y persistencia histórica de antecedentes (RN-03).
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'agentes_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Padrón
+            </a>
+            <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="btn btn-success btn-sm">
+                <i class="bi bi-journal-plus me-1"></i>Asignar Cátedra
+            </a>
+            <a href="{% url 'agente_edit' pk=agente.id %}" class="btn btn-ies btn-sm">
+                <i class="bi bi-pencil me-1"></i>Modificar
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- PERFIL Y DATOS PERSONALES -->
+    <div class="col-lg-4">
+        <div class="card p-4 h-100 shadow-sm border-0 bg-white">
+            <div class="text-center mb-3">
+                <div class="d-inline-flex p-3 rounded-circle text-white fs-1 mb-2 shadow-sm" style="background-color: var(--ies-primary); width: 80px; height: 80px; align-items: center; justify-content: center;">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <h4 class="fw-bold text-dark mb-0">{{ agente.apellido }}, {{ agente.nombre }}</h4>
+                <span class="badge bg-light text-primary border mt-2 px-3 py-1">{{ agente.situacion_revista_defecto }}</span>
+            </div>
+            <hr class="my-2">
+            <ul class="list-unstyled mb-0 small">
+                <li class="py-2 border-bottom d-flex justify-content-between">
+                    <span class="text-muted">DNI (RN-01):</span>
+                    <strong class="text-primary font-monospace">{{ agente.dni }}</strong>
+                </li>
+                <li class="py-2 border-bottom d-flex justify-content-between">
+                    <span class="text-muted">N° Legajo:</span>
+                    <strong class="text-dark">{{ agente.legajo|default:"Sin Legajo (S/L)" }}</strong>
+                </li>
+                <li class="py-2 border-bottom d-flex justify-content-between">
+                    <span class="text-muted">Carga Horaria:</span>
+                    {% with hs=agente.horas_activas_semanales %}
+                        <strong class="{% if hs > 30 %}text-danger{% elif hs >= 25 %}text-warning-emphasis{% else %}text-success{% endif %}">
+                            {{ hs }} hs activas / 30 hs tope
+                        </strong>
+                    {% endwith %}
+                </li>
+                <li class="py-2 border-bottom d-flex justify-content-between">
+                    <span class="text-muted">Correo:</span>
+                    <span class="text-dark">{{ agente.email|default:"No informado" }}</span>
+                </li>
+                <li class="py-2 border-bottom d-flex justify-content-between">
+                    <span class="text-muted">Teléfono:</span>
+                    <span class="text-dark">{{ agente.telefono|default:"No informado" }}</span>
+                </li>
+                <li class="py-2 d-flex justify-content-between">
+                    <span class="text-muted">Estado en Planta:</span>
+                    {% if agente.activo %}
+                        <span class="badge bg-success-subtle text-success border border-success">Activo</span>
+                    {% else %}
+                        <span class="badge bg-secondary text-white">Histórico (Baja)</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- CÁTEDRAS ACTIVAS -->
+    <div class="col-lg-8">
+        <div class="card h-100 shadow-sm border-0 bg-white">
+            <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold fs-6 text-primary">
+                    <i class="bi bi-book-half me-1"></i> Cátedras Asignadas Activas
+                </h5>
+                <span class="badge bg-primary text-white">{{ designaciones|length }} Asignaciones</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-ies align-middle mb-0 small">
+                    <thead class="table-light text-uppercase">
+                        <tr>
+                            <th>Materia / Carrera</th>
+                            <th class="text-center">Días / Franjas</th>
+                            <th class="text-center">Horario</th>
+                            <th class="text-center">Hs Cátedra</th>
+                            <th class="text-center">Revista</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in designaciones %}
+                        <tr>
+                            <td>
+                                <strong class="text-dark">{{ d.materia.nombre }}</strong>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    {{ d.materia.carrera.nombre }} ({{ d.materia.carrera.codigo }})
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                {% if d.horarios.all %}
+                                    <div class="d-flex flex-wrap justify-content-center gap-1">
+                                        {% for h in d.horarios.all %}
+                                            <span class="badge bg-light text-primary border small text-uppercase">{{ h.dia_semana }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-light text-primary border small text-uppercase">{{ d.dia_semana }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-muted small">
+                                {% if d.horarios.all %}
+                                    {{ d.resumen_horarios }}
+                                {% else %}
+                                    {{ d.hora_inicio|default:"-" }} a {{ d.hora_fin|default:"-" }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold text-dark">{{ d.total_horas_semanales }} hs</td>
+                            <td class="text-center"><span class="badge bg-secondary-subtle text-dark border">{{ d.situacion_revista|default:agente.situacion_revista_defecto }}</span></td>
+                            <td class="text-end">
+                                <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                No posee cátedras activas actualmente. <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="text-primary fw-semibold">Asignar cátedra ahora</a>.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- 3. RESUMEN ANUAL INDEPENDIENTE (RF-18)                                     -->
+<!-- Calculado sobre todo el año anio_sel, independiente del filtro mensual    -->
+<!-- ========================================================================= -->
+<div class="card mb-4 shadow-sm border-0 bg-white">
+    <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-shield-check text-primary"></i> Cómputo Anual y Alertas Institucionales (Año {{ anio_sel }} · RF-18)
+            </h5>
+            <small class="text-muted">
+                Control acumulado de inasistencias y licencias sobre el ciclo lectivo completo.
+            </small>
+        </div>
+        <span class="badge {% if resumen_anual.nivel == 'CRITICO' %}bg-danger{% elif resumen_anual.nivel == 'ADVERTENCIA' %}bg-warning text-dark{% else %}bg-success{% endif %} px-3 py-2 fw-bold">
+            <i class="bi {% if resumen_anual.nivel == 'NORMAL' %}bi-check-circle{% else %}bi-exclamation-triangle{% endif %} me-1"></i>
+            Estado Anual: {{ resumen_anual.nivel }}
+        </span>
+    </div>
+
+    <div class="card-body p-4">
+        {% if resumen_anual.nivel != 'NORMAL' %}
+        <div class="alert alert-{{ resumen_anual.badge_class }} d-flex align-items-center gap-2 mb-3 shadow-sm py-2" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            <div class="small">
+                <strong>Atención Normativa:</strong> {{ resumen_anual.mensaje }}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-3">
+            <!-- 1. INASISTENCIAS ANUALES (IL-01) -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 h-100 border-start border-4 border-danger bg-light bg-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted small fw-bold text-uppercase">Inasistencias (IL-01)</span>
+                        <span class="badge bg-danger-subtle text-danger border border-danger small">Tope: {{ resumen_anual.tope_faltas }}</span>
+                    </div>
+                    <div class="d-flex align-items-baseline gap-2 my-1">
+                        <h3 class="fw-bold text-danger mb-0">{{ resumen_anual.faltas }}</h3>
+                        <span class="text-muted small">/ {{ resumen_anual.tope_faltas }} faltas</span>
+                    </div>
+                    <div class="progress my-2" style="height: 6px;">
+                        <div class="progress-bar {% if resumen_anual.porcentaje_faltas >= 80 %}bg-danger{% elif resumen_anual.porcentaje_faltas >= 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ resumen_anual.porcentaje_faltas }}%;" 
+                             aria-valuenow="{{ resumen_anual.porcentaje_faltas }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Restan: <strong class="{% if resumen_anual.restantes_faltas <= 2 %}text-danger{% else %}text-dark{% endif %}">{{ resumen_anual.restantes_faltas }}</strong> faltas antes de cese
+                    </small>
+                </div>
+            </div>
+
+            <!-- 2. PERMISOS PARTICULARES (IL-02) -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 h-100 border-start border-4 border-info bg-light bg-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted small fw-bold text-uppercase">Permisos (IL-02)</span>
+                        <span class="badge bg-info-subtle text-dark border border-info small">Tope: {{ resumen_anual.tope_permisos }}</span>
+                    </div>
+                    <div class="d-flex align-items-baseline gap-2 my-1">
+                        <h3 class="fw-bold text-primary mb-0">{{ resumen_anual.permisos }}</h3>
+                        <span class="text-muted small">/ {{ resumen_anual.tope_permisos }} anuales</span>
+                    </div>
+                    <div class="progress my-2" style="height: 6px;">
+                        <div class="progress-bar {% if resumen_anual.porcentaje_permisos >= 80 %}bg-danger{% elif resumen_anual.porcentaje_permisos >= 50 %}bg-warning{% else %}bg-info{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ resumen_anual.porcentaje_permisos }}%;" 
+                             aria-valuenow="{{ resumen_anual.porcentaje_permisos }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Restan: <strong class="text-dark">{{ resumen_anual.restantes_permisos }}</strong> permisos disponibles
+                    </small>
+                </div>
+            </div>
+
+            <!-- 3. LICENCIAS MÉDICAS Y ESPECIALES -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 h-100 border-start border-4 border-warning bg-light bg-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted small fw-bold text-uppercase">Licencias Oficiales</span>
+                        <span class="badge bg-warning-subtle text-dark border border-warning small">Hojas 1 a 6</span>
+                    </div>
+                    <div class="d-flex align-items-baseline gap-2 my-1">
+                        <h3 class="fw-bold text-warning-emphasis mb-0">{{ resumen_anual.licencias }}</h3>
+                        <span class="text-muted small">días registrados</span>
+                    </div>
+                    <div class="mt-2 text-muted" style="font-size: 0.75rem;">
+                        <div>Salud (IL-01): <strong class="text-dark">{{ resumen_anual.cuadro_il01_count }}</strong></div>
+                        <div>Otras (IL-02): <strong class="text-dark">{{ resumen_anual.cuadro_il02_count }}</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. PRESENTISMO ANUAL EN CÁTEDRA -->
+            <div class="col-md-3 col-sm-6">
+                <div class="card p-3 h-100 border-start border-4 border-success bg-light bg-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted small fw-bold text-uppercase">Presentismo Anual</span>
+                        <span class="badge bg-success-subtle text-success border border-success small">Ciclo {{ anio_sel }}</span>
+                    </div>
+                    <div class="d-flex align-items-baseline gap-2 my-1">
+                        <h3 class="fw-bold text-success mb-0">{{ resumen_anual.presentes }}</h3>
+                        <span class="text-muted small">jornadas presentes</span>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        Total partes evaluados: <strong class="text-dark">{{ resumen_anual.total_registros }}</strong>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 pt-2 border-top text-muted small d-flex align-items-center gap-1">
+            <i class="bi bi-info-circle text-primary"></i>
+            <span>
+                <strong>Regla de Dominio RF-18:</strong> Este resumen anual refleja la totalidad del ciclo lectivo <strong>{{ anio_sel }}</strong> y es estrictamente independiente del mes que se seleccione en el filtro inferior.
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- 1 y 2. HISTORIAL DE NOVEDADES DEL PERÍODO Y SELECTOR (MES Y AÑO)           -->
+<!-- Consulta cronológica sin eliminar ni modificar datos de otros meses (RF-14)-->
+<!-- ========================================================================= -->
+<div class="card mb-4 shadow-sm border-0 bg-white">
+    <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-calendar3 text-primary"></i> Historial de Asistencia por Período
+            </h5>
+            <small class="text-muted">
+                Consulta mensual acotada (RF-14). Período activo: <strong class="text-dark">{{ nombre_mes_sel }} {{ anio_sel }}</strong>
+            </small>
+        </div>
+
+        <!-- SELECTOR DE PERÍODO (MES Y AÑO) -->
+        <form method="GET" class="d-flex align-items-center gap-2 flex-wrap mb-0">
+            <div class="input-group input-group-sm" style="width: auto;">
+                <label class="input-group-text bg-light text-muted fw-semibold" for="selectMes"><i class="bi bi-calendar-month me-1"></i>Mes:</label>
+                <select name="mes" id="selectMes" class="form-select form-select-sm fw-bold text-primary" onchange="this.form.submit()">
+                    {% for m_num, m_nombre in meses_choices %}
+                        <option value="{{ m_num }}" {% if m_num == mes_sel %}selected{% endif %}>{{ m_nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="input-group input-group-sm" style="width: auto;">
+                <label class="input-group-text bg-light text-muted fw-semibold" for="selectAnio"><i class="bi bi-calendar-event me-1"></i>Año:</label>
+                <select name="anio" id="selectAnio" class="form-select form-select-sm fw-bold text-primary" onchange="this.form.submit()">
+                    {% for a in anios_disponibles %}
+                        <option value="{{ a }}" {% if a == anio_sel %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <noscript>
+                <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+            </noscript>
+
+            <a href="?mes={{ hoy.month }}&anio={{ hoy.year }}" class="btn btn-sm btn-outline-secondary" title="Volver al período actual">
+                Mes Actual
+            </a>
+        </form>
+    </div>
+
+    <!-- Barra de resumen rápido del mes seleccionado -->
+    <div class="card-body border-bottom bg-light bg-opacity-25 py-2 px-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
+            <span class="text-muted">
+                Registros en <strong>{{ nombre_mes_sel }} {{ anio_sel }}</strong>: <strong class="text-dark">{{ novedades_mes|length }}</strong> jornada/s
+            </span>
+            <div class="d-flex gap-2 flex-wrap">
+                <span class="badge bg-success-subtle text-success border border-success">Presentes: {{ resumen_mes.presentes }}</span>
+                <span class="badge bg-danger-subtle text-danger border border-danger">Inasistencias: {{ resumen_mes.inasistencias }}</span>
+                <span class="badge bg-warning-subtle text-dark border border-warning">Licencias / Permisos: {{ resumen_mes.licencias_permisos }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA DE NOVEDADES DEL PERÍODO (CRONOLÓGICA) -->
+    <div class="table-responsive">
+        <table class="table table-hover table-ies align-middle mb-0 small">
+            <thead class="table-light text-uppercase">
+                <tr>
+                    <th style="width: 40px;" class="text-center">#</th>
+                    <th style="width: 130px;">Fecha</th>
+                    <th style="width: 140px;" class="text-center">Tiempo (Referencia)</th>
+                    <th style="width: 150px;" class="text-center">Estado Oficial (RF-08)</th>
+                    <th>Formulario Oficial</th>
+                    <th>Artículo / Licencia</th>
+                    <th>Suplente Asignado</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in novedades_mes %}
+                <tr>
+                    <td class="text-center text-muted small">{{ forloop.counter }}</td>
+                    <td>
+                        <strong class="text-dark">{{ n.fecha|date:"d/m/Y" }}</strong>
+                        <div class="text-muted text-capitalize" style="font-size: 0.72rem;">{{ n.fecha|date:"l" }}</div>
+                    </td>
+                    <!-- Referencia visual secundaria de tiempo (sin alterar estado administrativo) -->
+                    <td class="text-center">
+                        {% if n.fecha > hoy %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" title="Jornada futura dentro del mes calendario">
+                                <i class="bi bi-clock-forward me-1"></i>Futura
+                            </span>
+                        {% elif n.fecha == hoy %}
+                            <span class="badge bg-success-subtle text-success border border-success px-2 py-1" title="Jornada en curso (día de la fecha)">
+                                <i class="bi bi-calendar-check me-1"></i>Hoy
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border px-2 py-1" title="Jornada ya transcurrida">
+                                <i class="bi bi-check2-all me-1"></i>Transcurrida
+                            </span>
+                        {% endif %}
+                        <div class="text-muted" style="font-size: 0.68rem;">Ref. temporal</div>
+                    </td>
+                    <!-- Estados Oficiales RF-08 estrictos -->
+                    <td class="text-center">
+                        {% if n.estado == 'PR' or n.estado == 'Presente' %}
+                            <span class="badge-status badge-status-PR">Presente (PR)</span>
+                        {% elif n.estado == 'I' %}
+                            <span class="badge-status badge-status-I">Inasistencia (I)</span>
+                        {% elif n.estado == 'LIC' %}
+                            <span class="badge-status badge-status-LIC">Lic. Médica (LIC)</span>
+                        {% elif n.estado == 'P' %}
+                            <span class="badge-status badge-status-P">Permiso (P)</span>
+                        {% elif n.estado == 'LT' %}
+                            <span class="badge-status badge-status-LT">Largo Trat. (LT)</span>
+                        {% endif %}
+                    </td>
+                    <!-- Datos de Formulario Físico Recepcionado -->
+                    <td>
+                        {% if n.formulario_numero %}
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge bg-white text-primary border border-primary fw-semibold" title="Formulario Oficial Registrado en Bedelía">
+                                    <i class="bi bi-receipt"></i> {% if n.formulario_numero|slice:":2" == "F-" %}{{ n.formulario_numero }}{% else %}F-{{ n.formulario_numero }}{% endif %}
+                                </span>
+                                {% if n.adjunto_certificado %}
+                                    <a href="{{ n.adjunto_certificado.url }}" target="_blank" class="badge bg-light text-primary border" title="Ver comprobante adjunto">
+                                        <i class="bi bi-paperclip"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                    <!-- Artículo / Tipo de Licencia -->
+                    <td>
+                        {% if n.tipo_licencia %}
+                            <div>
+                                <strong class="text-dark">[{{ n.tipo_licencia.codigo }}]</strong> {{ n.tipo_licencia.articulo }}
+                            </div>
+                            <div class="text-muted" style="font-size: 0.72rem;">
+                                {{ n.tipo_licencia.nombre|truncatechars:35 }} ({{ n.tipo_licencia.cuadro_destino }})
+                            </div>
+                        {% else %}
+                            <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                    <!-- Suplente Designado -->
+                    <td>
+                        {% if n.suplente %}
+                            <span class="badge bg-info-subtle text-dark border border-info-subtle small text-truncate" style="max-width: 175px;" title="Suplente: {{ n.suplente.nombre_completo }}">
+                                <i class="bi bi-person-badge me-1"></i>{{ n.suplente.apellido }}, {{ n.suplente.nombre|slice:":1" }}.
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                    <!-- Observaciones -->
+                    <td>
+                        {% if n.observaciones %}
+                            <small class="text-muted text-truncate d-inline-block" style="max-width: 200px;" title="{{ n.observaciones }}">
+                                {{ n.observaciones }}
+                            </small>
+                        {% else %}
+                            <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No se registran novedades de asistencia para este docente en el período <strong>{{ nombre_mes_sel }} {{ anio_sel }}</strong>.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ANTECEDENTES HISTÓRICOS DE CÁTEDRAS (RN-03) -->
+{% if designaciones_hist %}
+<div class="card mb-4 shadow-sm border-0 bg-white">
+    <div class="card-header py-3 bg-light d-flex justify-content-between align-items-center">
+        <span class="fw-bold text-secondary fs-6">
+            <i class="bi bi-archive-fill me-1"></i> Historial de Cátedras Pasadas (RN-03 · Inmutabilidad de Antecedentes)
+        </span>
+        <span class="badge bg-secondary text-white">{{ designaciones_hist|length }} Históricas</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0 small">
+            <thead class="table-light text-muted text-uppercase">
+                <tr>
+                    <th>Materia / Carrera</th>
+                    <th>Días / Franjas</th>
+                    <th>Horario</th>
+                    <th class="text-center">Hs Cátedra</th>
+                    <th class="text-center">Vigencia Hasta</th>
+                    <th class="text-center">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dh in designaciones_hist %}
+                <tr>
+                    <td>
+                        <strong>{{ dh.materia.nombre }}</strong>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ dh.materia.carrera.nombre }} ({{ dh.materia.carrera.codigo }})</div>
+                    </td>
+                    <td>{{ dh.dia_semana }}</td>
+                    <td class="text-muted">{{ dh.resumen_horarios|default:"-" }}</td>
+                    <td class="text-center fw-bold">{{ dh.total_horas_semanales }} hs</td>
+                    <td class="text-center">{{ dh.vigencia_hasta|default:"Baja Administrativa" }}</td>
+                    <td class="text-center"><span class="badge bg-secondary text-white">Baja Registrada</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

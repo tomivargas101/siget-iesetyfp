@@ -1,192 +1,263 @@
-# SIGET - Sistema Integral de Gestión Educativa Terciaria
-### Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETyFP)
+# SIGET - Sistema de Gestión de Asistencia Docente
+### Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETyFP) — Resistencia, Chaco
+**Cátedra:** Diseño y Elaboración de Proyectos Informáticos — 3° Año, Tecnicatura Superior en Desarrollo de Software  
+**Arquitectura:** 100% Aplicación Web Centralizada en **Python & Django**  
+**Fecha de Consolidación y Entrega:** 19 de Noviembre de 2026  
 
-[![Electron Version](https://img.shields.io/badge/Electron-35.x-47848F.svg)](https://www.electronjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B%20%7C%2022%2B-339933.svg)](https://nodejs.org/)
-[![Database](https://img.shields.io/badge/Database-SQLite%20(WAL%20Mode)-orange.svg)](https://www.sqlite.org/)
-[![CSS](https://img.shields.io/badge/CSS-Tailwind%20CSS%203.4-38B2AC.svg)](https://tailwindcss.com/)
-[![Security](https://img.shields.io/badge/Security-bcrypt%20Hashes-success.svg)](https://github.com/dcodeIO/bcrypt.js)
-[![License](https://img.shields.io/badge/Institucional-IESETyFP-gold.svg)](#)
-
-**SIGET** es una aplicación de escritorio corporativa y de misión crítica desarrollada específicamente para la administración académica, funcional y operativa de institutos de educación superior técnica terciaria. Centraliza el control de planta funcional docente, cátedras y designaciones multi-día, cobertura formal de suplencias, control de asistencia diaria y generación de planillas oficiales con formato ministerial bajo estrictas normativas institucionales.
-
----
-
-## 👥 Roles Institucionales y Niveles de Acceso
-
-El acceso al sistema está estrictamente restringido a los dos perfiles de usuario autorizados por la normativa del instituto:
-
-| Rol Institucional | Perfil | Alcance y Módulos Habilitados |
-| :--- | :--- | :--- |
-| **Secretaría** | Administrativo / Gestión | **Acceso Completo de Gestión:** Gestión de legajos docentes (altas, modificaciones, unicidad de DNI y legajo), asignación de cátedras y designaciones multi-día, registro de suplencias con resolución ministerial, administración y blanqueo de usuarios institucionales, emisión de libros Excel y reportes oficiales. |
-| **Bedelía** | Operativo / Control Diario | **Gestión Diaria de Asistencia:** Carga del parte diario de presentismo, ausentismo y licencias médicas/particulares (DL-01 / DL-02), generación de la Planilla Imprimible de Control Diario con casillas de verificación para papel, consulta interactiva del Calendario Institucional y Fichas Docentes. |
-
-> [!IMPORTANT]
-> **Seguridad y Jerarquía de Accesos:** Bedelía tiene restringido el acceso al módulo de administración de usuarios y configuración sensible. Cualquier intento de acceso no autorizado es bloqueado por las guardas de seguridad y registrado en el log inmutable de auditoría (`audit_logs`).
+[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.1%2B-092E20.svg)](https://www.djangoproject.com/)
+[![Database](https://img.shields.io/badge/Database-SQLite%203NF%20%7C%20PostgreSQL-003B57.svg)](https://www.sqlite.org/)
+[![UI Framework](https://img.shields.io/badge/UI-Bootstrap%205.3%20Institucional-17365D.svg)](https://getbootstrap.com/)
+[![Excel Processing](https://img.shields.io/badge/Excel-openpyxl%20%7C%20pandas-217346.svg)](https://openpyxl.readthedocs.io/)
+[![Auditoría](https://img.shields.io/badge/Auditor%C3%ADa-Inmutable%20RF--20-E0C45D.svg)](#)
 
 ---
 
-## 🚀 Mejoras y Actualizaciones Institucionales Recientes (14/11/2026)
+## 📖 1. Resumen Ejecutivo y Alcance Institucional
 
-Durante la jornada del 14/11/2026 se incorporaron refactorizaciones clave y nuevas funcionalidades al sistema:
+**SIGET** (Sistema de Gestión de Asistencia Docente) es una plataforma web desarrollada de manera exclusiva sobre **Python y Django**, diseñada para dar cumplimiento estricto e integral al **Documento de Requerimientos Intercátedra v2.0** y a las pautas ministeriales de liquidación de haberes docentes del Chaco.
 
-### 1. Calendario Institucional Unificado "2 en 1"
-- **Fusión Integral:** Se combinó la grilla mensual del mes en curso y la planilla de novedades en una única vista interactiva con etiquetas de estado (*pills*) por evento (feriados, jornadas institucionales, licencias y ausencias).
-- **Modal Flotante de Detalle Diario:** Al hacer clic sobre cualquier celda de la grilla mensual, se abre un modal flotante detallado que desglosa la nómina de profesores presentes, suplencias activas, licencias especiales e inasistencias del día, con botón de salto directo a la fecha en la pestaña de Asistencias.
-
-### 2. Cátedras Multi-Día con Cargas y Horarios Variables
-- **Soporte Integral de Múltiples Días:** Las cátedras y materias pueden contar con dictado en diferentes días de la semana con franjas horarias y cargas horarias independientes (por ejemplo: *Lunes de 18:00 a 20:15 con 3 hs y Jueves de 18:00 a 18:40 con 1 h*).
-- **Consolidación Inteligente:** En el listado general de cátedras, la materia se consolida en una única fila representativa con el total acumulado de horas semanales y el detalle de cada día.
-
-### 3. Planilla Imprimible de Control Diario para Bedelía
-- **Optimización para Impresión en Papel:** Generación de planilla oficial en formato **A4 Horizontal (Landscape)** tanto en PDF vectorial como en Excel (`.xlsx`).
-- **Casillas de Verificación Manual:** Diseñada específicamente para uso diario en el mostrador de Bedelía, incluye casillas de verificación manual (*checkboxes*) para la firma de cada docente por materia y horario.
-
-### 4. Contextualización Dinámica de Exportación
-- **Ficha Docente Independiente:** En la sub-pestaña "Ficha Docente", la interfaz oculta automáticamente los botones de exportación del mes general y exhibe únicamente los botones dedicados de *Exportar Ficha (PDF)* y *Exportar Ficha (Excel)*.
-- **Diálogos Nativos del Sistema Operativo (`showSaveDialog`):** Todas las funciones de exportación (calendarios, fichas individuales y planillas de control diario) abren el diálogo nativo de guardado del sistema operativo, permitiendo al usuario elegir la carpeta y nombre de archivo deseado.
-
-### 5. Depuración y Limpieza de Módulos Redundantes
-- **Eliminación del Módulo Huérfano:** Se suprimió del menú lateral el antiguo módulo independiente de "Planilla Mensual", integrando toda la reportería mensual directamente en el Calendario Institucional.
-- **Corrección de Validación de Legajos:** Se corrigió la consulta de validación de unicidad de DNI al momento de editar (`UPDATE`), excluyendo el propio ID del registro (`WHERE dni = ? AND id != ?`), permitiendo guardar modificaciones en datos docentes sin bloqueos indebidos.
+El sistema modela el flujo administrativo de bedelía y secretaría académica para el registro diario de novedades de asistencia, la recepción y justificación con formularios oficiales, la cobertura de cátedras mediante suplencias con control de incompatibilidad, y la emisión mensual de los **Cuadros Estadísticos Oficiales IL-01** (licencias médicas e inasistencias con descuento) e **IL-02** (licencias normativas con goce de haberes y suplencia) con destino a la **Dirección de Liquidaciones del Ministerio de Educación (Oficina Técnica 1452)**.
 
 ---
 
-## 🛠️ Stack Tecnológico y Arquitectura
+## 🔄 2. Migración Tecnológica: de Node.js/Electron a Python/Django
 
-```text
-                  ┌────────────────────────────────────────┐
-                  │          SIGET CLIENTE DESKTOP         │
-                  │   Electron 35 + HTML5 + Tailwind CSS   │
-                  └──────────────────┬─────────────────────┘
-                                     │
-                                     ▼
-                  ┌────────────────────────────────────────┐
-                  │       PRELOAD BRIDGE (SEGURO)          │
-                  │   contextBridge (window.sigetApi)      │
-                  └──────────────────┬─────────────────────┘
-                                     │
-            ┌────────────────────────┴────────────────────────┐
-            ▼                                                 ▼
- ┌──────────────────────┐                         ┌──────────────────────┐
- │    MAIN PROCESS      │                         │  SERVICIOS BACKEND   │
- │ Electron App, IPC,   │                         │ Attendance, Calendar │
- │ Dialogs, Lifecycle   │                         │ Teachers, Designat.  │
- └──────────┬───────────┘                         └──────────┬───────────┘
-            │                                                 │
-            └────────────────────────┬────────────────────────┘
-                                     │
-                                     ▼
-                  ┌────────────────────────────────────────┐
-                  │    MOTOR DE BASE DE DATOS LOCAL        │
-                  │    SQLite 3 Nativo (node:sqlite)       │
-                  │        Modo WAL Concurrente            │
-                  └────────────────────────────────────────┘
-```
+El proyecto atravesó un proceso de reingeniería arquitectónica y migración completa:
 
-- **Runtime y Plataforma:** [Node.js](https://nodejs.org/) v20+ / v22+ con [Electron](https://www.electronjs.org/) v35.
-- **Interfaz Gráfica:** HTML5 semántico, [Tailwind CSS](https://tailwindcss.com/) 3.4 y suite de iconos [Lucide](https://lucide.dev/).
-- **Base de Datos y Persistencia:** SQLite 3 nativo de alto rendimiento (`node:sqlite`) con modo `WAL` (*Write-Ahead Logging*), garantizando integridad referencial estricta y lecturas concurrentes sin bloqueo.
-- **Seguridad y Criptografía:** Hash de contraseñas mediante `bcryptjs` con salado dinámico, preguntas de seguridad institucionales y clave de recuperación maestra (*Master Recovery Key*) de 16 caracteres.
-- **Generación de Reportes y Planillas:** [ExcelJS](https://github.com/exceljs/exceljs) para generación de libros de cálculo con diseño y estilos ministeriales oficiales, y motor Chromium integrado para exportación a PDF en tamaño A4.
+1. **Abandono de la Arquitectura Desktop / Híbrida:**  
+   Se desestimó el esquema legacy basado en Node.js, Electron y empaquetados binarios de escritorio (`.exe`), los cuales presentaban problemas de concurrencia en red local, aislamiento de bases de datos y dependencia de entornos runtime pesados.
+2. **Adopción de Arquitectura Web Centralizada en Django:**  
+   Se reimplementó el 100% del sistema sobre el patrón **MVT (Model-View-Template)** de Django. Esto garantiza:
+   - Base de datos relacional centralizada en **Tercera Forma Normal (3NF)** con integridad referencial estricta.
+   - Seguridad de acceso basada en sesiones HTTP con hashing PBKDF2/SHA256 y protección CSRF nativa.
+   - Interfaz web multiusuario accesible desde cualquier puesto de trabajo de Bedelía o Secretaría a través de la red local del instituto.
+   - Separación rigurosa de responsabilidades mediante una capa de servicios (`gestion/services/`) desacoplada de los controladores.
 
 ---
 
-## 📋 Guía Rápida de Instalación y Ejecución
-
-### Paso 1: Clonar el Repositorio
-```bash
-git clone https://github.com/tomivargas101/siget-iesetyfp.git
-cd siget
-```
-
-### Paso 2: Instalar Dependencias
-```bash
-npm install
-# o utilizando pnpm:
-pnpm install
-```
-
-### Paso 3: Iniciar la Aplicación en Modo Escritorio
-```bash
-npm start
-```
-
----
-
-## 🔑 Credenciales de Acceso de Demostración
-
-El sistema inicializa automáticamente la base de datos `siget.db` con dos usuarios predeterminados:
-
-| Rol | Usuario | Contraseña | Perfil y Alcance |
-| :--- | :--- | :--- | :--- |
-| **Secretaría** | `secretaria` | `secretaria123` | Control total administrativo, cátedras, legajos y reportes. |
-| **Bedelía** | `bedel` | `bedel123` | Carga de asistencia diaria y planilla imprimible. |
-
-*(En la pantalla de inicio de sesión dispones de botones de acceso rápido para autocompletar credenciales en modo evaluación).*
-
----
-
-## 🧪 Ejecución de Pruebas Automatizadas
-
-El proyecto cuenta con un conjunto integral de suites de pruebas que validan reglas de negocio, consistencia de base de datos y nuevas funcionalidades:
-
-```bash
-# 1. Pruebas de backend, autenticación, seguridad bcrypt y reglas normativas (39 tests)
-npm run test:backend
-
-# 2. Pruebas de funcionalidades recientes: multi-día, calendario y planilla imprimible (8 bloques)
-node test_new_features.js
-
-# 3. Pruebas de requerimientos normativos v2.0, ABMC y catálogo IL-01/IL-02 (12 bloques)
-node test_v2_features.js
-
-# 4. Verificación de inicio y carga de ventana de Electron
-npm run test:electron
-```
-
----
-
-## 📁 Estructura del Repositorio
+## 🏛️ 3. Estructura del Proyecto
 
 ```text
 siget/
-├── src/
-│   ├── database/
-│   │   └── db.js                 # Conexión nativa SQLite, migraciones y seeds iniciales
-│   ├── main/
-│   │   ├── main.js               # Ciclo de vida de Electron, BrowserWindow y single-instance lock
-│   │   └── ipcHandlers.js        # Handlers IPC asíncronos para comunicación Main <-> Renderer
-│   ├── preload/
-│   │   └── preload.js            # Exposición segura de APIs en window.sigetApi
-│   ├── services/
-│   │   ├── attendanceService.js  # Lógica de asistencias, estados cerrados y planilla imprimible
-│   │   ├── attendanceProcessor.js# Agrupamiento de novedades para planillas oficiales
-│   │   ├── auditService.js       # Registro de auditoría institucional y exportación PDF
-│   │   ├── authService.js        # Autenticación bcrypt, preguntas secretas y Master Key
-│   │   ├── csvImportService.js   # Importación universal de CSV con detección automática
-│   │   ├── dashboardService.js   # Métricas y estadísticas institucionales
-│   │   ├── designationService.js # Cátedras multi-día y asignación de suplencias
-│   │   ├── normativeService.js   # Catálogo maestro de licencias (IL-01 / IL-02)
-│   │   ├── reportService.js      # Generación de libro Excel mensual oficial
-│   │   ├── teacherCalendarService.js # Matriz de mes, fichas docentes y exportaciones
-│   │   ├── teacherService.js     # Legajos de profesores y validación de unicidad
-│   │   ├── userService.js        # Gestión de cuentas de usuario y blanqueo
-│   │   └── validationService.js  # Reglas de negocio estatutarias y topes horarios
-│   └── renderer/
-│       ├── index.html            # Interfaz de usuario SPA institucional
-│       ├── css/                  # Estilos Tailwind CSS y temas de la app
-│       └── js/
-│           └── app.js            # Controlador del frontend y gestión de eventos
 │
-├── assets/                       # Logotipos e identidad visual oficial (.png)
-├── reportes/                     # Carpeta de salida de reportes generados
-├── export_schema_pdf.js          # Script auxiliar de compilación del esquema de BD
-├── package.json                  # Dependencias y scripts de npm
-└── README.md                     # Documentación general del sistema
+├── manage.py                          # Gestor de comandos del framework Django
+├── requirements.txt                   # Dependencias fijadas y verificadas de Python
+├── db.sqlite3                         # Base de datos relacional SQLite 3NF (o PostgreSQL)
+├── .gitignore                         # Exclusión de entornos, temporales y credenciales
+├── README.md                          # Documentación institucional y manual de despliegue
+│
+├── siget_project/                     # Configuración principal del proyecto
+│   ├── __init__.py
+│   ├── settings.py                    # Regionalización (es-ar, UTC-3), middleware y seguridad
+│   ├── urls.py                        # Enrutador central y vistas de autenticación (/login, /logout)
+│   ├── wsgi.py                        # Punto de entrada para servidores WSGI (Gunicorn / uWSGI)
+│   └── asgi.py                        # Punto de entrada asíncrono
+│
+├── gestion/                           # Aplicación de dominio institucional
+│   ├── __init__.py
+│   ├── admin.py                       # Panel administrativo Django
+│   ├── apps.py                        # Configuración de la aplicación
+│   ├── models.py                      # Modelos ORM: Agente, Carrera, Materia, Designacion,
+│   │                                  # HorarioDesignacion, Suplencia, TipoLicencia, Feriado,
+│   │                                  # NovedadAsistencia, Disposicion, RenglonMensual, Auditoria
+│   ├── forms.py                       # Formularios y validaciones (tope 30 hs, anti-auto-suplencia, CSV)
+│   ├── urls.py                        # Enrutador interno de rutas de negocio
+│   ├── views.py                       # Vistas controladoras web y respuestas JSON reactivas
+│   ├── tests.py                       # Suite de 22 pruebas unitarias y de integración
+│   │
+│   ├── services/                      # Capa de Lógica de Negocio y Reglas de Dominio
+│   │   ├── __init__.py                # ProcesadorMensual, ExportadorExcel, ImportadorCSV,
+│   │   │                              # CalculadorAlertas, JustificacionService y registrar_auditoria
+│   │   └── horarios.py                # HorarioService (validación de franjas y superposiciones)
+│   │
+│   └── management/
+│       └── commands/
+│           └── cargar_datos_iniciales.py # Seeder oficial de catálogos, roles, feriados y docentes
+│
+├── templates/                         # Plantillas HTML con Bootstrap 5.3
+│   ├── base.html                      # Layout maestro con barra horizontal del IESETyFP y toasts flotantes
+│   ├── registration/
+│   │   └── login.html                 # Pantalla de acceso seguro con credenciales institucionales (RF-19)
+│   └── gestion/
+│       ├── dashboard.html             # Tablero de control de asistencia y KPIs institucionales
+│       ├── asistencia_diaria.html     # Grilla diaria con combo box reactivo y modal de justificación
+│       ├── recepcion_formulario.html  # Formulario físico con artículo normativo y carga de certificado
+│       ├── suplencia_form.html        # Pantalla dedicada de asignación de suplencias en 3 pasos
+│       ├── procesamiento_mensual.html # Cuadros IL-01 / IL-02 y Disposiciones consecutivas
+│       ├── agentes_list.html          # Padrón docente con pluralidad de revistas activas
+│       ├── agente_form.html           # Alta/edición de agentes con preservación de ceros (RN-01)
+│       ├── agente_detail.html         # Ficha individual del docente con historial persistente
+│       ├── designaciones_list.html    # Cátedras, designaciones y horarios
+│       ├── designacion_form.html      # Asignación de cátedra con franjas 1:N y control de 30 hs
+│       ├── designacion_detail.html    # Detalle de cátedra y franjas horarias
+│       ├── carreras_list.html         # Planes de estudio y tecnicaturas
+│       ├── carrera_form.html          # Alta/edición de carreras
+│       ├── materias_list.html         # Espacios curriculares
+│       ├── materia_form.html          # Formulario de materias
+│       ├── licencias_list.html        # Nomenclador de 20 licencias (Hojas 1 a 6)
+│       ├── importar_csv.html          # Carga masiva segura con validación de extensión y binarios
+│       ├── consultas.html             # Consultas multidimensionales y alertas de inasistencias
+│       └── auditoria.html             # Registro inmutable de trazabilidad (RF-20)
+│
+├── static/                            # Recursos estáticos
+│   └── img/
+│       ├── logo_iesetyfp.jpg          # Isologo institucional del IESETyFP
+│       └── icon.ico                   # Favicon
+│
+├── media/                             # Almacenamiento seguro de certificados médicos escaneados
+│   └── certificados/
+│
+└── reportes/                          # Planillas Excel oficiales exportadas (.xlsx)
 ```
 
 ---
 
-## 📄 Marco Institucional
-Sistema desarrollado para el **IESETyFP** (*Instituto de Educación Superior de Educación Técnica y Formación Profesional*). Cumple con los lineamientos de acreditación académica y administrativa vigentes.
+## ⚡ 4. Guía de Instalación y Ejecución Local
+
+### Paso 1: Clonar o posicionarse en el proyecto
+```bash
+git clone https://github.com/tomivargas101/siget-iesetyfp.git
+cd siget-iesetyfp
+```
+
+### Paso 2: Crear y activar el entorno virtual (Python 3.10+)
+- **En Windows (PowerShell):**
+  ```powershell
+  python -m venv .venv
+  .\.venv\Scripts\activate
+  ```
+- **En Linux / macOS:**
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  ```
+
+### Paso 3: Instalar las dependencias
+```bash
+pip install -r requirements.txt
+```
+
+### Paso 4: Ejecutar migraciones de base de datos
+```bash
+python manage.py migrate
+```
+
+### Paso 5: Sembrar datos iniciales institucionales (RF-19 y Hojas 1–6)
+```bash
+python manage.py cargar_datos_iniciales
+```
+*Este comando pre-carga los usuarios de prueba, el catálogo oficial de 20 licencias ministeriales, carreras, espacios curriculares, docentes de muestra y el calendario de feriados 2026.*
+
+### Paso 6: Ejecutar la suite de pruebas automatizadas
+```bash
+python manage.py test
+```
+*Salida esperada:*
+```text
+Creating test database for alias 'default'...
+....................
+----------------------------------------------------------------------
+Ran 22 tests in ~65s
+
+OK
+```
+
+### Paso 7: Iniciar el servidor web de desarrollo
+```bash
+python manage.py runserver
+```
+Abra su navegador web en: **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)**
+
+---
+
+## 👥 5. Credenciales de Demostración (RF-19)
+
+El sistema cuenta con un rol de **Bedelía unificado** (sin división artificial por turnos), junto a **Secretaría** y **Superusuario**:
+
+| Perfil / Rol | Usuario | Contraseña | Nombre Completo | Atribuciones Operativas |
+| :--- | :--- | :--- | :--- | :--- |
+| **Secretaría** | `zaquino` | `zaquino123` | Zunilda Aquino | Gestión de legajos, carreras, cátedras, suplencias, procesamiento mensual y reportes. |
+| **Bedelía** | `meduarte` | `meduarte123` | María Eva Duarte | Registro diario de asistencia, recepción de formularios físicos, asignación de suplencias y consultas. |
+| **Bedelía (Alternativo)** | `msosa` | `msosa123` | Mirtha Sosa | Mismas atribuciones operativas de Bedelía unificada. |
+| **Superusuario** | `admin` | `admin123` | Administrador SIGET | Acceso irrestricto, configuración del sistema y panel de auditoría global. |
+
+---
+
+## 🧩 6. Módulos y Capacidades del Sistema
+
+### 1. Navegación e Identidad Visual Institucional
+- **Barra Superior Horizontal:** Inspirada en la estética del IESETyFP (`#17365D`, `#2878A5`, `#F4F6F9`), con accesos desplegables por área de trabajo (*Personal*, *Asistencia*, *Cuadros IL*, *Consultas*, *Auditoría*) y estado de sesión a la derecha.
+- **Notificaciones Flotantes Efímeras (Toasts):** Ubicadas en la esquina inferior derecha (`bottom-0 end-0`), con desaparición automática a los 4.5 segundos y botón de cierre manual, garantizando una pantalla limpia sin desplazamiento involuntario del contenido.
+
+### 2. Padrón Docente y Pluralidad de Revistas
+- **DNI como Texto (RN-01):** Preservación de ceros a la izquierda (ej: `04812345`).
+- **Pluralidad de Situaciones de Revista:** Refleja de forma combinada las revistas activas reales del docente en sus cátedras (`TIT`, `INT`, `SUP`).
+- **Control del Tope Semanal:** Monitor visual sobre el límite legal de 30 horas cátedra semanales activas.
+- **Ficha del Agente:** Historial persistente de novedades con selector temporal por año y mes.
+
+### 3. Cátedras, Horarios 1:N y Suplencias
+- **Separación de Granularidad:**
+  - `Designacion`: Cargo, carrera, materia, situación de revista (`TIT`, `INT`, `SUP`) y vigencia (`SIN INICIO` / `SIN TERMINO`).
+  - `HorarioDesignacion`: Relación 1:N que permite múltiples franjas horarias por cátedra con validación de no superposición (`validar_superposicion_franjas`).
+- **Módulo Dedicado "Asignar Suplencia":** Formulario en 3 pasos que selecciona al docente suplente, la designación a cubrir, calcula la compatibilidad horaria, previene la auto-suplencia y genera la designación `SUP` heredando los horarios de la cátedra.
+
+### 4. Asistencia Diaria y Justificación por Rango
+- **Combo Box Reactivo en Fila:** Permite cambiar directamente el estado diario (`PR`, `I`, `P`, `LIC`, `LT`) con sincronización asíncrona vía AJAX y fallback estándar.
+- **Recepción de Formulario Físico en Modal:** Permite ingresar el número de formulario, certificado médico adjunto, artículo reglamentario y rango de fechas `Desde`–`Hasta`.
+- **Recorte y Restauración Automática de Rangos (`JustificacionService`):** Si una justificación se acorta (ej. de 10 días a 5 días), los días sobrantes se desvinculan del formulario y se restauran al estado **Inasistencia (`I`)**, actualizando el contador de la grilla a `5d` de forma inmediata.
+
+### 5. Nomenclador de Licencias Ministeriales (Hojas 1 a 6)
+- Catálogo de 20 causales normativas tipificadas según el estatuto docente del Chaco:
+  - **Hoja 1 y 2 (Salud y ART):** Arts. 114 a, 114 b, 114 c, 47, 48, 70 $\rightarrow$ Enrutan al **Cuadro IL-01** (con o sin descuento).
+  - **Hojas 3 a 6 (Inasistencias, Permisos, Maternidad, Familiares, Exámenes):** Arts. I, IJ, 115, 114 d a 114 o $\rightarrow$ Enrutan al **Cuadro IL-02**.
+
+### 6. Procesamiento Mensual y Disposiciones Correlativas
+- Motor automático `ProcesadorMensualService` que:
+  - Identifica bloques consecutivos de inasistencias y licencias.
+  - Cruza con los días de la semana de las cátedras asignadas al docente, desagregando un renglón por cátedra afectada (RN-10).
+  - Asigna una **Disposición Ministerial consecutiva** ordenada alfabéticamente por apellido y nombre (RN-11).
+  - Incorpora el código fijo de **Oficina Técnica 1452** (RN-07).
+
+### 7. Exportación Oficial en Excel Multi-Hoja (.xlsx)
+- Generación con `openpyxl` en modo de alta legibilidad blanco y negro:
+  - **Pestaña 1:** Resumen estadístico mensual por docente.
+  - **Pestaña 2:** Cuadro IL-01 con formato oficial y columnas ministeriales.
+  - **Pestaña 3:** Cuadro IL-02 con detalle de suplentes y números de formulario.
+
+### 8. Importación Masiva Segura (CSV / TXT)
+- Valida estrictamente extensiones permitidas (`.csv`, `.txt`) y tamaño máximo (5 MB).
+- Rechaza de forma limpia archivos ejecutables (`.exe`), binarios, documentos ofimáticos (`.pdf`, `.docx`, `.pptx`) y archivos con bytes nulos (`\x00`).
+- Verifica la presencia obligatoria de la columna de DNI/documento y preserva ceros a la izquierda (RN-01).
+
+### 9. Consultas, Alertas y Auditoría
+- Filtros cruzados por mes, docente, estado y espacio curricular.
+- Cálculo de alertas preventivas ante la proximidad del límite anual de 10 faltas injustificadas.
+- Pistas de auditoría inmutables (`Auditoria`) que registran usuario, acción, timestamp, dirección IP y detalle de cada operación crítica (RF-20).
+
+---
+
+## ⚖️ 7. Matriz de Cumplimiento de Reglas de Negocio (RN)
+
+| Regla | Descripción Oficial | Implementación Técnica en Django |
+| :--- | :--- | :--- |
+| **RN-01** | **DNI como Texto:** Preservar ceros a la izquierda (ej: `04812345`). | `Agente.dni = models.CharField(max_length=20, unique=True)`. Normalización en formularios y servicios. |
+| **RN-02** | **Unicidad de DNI y Legajo:** No permitir duplicación de agentes. | Restricciones `unique=True` a nivel ORM y base de datos relacional. |
+| **RN-03** | **Persistencia Histórica:** La baja o cese no borra antecedentes de la base. | Bajas lógicas (`activo=False`) y conservación de vigencias en `Designacion` y `Suplencia`. |
+| **RN-04** | **Enrutamiento a Cuadro IL-01:** Descuento de haberes en salud/inasistencias. | Enrutador automático en `ProcesadorMensualService` hacia Cuadro IL-01. |
+| **RN-05** | **Enrutamiento a Cuadro IL-02:** Licencias normativas con suplencia y formulario. | Enrutador hacia Cuadro IL-02 con cruce de suplentes y formularios oficiales. |
+| **RN-06** | **Unicidad de Novedad Diaria:** Una marcación por docente y fecha. | Restricción `unique_together = ("agente", "fecha")` en `NovedadAsistencia`. |
+| **RN-07** | **Oficina Técnica 1452:** Imputación obligatoria en cada renglón. | Constante `DEFAULT_OFFICE_CODE = 1452` inyectada en cada `RenglonMensual`. |
+| **RN-08** | **Ciclo Lectivo Activo:** Liquidación de novedades del año en curso. | Filtro `fecha__year = anio` en todas las consultas de procesamiento y reportes. |
+| **RN-09** | **Valores "SIN INICIO" y "SIN TERMINO":** Por defecto en designaciones sin término. | Valores predeterminados en campos de vigencia del modelo `Designacion`. |
+| **RN-10** | **Desagregación por Cátedra:** Una fila por materia afectada en el período. | Desglose por `dia_semana` de cátedras activas conservando el rango de la novedad. |
+| **RN-11** | **Disposición Única Consecutiva:** Una disposición consecutiva por período y docente. | Ordenamiento alfabético y asignación de `Disp. N° XXX/YYYY` en `Disposicion`. |
+| **Tope 30 hs** | **Tope Horario Semanal:** Máximo 30 horas cátedra activas por docente. | Validación en `clean()` de `DesignacionForm` y `AsignarSuplenciaForm`. |
+| **Anti-Auto-Suplencia** | **Incompatibilidad de Reemplazo:** El titular no puede suplirse a sí mismo. | Validación estricta en formularios y servicios de justificación y suplencia. |
+
+---
+
+## 🎓 8. Créditos y Autoría
+Proyecto Final de Cátedra — **Tecnicatura Superior en Desarrollo de Software**  
+**Instituto de Educación Superior de Educación Técnica y Formación Profesional (IESETyFP)**  
+*Resistencia, Chaco, Argentina — Ciclo Lectivo 2026*

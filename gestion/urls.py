@@ -1,0 +1,30 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("", views.dashboard_view, name="dashboard"),
+    path("asistencia/", views.asistencia_diaria_view, name="asistencia_diaria"),
+    path("asistencia/formulario/<int:agente_id>/<str:fecha>/", views.recepcion_formulario_view, name="recepcion_formulario"),
+    path("mensual/", views.procesamiento_mensual_view, name="procesamiento_mensual"),
+    path("mensual/exportar-excel/", views.exportar_excel_mensual_view, name="exportar_excel_mensual"),
+    path("agentes/", views.agentes_list_view, name="agentes_list"),
+    path("agentes/nuevo/", views.agente_create_view, name="agente_create"),
+    path("agentes/<int:pk>/", views.agente_detail_view, name="agente_detail"),
+    path("agentes/<int:pk>/editar/", views.agente_edit_view, name="agente_edit"),
+    path("designaciones/", views.designaciones_list_view, name="designaciones_list"),
+    path("designaciones/lista/", views.designaciones_list_view, name="designaciones_lista"),
+    path("designaciones/nueva/", views.designacion_create_view, name="designacion_create"),
+    path("designaciones/suplencia/nueva/", views.suplencia_create_view, name="suplencia_create"),
+    path("designaciones/<int:pk>/", views.designacion_detail_view, name="designacion_detail"),
+    path("designaciones/<int:pk>/detalle/", views.designacion_detail_view, name="designacion_detalle"),
+    path("designaciones/<int:pk>/editar/", views.designacion_edit_view, name="designacion_edit"),
+    path("designaciones/<int:pk>/baja/", views.designacion_baja_view, name="designacion_baja"),
+    path("carreras/", views.carreras_list_view, name="carreras_list"),
+    path("carreras/nueva/", views.carrera_create_view, name="carrera_create"),
+    path("materias/", views.materias_list_view, name="materias_list"),
+    path("materias/nueva/", views.materia_create_view, name="materia_create"),
+    path("licencias/", views.licencias_list_view, name="licencias_list"),
+    path("importar-csv/", views.importar_csv_view, name="importar_csv"),
+    path("consultas/", views.consultas_view, name="consultas"),
+    path("auditoria/", views.auditoria_view, name="auditoria"),
+]

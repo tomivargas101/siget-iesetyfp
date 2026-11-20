@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Control - Bedelía y Secretaría{% endblock %}
+
+{% block content %}
+<!-- ENCABEZADO INSTITUCIONAL Y ACCIONES PRINCIPALES -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="row align-items-center g-3">
+        <div class="col-lg-7">
+            <div class="d-flex align-items-center gap-3">
+                <div class="p-3 rounded-circle text-white fs-3 d-none d-sm-flex align-items-center justify-content-center shadow-sm" style="width: 56px; height: 56px; background-color: var(--ies-primary);">
+                    <i class="bi bi-mortarboard-fill"></i>
+                </div>
+                <div>
+                    <h2 class="h4 fw-bold mb-1 text-primary">
+                        Panel de Gestión Docente y Bedelía
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        Operador/a: <strong class="text-dark">{{ request.user.get_full_name|default:request.user.username }}</strong> · Ciclo Lectivo <strong>{{ anio_actual }}</strong> · Dirección de Liquidaciones <span class="badge bg-primary text-white">Oficina 1452</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5 text-lg-end">
+            <div class="d-flex gap-2 justify-content-lg-end flex-wrap">
+                <a href="{% url 'asistencia_diaria' %}" class="btn btn-ies btn-sm d-flex align-items-center gap-2 px-3 py-2 shadow-sm">
+                    <i class="bi bi-calendar-check-fill text-warning"></i>
+                    <span>Tomar Asistencia Hoy</span>
+                </a>
+                <a href="{% url 'consultas' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 py-2">
+                    <i class="bi bi-search"></i> Consultas
+                </a>
+                <a href="{% url 'exportar_excel_mensual' %}" class="btn btn-success btn-sm d-flex align-items-center gap-1 py-2 shadow-sm" title="Descargar planilla oficial mensual">
+                    <i class="bi bi-file-earmark-excel-fill"></i> Planilla Excel
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TARJETAS DE INDICADORES DE LA JORNADA (KPIs) -->
+<div class="row g-3 mb-4">
+    <!-- Padrón Docente -->
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-primary shadow-sm bg-white">
+            <span class="text-muted small fw-semibold text-uppercase">Padrón Docente</span>
+            <h3 class="fw-bold my-1 text-primary">{{ total_agentes }}</h3>
+            <span class="badge bg-light text-dark border small w-auto align-self-start">En planta activa</span>
+        </div>
+    </div>
+
+    <!-- Presentes Hoy -->
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-success shadow-sm bg-white">
+            <span class="text-muted small fw-semibold text-uppercase">Presentes Hoy</span>
+            <h3 class="fw-bold my-1 text-success">{{ presentes_hoy }}</h3>
+            <span class="badge bg-success-subtle text-success small w-auto align-self-start">En cátedra / Sin novedad</span>
+        </div>
+    </div>
+
+    <!-- Inasistencias Hoy -->
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-danger shadow-sm bg-white">
+            <span class="text-muted small fw-semibold text-uppercase">Inasistencias Hoy</span>
+            <h3 class="fw-bold my-1 text-danger">{{ inasistencias_hoy }}</h3>
+            <span class="badge bg-danger-subtle text-danger small w-auto align-self-start">Afectan liquidación</span>
+        </div>
+    </div>
+
+    <!-- Licencias Hoy -->
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-warning shadow-sm bg-white">
+            <span class="text-muted small fw-semibold text-uppercase">Licencias / Permisos</span>
+            <h3 class="fw-bold my-1 text-warning-emphasis">{{ licencias_hoy }}</h3>
+            <span class="badge bg-warning-subtle text-warning-emphasis small w-auto align-self-start">Con justificación / Form.</span>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN OPERATIVA: ACCESOS DE TRABAJO DIARIO Y CONTROL PREVENTIVO -->
+<div class="row g-4 mb-4">
+    <!-- COLUMNA 1: CENTRO DE OPERACIONES COTIDIANAS -->
+    <div class="col-lg-7">
+        <div class="card h-100 shadow-sm border-0 bg-white">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-primary d-flex align-items-center gap-2">
+                    <i class="bi bi-grid-fill"></i> Centro de Operaciones Diarias
+                </span>
+                <span class="badge bg-light text-muted border">Bedelía & Secretaría</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <a href="{% url 'asistencia_diaria' %}" class="card p-3 h-100 text-decoration-none border shadow-none bg-light bg-opacity-50 hover-shadow transition">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="p-3 rounded bg-primary text-white fs-4">
+                                    <i class="bi bi-clipboard2-check-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Asistencia Diaria</h6>
+                                    <small class="text-muted d-block">Control y marcación de novedades del día</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-sm-6">
+                        <a href="{% url 'procesamiento_mensual' %}" class="card p-3 h-100 text-decoration-none border shadow-none bg-light bg-opacity-50 hover-shadow transition">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="p-3 rounded text-white fs-4" style="background-color: var(--ies-secondary);">
+                                    <i class="bi bi-calculator-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Cuadros IL-01 / IL-02</h6>
+                                    <small class="text-muted d-block">Consolidación mensual ministerial</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-sm-6">
+                        <a href="{% url 'agentes_list' %}" class="card p-3 h-100 text-decoration-none border shadow-none bg-light bg-opacity-50 hover-shadow transition">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="p-3 rounded bg-info text-white fs-4">
+                                    <i class="bi bi-person-lines-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Padrón de Docentes</h6>
+                                    <small class="text-muted d-block">Legajos y tope institucional de 30 hs</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+
+                    <div class="col-sm-6">
+                        <a href="{% url 'designaciones_list' %}" class="card p-3 h-100 text-decoration-none border shadow-none bg-light bg-opacity-50 hover-shadow transition">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="p-3 rounded bg-secondary text-white fs-4">
+                                    <i class="bi bi-journal-text"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1">Cátedras y Horarios</h6>
+                                    <small class="text-muted d-block">Distribución por día de cursada</small>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Resumen Mensual Integrado -->
+                <div class="mt-4 p-3 rounded bg-light border">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <span class="text-dark small fw-bold text-uppercase">
+                            <i class="bi bi-clock-history text-primary me-1"></i>Estado de Planillas del Mes ({{ mes_actual }}/{{ anio_actual }})
+                        </span>
+                        <a href="{% url 'procesamiento_mensual' %}" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.78rem;">
+                            Procesar Cuadros
+                        </a>
+                    </div>
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="p-2 rounded bg-white border">
+                                <span class="badge bg-danger mb-1">Cuadro IL-01</span>
+                                <div class="fw-bold text-dark fs-5">{{ procesado_il01 }} renglones</div>
+                                <small class="text-muted" style="font-size: 0.72rem;">Salud (Hojas 1 y 2)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 rounded bg-white border">
+                                <span class="badge bg-primary mb-1">Cuadro IL-02</span>
+                                <div class="fw-bold text-dark fs-5">{{ procesado_il02 }} renglones</div>
+                                <small class="text-muted" style="font-size: 0.72rem;">Otras causales (Hojas 3 a 6)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUMNA 2: MONITOREO PREVENTIVO DE CONSUMO Y ALERTAS ANUALES -->
+    <div class="col-lg-5">
+        <div class="card h-100 shadow-sm border-0 bg-white">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-danger d-flex align-items-center gap-2">
+                    <i class="bi bi-bell-fill"></i> Monitoreo Preventivo de Inasistencias ({{ anio_actual }})
+                </span>
+                <a href="{% url 'consultas' %}" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;">Ver Todos</a>
+            </div>
+            <div class="card-body p-0">
+                {% if alertas_criticas %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light text-muted small text-uppercase" style="font-size: 0.74rem;">
+                            <tr>
+                                <th class="ps-3">Docente</th>
+                                <th class="text-center">Faltas</th>
+                                <th class="text-center">Restantes</th>
+                                <th class="text-center pe-3">Nivel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in alertas_criticas %}
+                            <tr>
+                                <td class="ps-3">
+                                    <div class="fw-bold text-dark small">{{ a.agente.nombre_completo }}</div>
+                                    <span class="text-muted font-monospace" style="font-size: 0.72rem;">DNI: {{ a.agente.dni }}</span>
+                                </td>
+                                <td class="text-center fw-bold">{{ a.faltas }}/{{ a.tope_faltas }}</td>
+                                <td class="text-center">
+                                    <span class="badge {% if a.restantes <= 0 %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                        {{ a.restantes }} restantes
+                                    </span>
+                                </td>
+                                <td class="text-center pe-3">
+                                    {% if a.nivel == 'CRITICO' %}
+                                        <span class="badge bg-danger small">Límite Agotado</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark small">Advertencia</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-shield-check text-success fs-1 d-block mb-2"></i>
+                    <p class="mb-0 small">No se registran docentes con topes anuales en estado de advertencia o agotados.</p>
+                </div>
+                {% endif %}
+
+                <!-- Recordatorio Normativo -->
+                <div class="p-3 border-top bg-light small text-muted">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="bi bi-info-circle text-primary mt-1"></i>
+                        <div>
+                            <strong>Pautas Ministeriales:</strong> La tolerancia reglamentaria anual es de <strong>10 inasistencias injustificadas</strong>. A partir de la 11ª se aplica descuento estricto de haberes en Cuadro IL-01.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AUDITORÍA RECIENTE Y TRAZABILIDAD (RF-20) -->
+<div class="card shadow-sm border-0 bg-white">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <span class="fw-bold text-primary d-flex align-items-center gap-2">
+            <i class="bi bi-shield-lock-fill"></i> Últimos Movimientos y Eventos de Auditoría (RF-20)
+        </span>
+        <a href="{% url 'auditoria' %}" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.78rem;">Bitácora Completa</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle mb-0 font-monospace small">
+                <thead class="table-light text-muted text-uppercase" style="font-size: 0.72rem;">
+                    <tr>
+                        <th class="ps-3" style="width: 170px;">Fecha y Hora</th>
+                        <th>Operador</th>
+                        <th>Acción Realizada</th>
+                        <th>Detalle de la Operación</th>
+                        <th class="pe-3 text-end" style="width: 140px;">Origen</th>
+                    </tr>
+                </thead>
+                <tbody style="font-size: 0.82rem;">
+                    {% for aud in ultimas_auditorias %}
+                    <tr>
+                        <td class="ps-3 text-muted text-nowrap">{{ aud.timestamp|date:"d/m/Y H:i:s" }}</td>
+                        <td class="fw-bold text-dark font-sans-serif">
+                            <i class="bi bi-person-fill text-primary me-1"></i>{{ aud.usuario_nombre }}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary font-sans-serif">{{ aud.accion }}</span>
+                        </td>
+                        <td class="text-dark font-sans-serif">{{ aud.detalles }}</td>
+                        <td class="pe-3 text-end text-muted">{{ aud.ip_origen|default:"Localhost" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-3 text-muted font-sans-serif">No se registran eventos de auditoría recientes.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

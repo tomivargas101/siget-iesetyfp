@@ -1,0 +1,747 @@
+{% extends 'base.html' %}
+
+{% block title %}Asistencia Diaria - {{ fecha_sel|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<style>
+/* Estilos para el Combo Box de Estado en la tabla */
+.select-estado {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+}
+.select-estado:focus {
+    box-shadow: 0 0 0 0.2rem rgba(23, 54, 93, 0.2);
+}
+.select-estado-PR, .select-estado-Presente {
+    background-color: #d1e7dd !important;
+    color: #0f5132 !important;
+    border: 1.5px solid #198754 !important;
+}
+.select-estado-I {
+    background-color: #f8d7da !important;
+    color: #842029 !important;
+    border: 1.5px solid #dc3545 !important;
+}
+.select-estado-P {
+    background-color: #cff4fc !important;
+    color: #055160 !important;
+    border: 1.5px solid #0dcaf0 !important;
+}
+.select-estado-LIC {
+    background-color: #fff3cd !important;
+    color: #664d03 !important;
+    border: 1.5px solid #ffc107 !important;
+}
+.select-estado-LT {
+    background-color: #e2d9f3 !important;
+    color: #3b1e70 !important;
+    border: 1.5px solid #6f42c1 !important;
+}
+</style>
+
+<!-- ENCABEZADO Y SELECTOR DE FECHA -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-calendar3"></i> Control Diario de Asistencia Docente
+            </h2>
+            <p class="text-muted mb-0 small">
+                Parte oficial de presentismo y novedades por cátedra · Período activo: <strong class="text-dark">{{ fecha_sel|date:"F Y"|capfirst }}</strong>
+            </p>
+        </div>
+
+        <!-- SELECTOR DE FECHA DINÁMICO -->
+        <div class="d-flex align-items-center gap-2 bg-light p-2 rounded-3 border">
+            <a href="?fecha={{ fecha_ayer|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary" title="Día Anterior">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <form method="GET" class="d-inline mb-0">
+                <input type="date" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}" class="form-control form-control-sm fw-bold border-secondary text-primary" onchange="this.form.submit()">
+            </form>
+            <a href="?fecha={{ fecha_manana|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary" title="Día Siguiente">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="?fecha=" class="btn btn-sm btn-ies">Hoy</a>
+            <span class="badge bg-primary text-white text-uppercase px-2 py-1 ms-1 fw-bold">
+                {{ nombre_dia }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- BANNER INFORMATIVO DE FERIADO / DÍA INHÁBIL (RF-10) -->
+{% if feriado_obj %}
+<div class="alert alert-warning border-warning d-flex align-items-center gap-3 mb-4 shadow-sm" role="alert">
+    <i class="bi bi-calendar2-heart-fill fs-2 text-warning"></i>
+    <div>
+        <h5 class="alert-heading fw-bold mb-1">Indicador Institucional: {{ feriado_obj.descripcion }}</h5>
+        <p class="mb-0 small">
+            Día calificado como <strong>{{ feriado_obj.get_tipo_display }}</strong> en el Calendario Académico 2026. 
+            <span class="text-dark fw-semibold">Nota normativa (RF-10):</span> Este indicador es visual e informativo y no altera automáticamente la carga horaria ni el cómputo de novedades sin el respaldo administrativo correspondiente.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- RESUMEN OPERATIVO DEL DÍA (CHIPS REACTIVOS) -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-primary">
+            <span class="text-muted small fw-semibold text-uppercase">Padrón Activo</span>
+            <h3 class="fw-bold my-1 text-primary" id="chipTotalAgentes">{{ resumen_dia.total_agentes }}</h3>
+            <small class="text-muted">Docentes en sistema</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-success">
+            <span class="text-muted small fw-semibold text-uppercase">Presentes</span>
+            <h3 class="fw-bold my-1 text-success" id="chipPresentes">{{ resumen_dia.presentes }}</h3>
+            <small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>En cátedra / sin novedad</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-danger">
+            <span class="text-muted small fw-semibold text-uppercase">Inasistencias</span>
+            <h3 class="fw-bold my-1 text-danger" id="chipInasistencias">{{ resumen_dia.inasistencias }}</h3>
+            <small class="text-danger fw-semibold"><i class="bi bi-x-octagon me-1"></i>Afectan haberes (IL-01)</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 h-100 border-start border-4 border-warning">
+            <span class="text-muted small fw-semibold text-uppercase">Licencias / Permisos</span>
+            <h3 class="fw-bold my-1 text-warning" id="chipLicenciasPermisos">{{ resumen_dia.licencias|add:resumen_dia.permisos }}</h3>
+            <small class="text-warning fw-semibold"><i class="bi bi-file-medical me-1"></i>Con formulario oficial</small>
+        </div>
+    </div>
+</div>
+
+<!-- BARRA DE BÚSQUEDA Y LEYENDA DE ESTADOS -->
+<div class="card p-3 mb-3 shadow-sm border-0">
+    <div class="row g-2 align-items-center">
+        <!-- Buscador instantáneo JS -->
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" id="buscadorDocente" class="form-control border-start-0" placeholder="Filtrar por apellido, nombre o DNI en tiempo real..." onkeyup="filtrarTablaDocentes()">
+            </div>
+        </div>
+        <!-- Leyenda de Estados Semánticos -->
+        <div class="col-md-7 d-flex justify-content-md-end align-items-center gap-2 flex-wrap small">
+            <span class="text-muted fw-semibold">Leyenda:</span>
+            <span class="badge-status badge-status-PR">PR = Presente</span>
+            <span class="badge-status badge-status-I">I = Inasistencia</span>
+            <span class="badge-status badge-status-LIC">LIC = Lic. Médica</span>
+            <span class="badge-status badge-status-P">P = Permiso</span>
+            <span class="badge-status badge-status-LT">LT = Largo Tratamiento</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABLA PRINCIPAL DE ASISTENCIA DIARIA -->
+<div class="card shadow-sm border-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover table-ies align-middle mb-0" id="tablaAsistencia">
+            <thead class="text-uppercase small fw-bold">
+                <tr>
+                    <th style="width: 40px;" class="text-center">#</th>
+                    <th>Docente / Legajo</th>
+                    <th>DNI (Texto)</th>
+                    <th>Cátedras del Día ({{ nombre_dia }})</th>
+                    <th class="text-center" style="width: 85px;">Hs Hoy</th>
+                    <th class="text-center" style="width: 165px;">Estado</th>
+                    <th class="text-center" style="width: 190px;">Formulario / Cobertura</th>
+                    <th class="text-center" style="width: 130px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in filas %}
+                <tr class="fila-docente {% if not fila.tiene_catedra_hoy %}bg-light bg-opacity-50{% endif %}"
+                    id="fila_{{ fila.agente.id }}"
+                    data-nombre="{{ fila.agente.nombre_completo|lower }}"
+                    data-dni="{{ fila.agente.dni }}"
+                    data-dias="{{ fila.dias_periodo|default:1 }}">
+                    <td class="text-center text-muted small">{{ forloop.counter }}</td>
+                    <td>
+                        <a href="{% url 'agente_detail' pk=fila.agente.pk %}" class="fw-bold text-dark text-decoration-none">
+                            {{ fila.agente.apellido }}, {{ fila.agente.nombre }}
+                        </a>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            Legajo: <strong class="text-secondary">{{ fila.agente.legajo|default:"S/L" }}</strong> | 
+                            Revista: <span class="badge bg-secondary-subtle text-dark border">{{ fila.agente.situacion_revista_defecto }}</span>
+                        </div>
+                    </td>
+                    <td class="font-monospace text-primary fw-bold">{{ fila.agente.dni }}</td>
+                    <td>
+                        {% if fila.tiene_catedra_hoy %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for d in fila.desigs_hoy %}
+                                <span class="badge bg-light text-dark border p-1 small" title="{{ d.materia.carrera.nombre }}">
+                                    <strong class="text-primary">{{ d.materia.nombre }}</strong> ({{ d.horas_catedra }}hs · {{ d.materia.carrera.codigo }})
+                                </span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted small fst-italic">Sin cátedras asignadas este día</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if fila.horas_hoy > 0 %}
+                            <span class="badge bg-primary text-white fw-bold">{{ fila.horas_hoy }} hs</span>
+                        {% else %}
+                            <span class="text-muted small">0 hs</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- 1. COLUMNA ESTADO: COMBO BOX REACTIVO -->
+                    <td class="text-center">
+                        <form method="POST" class="form-cambio-estado d-inline" id="form_estado_{{ fila.agente.id }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="agente_id" value="{{ fila.agente.id }}">
+                            <select name="estado" 
+                                    id="select_estado_{{ fila.agente.id }}"
+                                    class="form-select form-select-sm fw-semibold select-estado select-estado-{{ fila.estado }}"
+                                    data-agente-id="{{ fila.agente.id }}"
+                                    data-agente-nombre="{{ fila.agente.nombre_completo }}"
+                                    onchange="cambiarEstadoDocente(this)"
+                                    title="Seleccionar estado diario de asistencia">
+                                <option value="PR" {% if fila.estado == 'PR' or fila.estado == 'Presente' %}selected{% endif %}>Presente (PR)</option>
+                                <option value="I" {% if fila.estado == 'I' %}selected{% endif %}>Inasistencia (I)</option>
+                                <option value="P" {% if fila.estado == 'P' %}selected{% endif %}>Permiso (P)</option>
+                                <option value="LIC" {% if fila.estado == 'LIC' %}selected{% endif %}>Lic. Médica (LIC)</option>
+                                <option value="LT" {% if fila.estado == 'LT' %}selected{% endif %}>Largo Trat. (LT)</option>
+                            </select>
+                        </form>
+                    </td>
+
+                    <!-- 2. COLUMNA FORMULARIO / COBERTURA (INFORMATIVA, SIN INPUTS EDITABLES EN FILA) -->
+                    <td class="text-center" id="cobertura_cell_{{ fila.agente.id }}">
+                        {% if fila.novedad and fila.novedad.formulario_numero %}
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="badge bg-white text-primary border border-primary fw-semibold" title="Formulario Oficial Registrado: {{ fila.novedad.formulario_numero }}">
+                                        <i class="bi bi-receipt"></i> {% if fila.novedad.formulario_numero|slice:":2"|upper == "F-" %}{{ fila.novedad.formulario_numero }}{% else %}F-{{ fila.novedad.formulario_numero }}{% endif %}
+                                    </span>
+                                    {% if fila.dias_periodo and fila.dias_periodo > 1 %}
+                                        <span class="badge bg-light text-secondary border small" title="Período de {{ fila.dias_periodo }} días continuos ({{ fila.fecha_desde_periodo|date:'d/m' }} al {{ fila.fecha_hasta_periodo|date:'d/m' }})">
+                                            <i class="bi bi-calendar-range"></i> {{ fila.dias_periodo }}d
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                {% if fila.novedad.suplente %}
+                                    <span class="badge bg-info-subtle text-dark border border-info-subtle small text-truncate" style="max-width: 175px;" title="Docente Suplente: {{ fila.novedad.suplente.nombre_completo }}">
+                                        <i class="bi bi-person-badge"></i> Sup: {{ fila.novedad.suplente.apellido }}, {{ fila.novedad.suplente.nombre|slice:":1" }}.
+                                    </span>
+                                {% endif %}
+                                {% if fila.novedad.observaciones %}
+                                    <small class="text-muted text-truncate d-inline-block" style="max-width: 175px; font-size: 0.72rem;" title="{{ fila.novedad.observaciones }}">
+                                        {{ fila.novedad.observaciones }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        {% elif fila.estado != 'PR' and fila.estado != 'Presente' %}
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <span class="badge bg-warning-subtle text-dark border border-warning small" title="Pendiente de recepción de formulario físico en Bedelía">
+                                    <i class="bi bi-clock-history me-1"></i>Pendiente F.
+                                </span>
+                                {% if fila.dias_periodo and fila.dias_periodo > 1 %}
+                                    <span class="text-muted small" style="font-size: 0.72rem;" title="Período continuo de inasistencias">
+                                        <i class="bi bi-calendar-range me-1"></i>{{ fila.dias_periodo }} días
+                                    </span>
+                                {% endif %}
+                                {% if fila.novedad and fila.novedad.observaciones %}
+                                    <small class="text-muted text-truncate d-inline-block" style="max-width: 175px; font-size: 0.72rem;" title="{{ fila.novedad.observaciones }}">
+                                        {{ fila.novedad.observaciones }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- 3. COLUMNA ACCIÓN: CARGAR / EDITAR FORMULARIO OFICIAL EN MODAL -->
+                    <td class="text-center">
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm btn-justificar-docente"
+                                id="btn_justificar_{{ fila.agente.id }}"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#modalJustificarFormulario"
+                                data-agente-id="{{ fila.agente.id }}"
+                                data-agente-nombre="{{ fila.agente.nombre_completo }}"
+                                data-agente-dni="{{ fila.agente.dni }}"
+                                data-agente-legajo="{{ fila.agente.legajo|default:'S/L' }}"
+                                data-agente-revista="{{ fila.agente.situacion_revista_defecto }}"
+                                data-fecha="{{ fecha_sel|date:'Y-m-d' }}"
+                                data-fecha-desde="{{ fila.fecha_desde_periodo|date:'Y-m-d' }}"
+                                data-fecha-hasta="{{ fila.fecha_hasta_periodo|date:'Y-m-d' }}"
+                                data-formulario-original="{{ fila.novedad.formulario_numero|default:'' }}"
+                                data-dias="{{ fila.dias_periodo|default:1 }}"
+                                data-estado="{% if fila.estado in 'LIC,LT,P,I' %}{{ fila.estado }}{% else %}LIC{% endif %}"
+                                data-formulario="{{ fila.novedad.formulario_numero|default:'' }}"
+                                data-tipo-licencia="{{ fila.novedad.tipo_licencia_id|default:'' }}"
+                                data-suplente="{{ fila.novedad.suplente_id|default:'' }}"
+                                data-observaciones="{{ fila.novedad.observaciones|default:'' }}"
+                                onclick="cargarDatosModal(this)"
+                                title="Cargar número de formulario físico, certificado y suplencia">
+                            <i class="bi bi-file-earmark-medical"></i>
+                            <span>{% if fila.novedad and fila.novedad.formulario_numero %}Editar F.{% else %}Justificar{% endif %}</span>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No se encontraron docentes registrados en la planta institucional.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL ÚNICO REUTILIZABLE: JUSTIFICAR / CARGAR FORMULARIO FÍSICO            -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalJustificarFormulario" tabindex="-1" aria-labelledby="modalJustificarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold fs-6 d-flex align-items-center gap-2" id="modalJustificarLabel">
+                    <i class="bi bi-file-earmark-medical-fill text-warning"></i>
+                    Recepción de Formulario Físico y Justificación Oficial
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" id="formModalJustificar">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="justificar_modal">
+                <input type="hidden" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}">
+                <input type="hidden" name="agente_id" id="modalAgenteId">
+                <input type="hidden" name="formulario_original" id="modalFormularioOriginal">
+                <input type="hidden" name="fecha_desde_original" id="modalFechaDesdeOriginal">
+                <input type="hidden" name="fecha_hasta_original" id="modalFechaHastaOriginal">
+
+                <div class="modal-body p-4">
+                    <!-- BANNER FIJO DEL DOCENTE TITULAR (CONTEXTO OBLIGATORIO) -->
+                    <div class="p-3 mb-3 rounded-3 bg-light border border-secondary border-opacity-25">
+                        <div class="row align-items-center">
+                            <div class="col-sm-8">
+                                <span class="badge bg-primary text-white mb-1">Docente Titular Afectado</span>
+                                <h5 class="fw-bold text-dark mb-0" id="modalTitularNombre">--</h5>
+                                <div class="text-muted small mt-1">
+                                    DNI: <strong class="text-primary font-monospace" id="modalTitularDni">--</strong> · 
+                                    Legajo: <strong class="text-dark" id="modalTitularLegajo">--</strong> · 
+                                    Revista: <span class="badge bg-secondary-subtle text-dark border" id="modalTitularRevista">--</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 text-sm-end mt-2 mt-sm-0">
+                                <span class="badge bg-warning text-dark border p-2">
+                                    <i class="bi bi-building me-1"></i>Oficina 1452
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CAMPOS DEL FORMULARIO -->
+                    <div class="row g-3 mb-3">
+                        <!-- Tipo de Novedad -->
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Tipo de Novedad / Justificación *</label>
+                            <select name="estado" id="modalEstado" class="form-select" required>
+                                <option value="LIC">Licencia Médica o Personal (LIC)</option>
+                                <option value="LT">Largo Tratamiento / ART (LT)</option>
+                                <option value="P">Permiso Particular o Asunto Propio (P)</option>
+                                <option value="I">Inasistencia Injustificada (I)</option>
+                            </select>
+                        </div>
+
+                        <!-- N° de Formulario Físico -->
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">N° de Formulario Físico Recepcionado *</label>
+                            <input type="text" name="formulario_numero" id="modalFormularioNumero" class="form-control" placeholder="Ej: F-1042/26 o N° de talón oficial" required>
+                            <div class="form-text small">Número impreso en el talón entregado en Bedelía.</div>
+                        </div>
+                    </div>
+
+                    <!-- Rango de Fechas Afectadas (Desde / Hasta) y Contador de Días -->
+                    <div class="row g-3 mb-3 p-3 bg-light rounded border align-items-center">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-dark"><i class="bi bi-calendar-event me-1"></i>Fecha Desde *</label>
+                            <input type="date" name="fecha_desde" id="modalFechaDesde" class="form-control" onchange="alCambiarFechasModal()" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-dark"><i class="bi bi-calendar-check me-1"></i>Fecha Hasta *</label>
+                            <input type="date" name="fecha_hasta" id="modalFechaHasta" class="form-control" onchange="alCambiarFechasModal()" required>
+                        </div>
+                        <div class="col-md-2 text-center pt-2 pt-md-0">
+                            <label class="form-label small fw-bold text-muted d-block mb-1">Período</label>
+                            <span class="badge bg-primary px-2 py-1 fs-6" id="modalBadgeDiasCalculados">1 día</span>
+                        </div>
+                        <div class="col-12 mt-1">
+                            <div class="form-text small">Indique el lapso completo cubierto por la licencia médica, permiso o suplencia.</div>
+                        </div>
+                    </div>
+
+                    <!-- Artículo / Tipo de Licencia Normativo -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-dark">Artículo Normativo y Causal (Hojas 1 a 6) *</label>
+                        <select name="tipo_licencia_id" id="modalTipoLicencia" class="form-select" onchange="actualizarInfoLicencia()" required>
+                            <option value="">-- Seleccionar Artículo Reglamentario --</option>
+                            {% for lic in tipos_licencia %}
+                                <option value="{{ lic.id }}" 
+                                        data-codigo="{{ lic.codigo }}"
+                                        data-articulo="{{ lic.articulo }}"
+                                        data-cuadro="{{ lic.cuadro_destino }}"
+                                        data-hoja="{{ lic.hoja }}"
+                                        data-nombre="{{ lic.nombre }}">
+                                    [{{ lic.codigo }}] {{ lic.articulo }} - {{ lic.nombre }} ({{ lic.cuadro_destino }})
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <!-- Ayuda visual con el cuadro ministerial de destino -->
+                        <div class="p-2 mt-2 rounded bg-light border text-muted small d-flex align-items-center justify-content-between" id="modalInfoLicencia">
+                            <span><i class="bi bi-info-circle text-primary me-1"></i>Seleccione un artículo para verificar su imputación.</span>
+                            <span class="badge bg-secondary" id="modalBadgeCuadro">Cuadro Ministerial</span>
+                        </div>
+                    </div>
+
+                    <!-- Docente Suplente (Validación Anti-Auto-Suplencia) -->
+                    <div class="mb-3 p-3 rounded-3 bg-light border border-primary border-opacity-25">
+                        <label class="form-label small fw-bold text-primary d-flex align-items-center gap-1">
+                            <i class="bi bi-person-badge-fill"></i> Docente Suplente Asignado (Resolución Ministerial)
+                        </label>
+                        <select name="suplente_id" id="modalSuplente" class="form-select">
+                            <option value="">-- Sin Suplente Designado / Cátedra sin cobertura --</option>
+                            {% for sup in suplentes_disponibles %}
+                                <option value="{{ sup.id }}">{{ sup.nombre_completo }} (DNI: {{ sup.dni }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-danger small mt-1 d-none" id="alertaAutoSuplencia">
+                            <i class="bi bi-shield-x me-1"></i><strong>Incompatibilidad:</strong> Un docente no puede ser registrado como su propio suplente.
+                        </div>
+                    </div>
+
+                    <!-- Certificado Digital y Observaciones -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Adjunto Digital (PDF / Imagen)</label>
+                            <input type="file" name="adjunto_certificado" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                            <div class="form-text small">Constancia médica escaneada o foto del formulario.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark">Observaciones Institucionales</label>
+                            <textarea name="observaciones" id="modalObservaciones" class="form-control" rows="2" placeholder="Diagnóstico o detalle administrativo..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-ies px-4" id="btnGuardarModal">
+                        <i class="bi bi-check-circle-fill me-1"></i> Guardar y Asignar Formulario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS DE CLIENTE: BÚSQUEDA INSTANTÁNEA, COMBO BOX REACTIVO Y SINCRONIZACIÓN DE DÍAS -->
+<script>
+// Filtrado instantáneo en la tabla sin latencia
+function filtrarTablaDocentes() {
+    const input = document.getElementById("buscadorDocente").value.toLowerCase().trim();
+    const filas = document.querySelectorAll(".fila-docente");
+    
+    filas.forEach(fila => {
+        const nombre = fila.getAttribute("data-nombre") || "";
+        const dni = fila.getAttribute("data-dni") || "";
+        if (nombre.includes(input) || dni.includes(input)) {
+            fila.style.display = "";
+        } else {
+            fila.style.display = "none";
+        }
+    });
+}
+
+// 1. Manejo dinámico del Combo Box de Estado (Reactivo con AJAX y fallback)
+function cambiarEstadoDocente(selectElement) {
+    const agenteId = selectElement.getAttribute("data-agente-id");
+    const nuevoEstado = selectElement.value;
+
+    // Actualizar estilo visual del select inmediatamente
+    actualizarEstiloSelect(selectElement);
+
+    // Actualizar atributos en botón del modal de justificación
+    const btnJustificar = document.getElementById(`btn_justificar_${agenteId}`);
+    if (btnJustificar) {
+        btnJustificar.setAttribute("data-estado", nuevoEstado);
+    }
+
+    // Envío asíncrono con fetch
+    const formData = new FormData();
+    formData.append("agente_id", agenteId);
+    formData.append("estado", nuevoEstado);
+    formData.append("dias", "1");
+    formData.append("ajax", "1");
+
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    const csrfToken = csrfInput ? csrfInput.value : "";
+
+    fetch(window.location.href, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": csrfToken,
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json"
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("Error en la respuesta del servidor");
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === "ok") {
+            // Actualizar chips de resumen del día
+            if (data.resumen) {
+                if (document.getElementById("chipTotalAgentes")) document.getElementById("chipTotalAgentes").textContent = data.resumen.total_agentes;
+                if (document.getElementById("chipPresentes")) document.getElementById("chipPresentes").textContent = data.resumen.presentes;
+                if (document.getElementById("chipInasistencias")) document.getElementById("chipInasistencias").textContent = data.resumen.inasistencias;
+                if (document.getElementById("chipLicenciasPermisos")) document.getElementById("chipLicenciasPermisos").textContent = data.resumen.licencias_permisos;
+            }
+
+            // Actualizar celda de Formulario / Cobertura si no tiene formulario cargado
+            const celdaCob = document.getElementById(`cobertura_cell_${agenteId}`);
+            const tieneFormulario = btnJustificar && btnJustificar.getAttribute("data-formulario");
+            if (celdaCob && !tieneFormulario) {
+                if (nuevoEstado === "PR") {
+                    celdaCob.innerHTML = `<span class="text-muted small">-</span>`;
+                } else {
+                    celdaCob.innerHTML = `
+                        <div class="d-flex flex-column align-items-center gap-1">
+                            <span class="badge bg-warning-subtle text-dark border border-warning small" title="Pendiente de recepción de formulario físico en Bedelía">
+                                <i class="bi bi-clock-history me-1"></i>Pendiente F.
+                            </span>
+                        </div>
+                    `;
+                }
+            }
+
+            // Notificación flotante Toast
+            mostrarToastNotificacion(data.mensaje || "Estado actualizado con éxito.", "success");
+        } else {
+            mostrarToastNotificacion(data.mensaje || "Error al actualizar estado.", "danger");
+        }
+    })
+    .catch(err => {
+        console.warn("Fallo AJAX, ejecutando envío estándar:", err);
+        const form = document.getElementById(`form_estado_${agenteId}`);
+        if (form) form.submit();
+    });
+}
+
+// Actualiza las clases CSS del combo box de estado según la opción elegida
+function actualizarEstiloSelect(selectElement) {
+    const val = selectElement.value;
+    selectElement.classList.remove('select-estado-PR', 'select-estado-Presente', 'select-estado-I', 'select-estado-P', 'select-estado-LIC', 'select-estado-LT');
+    selectElement.classList.add(`select-estado-${val}`);
+}
+
+// Cálculo de fechas para rangos continuos
+function calcularFechaHasta(fechaDesdeStr, dias) {
+    if (!fechaDesdeStr) return "";
+    const partes = fechaDesdeStr.split("-");
+    const d = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+    d.setDate(d.getDate() + (parseInt(dias) - 1));
+    const anio = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+}
+
+function calcularDiferenciaDias(fechaDesdeStr, fechaHastaStr) {
+    if (!fechaDesdeStr || !fechaHastaStr) return 1;
+    const d1 = new Date(fechaDesdeStr + "T00:00:00");
+    const d2 = new Date(fechaHastaStr + "T00:00:00");
+    const diffTime = d2 - d1;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return Math.max(1, diffDays);
+}
+
+// Carga dinámica del modal reutilizable al hacer clic en cualquier docente
+function cargarDatosModal(btn) {
+    const agenteId = btn.getAttribute("data-agente-id");
+    const nombre = btn.getAttribute("data-agente-nombre");
+    const dni = btn.getAttribute("data-agente-dni");
+    const legajo = btn.getAttribute("data-agente-legajo");
+    const revista = btn.getAttribute("data-agente-revista");
+    const fecha = btn.getAttribute("data-fecha");
+    const fechaDesdeAttr = btn.getAttribute("data-fecha-desde");
+    const fechaHastaAttr = btn.getAttribute("data-fecha-hasta");
+    const dias = parseInt(btn.getAttribute("data-dias")) || 1;
+    const fechaDesde = fechaDesdeAttr || fecha;
+    const fechaHasta = fechaHastaAttr || calcularFechaHasta(fechaDesde, dias);
+    const estado = btn.getAttribute("data-estado");
+    const formNum = btn.getAttribute("data-formulario");
+    const formOriginal = btn.getAttribute("data-formulario-original") || formNum || "";
+    const tipoLicId = btn.getAttribute("data-tipo-licencia");
+    const suplenteId = btn.getAttribute("data-suplente");
+    const obs = btn.getAttribute("data-observaciones");
+
+    document.getElementById("modalAgenteId").value = agenteId;
+    document.getElementById("modalTitularNombre").textContent = nombre;
+    document.getElementById("modalTitularDni").textContent = dni;
+    document.getElementById("modalTitularLegajo").textContent = legajo;
+    document.getElementById("modalTitularRevista").textContent = revista;
+
+    document.getElementById("modalEstado").value = estado || "LIC";
+    document.getElementById("modalFormularioNumero").value = formNum || "";
+    document.getElementById("modalFormularioOriginal").value = formOriginal;
+    document.getElementById("modalFechaDesde").value = fechaDesde;
+    document.getElementById("modalFechaHasta").value = fechaHasta;
+    document.getElementById("modalFechaDesdeOriginal").value = fechaDesde;
+    document.getElementById("modalFechaHastaOriginal").value = fechaHasta;
+    document.getElementById("modalObservaciones").value = obs || "";
+
+    actualizarBadgeDiasModal();
+
+    if (tipoLicId) {
+        document.getElementById("modalTipoLicencia").value = tipoLicId;
+    } else {
+        document.getElementById("modalTipoLicencia").selectedIndex = 0;
+    }
+    actualizarInfoLicencia();
+
+    // Configurar selector de suplente y deshabilitar al propio titular
+    const suplenteSelect = document.getElementById("modalSuplente");
+    for (let i = 0; i < suplenteSelect.options.length; i++) {
+        const opt = suplenteSelect.options[i];
+        if (opt.value === agenteId) {
+            opt.disabled = true;
+            opt.textContent = opt.textContent.replace(" [TITULAR INCOMPATIBLE]", "") + " [TITULAR INCOMPATIBLE]";
+        } else {
+            opt.disabled = false;
+            opt.textContent = opt.textContent.replace(" [TITULAR INCOMPATIBLE]", "");
+        }
+    }
+
+    if (suplenteId && suplenteId !== agenteId) {
+        suplenteSelect.value = suplenteId;
+    } else {
+        suplenteSelect.value = "";
+    }
+    validarAutoSuplencia();
+}
+
+// Actualiza indicador de días calculados dentro del modal
+function alCambiarFechasModal() {
+    actualizarBadgeDiasModal();
+}
+
+function actualizarBadgeDiasModal() {
+    const desde = document.getElementById("modalFechaDesde").value;
+    const hasta = document.getElementById("modalFechaHasta").value;
+    const badge = document.getElementById("modalBadgeDiasCalculados");
+    if (desde && hasta) {
+        if (desde > hasta) {
+            badge.className = "badge bg-danger fs-6 p-2";
+            badge.textContent = "Error fechas";
+        } else {
+            const dias = calcularDiferenciaDias(desde, hasta);
+            badge.className = "badge bg-primary fs-6 p-2";
+            badge.textContent = `${dias} día${dias > 1 ? 's' : ''}`;
+        }
+    }
+}
+
+// Actualiza indicador visual de destino según la licencia seleccionada (IL-01 vs IL-02)
+function actualizarInfoLicencia() {
+    const select = document.getElementById("modalTipoLicencia");
+    const badge = document.getElementById("modalBadgeCuadro");
+    const infoText = document.getElementById("modalInfoLicencia").querySelector("span");
+
+    const selectedOpt = select.options[select.selectedIndex];
+    if (selectedOpt && selectedOpt.value) {
+        const cuadro = selectedOpt.getAttribute("data-cuadro");
+        const articulo = selectedOpt.getAttribute("data-articulo");
+        const codigo = selectedOpt.getAttribute("data-codigo");
+        const hoja = selectedOpt.getAttribute("data-hoja");
+
+        if (cuadro === "IL-01") {
+            badge.className = "badge bg-danger text-white";
+            badge.textContent = "Cuadro IL-01 (Salud · Hojas 1-2)";
+            infoText.innerHTML = `<strong>Normativa:</strong> ${articulo} (Cód. ${codigo}) · Hoja ${hoja}. Imputación médica oficial.`;
+        } else {
+            badge.className = "badge bg-warning text-dark";
+            badge.textContent = "Cuadro IL-02 (Otras Causales · Hojas 3-6)";
+            infoText.innerHTML = `<strong>Normativa:</strong> ${articulo} (Cód. ${codigo}) · Hoja ${hoja}. Requiere resolución ministerial.`;
+        }
+    } else {
+        badge.className = "badge bg-secondary";
+        badge.textContent = "Cuadro Ministerial";
+        infoText.innerHTML = `<i class="bi bi-info-circle text-primary me-1"></i>Seleccione un artículo para verificar su imputación.`;
+    }
+}
+
+// Validación reactiva de auto-suplencia en cliente
+function validarAutoSuplencia() {
+    const titularId = document.getElementById("modalAgenteId").value;
+    const suplenteSelect = document.getElementById("modalSuplente");
+    const alerta = document.getElementById("alertaAutoSuplencia");
+    const btnGuardar = document.getElementById("btnGuardarModal");
+
+    if (suplenteSelect.value && suplenteSelect.value === titularId) {
+        alerta.classList.remove("d-none");
+        btnGuardar.disabled = true;
+    } else {
+        alerta.classList.add("d-none");
+        btnGuardar.disabled = false;
+    }
+}
+
+document.getElementById("modalSuplente").addEventListener("change", validarAutoSuplencia);
+
+document.getElementById("formModalJustificar").addEventListener("submit", function(e) {
+    const desde = document.getElementById("modalFechaDesde").value;
+    const hasta = document.getElementById("modalFechaHasta").value;
+    if (desde && hasta && desde > hasta) {
+        e.preventDefault();
+        alert("La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.");
+        return;
+    }
+    const titularId = document.getElementById("modalAgenteId").value;
+    const suplenteId = document.getElementById("modalSuplente").value;
+    if (suplenteId && suplenteId === titularId) {
+        e.preventDefault();
+        alert("Incompatibilidad: el docente titular no puede seleccionarse como su propio suplente.");
+    }
+});
+
+// Despliegue de Toasts Bootstrap
+function mostrarToastNotificacion(mensaje, tipo = "success") {
+    if (typeof window.notificarToast === "function") {
+        window.notificarToast(mensaje, tipo, 4500);
+    } else {
+        const toastEl = document.getElementById("toastNotificacion");
+        if (!toastEl) return;
+        toastEl.className = `toast align-items-center text-white border-0 shadow-lg bg-${tipo === 'success' ? 'success' : 'danger'}`;
+        const msgEl = document.getElementById("toastMensaje");
+        if (msgEl) {
+            const icon = tipo === 'success' ? '<i class="bi bi-check-circle-fill fs-6"></i>' : '<i class="bi bi-exclamation-triangle-fill fs-6"></i>';
+            msgEl.innerHTML = `${icon} <span>${mensaje}</span>`;
+        }
+        const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { autohide: true, delay: 4500 });
+        toast.show();
+    }
+}
+</script>
+{% endblock %}

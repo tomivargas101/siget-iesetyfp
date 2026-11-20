@@ -1,0 +1,387 @@
+{% extends 'base.html' %}
+
+{% block title %}Asignar Suplencia - SIGET{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-9">
+        <!-- ENCABEZADO -->
+        <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                        <i class="bi bi-person-badge-fill text-warning"></i> Asignar Suplencia Institucional
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        Cobertura reglamentaria de cátedra activa: herencia automática de materia, carrera y horarios (1:N) hacia el docente suplente.
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>Cátedras
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" id="formAsignarSuplencia">
+            {% csrf_token %}
+
+            <!-- ERRORES GENERALES DEL FORMULARIO -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger shadow-sm border-danger mb-4">
+                {% for err in form.non_field_errors %}
+                    <div><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Error:</strong> {{ err }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- PASO 1: DOCENTE SUPLENTE -->
+            <div class="card shadow-sm border-0 bg-white mb-4">
+                <div class="card-header py-3 bg-white border-bottom">
+                    <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                        <span class="badge bg-primary text-white rounded-circle p-2" style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">1</span>
+                        Docente Suplente (Personal que Asumirá la Cátedra)
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-dark" for="id_docente_suplente">
+                            Docente Suplente Designado *
+                        </label>
+                        {{ form.docente_suplente }}
+                        {% if form.docente_suplente.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for err in form.docente_suplente.errors %}{{ err }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text small">
+                            Seleccione el agente docente de la planta institucional que asumirá la suplencia en situación de revista <strong>SUP</strong>.
+                        </div>
+                    </div>
+
+                    <!-- Panel informativo reactivo del Suplente -->
+                    <div class="p-3 rounded-3 bg-light border d-none" id="panelInfoSuplente">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <span class="badge bg-secondary-subtle text-dark border mb-1">Capacidad Horaria del Suplente</span>
+                                <h6 class="fw-bold mb-0 text-dark" id="txtSuplenteNombre">--</h6>
+                                <div class="text-muted small">
+                                    DNI: <strong class="text-primary font-monospace" id="txtSuplenteDni">--</strong> · 
+                                    Horas cátedra activas: <strong class="text-dark" id="txtSuplenteHsActuales">--</strong> hs / <span id="txtSuplenteMaxHs">30</span> hs tope
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-success fs-7" id="badgeHsDisponiblesSuplente">-- hs disponibles</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASO 2: CÁTEDRA / DOCENTE A SUPLANTAR -->
+            <div class="card shadow-sm border-0 bg-white mb-4">
+                <div class="card-header py-3 bg-white border-bottom">
+                    <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                        <span class="badge bg-primary text-white rounded-circle p-2" style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">2</span>
+                        Cátedra y Docente Titular o Interino a Suplantar
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-dark" for="id_designacion_cubierta">
+                            Cátedra Activa a Cubrir (Titular o Interino) *
+                        </label>
+                        {{ form.designacion_cubierta }}
+                        {% if form.designacion_cubierta.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for err in form.designacion_cubierta.errors %}{{ err }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text small">
+                            Al seleccionar la cátedra, el sistema heredará automáticamente la materia, carrera, carga horaria y franjas de cursado hacia la nueva designación suplente.
+                        </div>
+                    </div>
+
+                    <!-- Alerta de auto-suplencia reactiva -->
+                    <div class="alert alert-danger d-none align-items-center gap-2 mb-3 shadow-sm py-2" id="alertaAutoSuplencia">
+                        <i class="bi bi-shield-x fs-5 text-danger"></i>
+                        <div>
+                            <strong>Incompatibilidad institucional:</strong> El docente suplente seleccionado es el mismo titular de esta cátedra. Un docente no puede auto-suplirse.
+                        </div>
+                    </div>
+
+                    <!-- Panel de Preview Automático de la Cátedra Heredada -->
+                    <div class="p-3 rounded-3 bg-light border border-primary border-opacity-25 d-none" id="panelPreviewCatedra">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-2 border-bottom">
+                            <div>
+                                <span class="badge bg-primary text-white mb-1"><i class="bi bi-book-half me-1"></i>Herencia Automática de Cátedra</span>
+                                <h5 class="fw-bold text-primary mb-0" id="previewMateriaNombre">--</h5>
+                                <div class="text-muted small" id="previewCarreraNombre">--</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-warning-subtle text-dark border border-warning fs-6 px-3 py-1" id="previewHorasTotales">-- hs cátedra</span>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card p-2 bg-white border h-100">
+                                    <span class="text-muted small fw-bold text-uppercase">Docente Suplantado</span>
+                                    <div class="fw-bold text-dark fs-6" id="previewTitularNombre">--</div>
+                                    <div class="text-muted small">
+                                        DNI: <strong class="font-monospace text-primary" id="previewTitularDni">--</strong> · 
+                                        Revista: <span class="badge bg-light text-dark border" id="previewTitularRevista">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card p-2 bg-white border h-100">
+                                    <span class="text-muted small fw-bold text-uppercase">Distribución Horaria (1:N)</span>
+                                    <div id="previewHorariosList" class="mt-1 small">
+                                        <!-- Lista dinámica de franjas -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Impacto en la carga horaria del suplente -->
+                        <div class="mt-3 p-2 rounded bg-white border d-flex align-items-center justify-content-between flex-wrap gap-2 small" id="panelImpactoHorario">
+                            <div>
+                                <i class="bi bi-clock-history text-primary me-1"></i>
+                                <span>Carga tras asumir suplencia: <strong id="txtImpactoHoras">-- hs</strong> / 30 hs tope</span>
+                            </div>
+                            <span class="badge bg-success" id="badgeEstadoImpacto">Dentro del tope legal</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASO 3: TÉRMINOS Y VIGENCIA DE LA SUPLENCIA -->
+            <div class="card shadow-sm border-0 bg-white mb-4">
+                <div class="card-header py-3 bg-white border-bottom">
+                    <h5 class="card-title mb-0 fw-bold fs-6 text-primary d-flex align-items-center gap-2">
+                        <span class="badge bg-primary text-white rounded-circle p-2" style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">3</span>
+                        Parámetros y Vigencia de la Cobertura
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark" for="id_motivo">
+                                Motivo / Causal de Cobertura *
+                            </label>
+                            {{ form.motivo }}
+                            {% if form.motivo.errors %}
+                                <div class="text-danger small mt-1">{% for err in form.motivo.errors %}{{ err }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark" for="id_instrumento_legal">
+                                Instrumento Legal de Designación
+                            </label>
+                            {{ form.instrumento_legal }}
+                            {% if form.instrumento_legal.errors %}
+                                <div class="text-danger small mt-1">{% for err in form.instrumento_legal.errors %}{{ err }}{% endfor %}</div>
+                            {% endif %}
+                            <div class="form-text small">Disposición o Resolución que autoriza la cobertura.</div>
+                        </div>
+                    </div>
+
+                    <!-- Rango de Fechas y Checkbox SIN TERMINO -->
+                    <div class="row g-3 mb-3 p-3 bg-light rounded border align-items-center">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-dark" for="id_fecha_desde">
+                                <i class="bi bi-calendar-event me-1"></i>Fecha Desde (Inicio) *
+                            </label>
+                            {{ form.fecha_desde }}
+                            {% if form.fecha_desde.errors %}
+                                <div class="text-danger small mt-1">{% for err in form.fecha_desde.errors %}{{ err }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-dark" for="id_fecha_hasta">
+                                <i class="bi bi-calendar-check me-1"></i>Fecha Hasta (Fin)
+                            </label>
+                            {{ form.fecha_hasta }}
+                            {% if form.fecha_hasta.errors %}
+                                <div class="text-danger small mt-1">{% for err in form.fecha_hasta.errors %}{{ err }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-2 pt-2 pt-md-4">
+                            <div class="form-check">
+                                {{ form.sin_termino }}
+                                <label class="form-check-label small fw-bold text-dark" for="id_sin_termino">
+                                    Sin término
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-1">
+                            <div class="form-text small">
+                                Marque <strong>Sin término</strong> si la suplencia es por tiempo indeterminado o mientras dure la causal del titular.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label small fw-bold text-dark" for="id_observaciones">
+                            Observaciones Administrativas
+                        </label>
+                        {{ form.observaciones }}
+                        {% if form.observaciones.errors %}
+                            <div class="text-danger small mt-1">{% for err in form.observaciones.errors %}{{ err }}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <a href="{% url 'designaciones_list' %}" class="btn btn-outline-secondary px-4">
+                    <i class="bi bi-x-circle me-1"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-ies px-4 py-2 fw-bold" id="btnGuardarSuplencia">
+                    <i class="bi bi-check-circle-fill me-1"></i> Asignar y Confirmar Suplencia
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SCRIPTS DE CLIENTE: METADATA SERIALIZADA Y REACTIVIDAD -->
+<script>
+const METADATA_DESIGS = {{ metadata_desigs_json|safe }};
+const METADATA_AGENTES = {{ metadata_agentes_json|safe }};
+
+function toggleFechaHasta() {
+    const chkSinTermino = document.getElementById("id_sin_termino");
+    const inputFechaHasta = document.getElementById("id_fecha_hasta");
+    if (!chkSinTermino || !inputFechaHasta) return;
+
+    if (chkSinTermino.checked) {
+        inputFechaHasta.value = "";
+        inputFechaHasta.disabled = true;
+        inputFechaHasta.classList.add("bg-light");
+    } else {
+        inputFechaHasta.disabled = false;
+        inputFechaHasta.classList.remove("bg-light");
+    }
+}
+
+function actualizarPreviewSuplencia() {
+    const selectSuplente = document.getElementById("id_docente_suplente");
+    const selectDesig = document.getElementById("id_designacion_cubierta");
+    const btnGuardar = document.getElementById("btnGuardarSuplencia");
+    const alertaAuto = document.getElementById("alertaAutoSuplencia");
+
+    const suplenteId = selectSuplente ? selectSuplente.value : "";
+    const desigId = selectDesig ? selectDesig.value : "";
+
+    // 1. Información del Suplente
+    const panelSuplente = document.getElementById("panelInfoSuplente");
+    let hsActualesSuplente = 0;
+    let maxHsSuplente = 30;
+
+    if (suplenteId && METADATA_AGENTES[suplenteId]) {
+        const ag = METADATA_AGENTES[suplenteId];
+        panelSuplente.classList.remove("d-none");
+        document.getElementById("txtSuplenteNombre").textContent = ag.nombre;
+        document.getElementById("txtSuplenteDni").textContent = ag.dni;
+        document.getElementById("txtSuplenteHsActuales").textContent = ag.horas_actuales;
+        document.getElementById("txtSuplenteMaxHs").textContent = ag.max_horas;
+        
+        hsActualesSuplente = ag.horas_actuales;
+        maxHsSuplente = ag.max_horas;
+
+        const badgeDisp = document.getElementById("badgeHsDisponiblesSuplente");
+        badgeDisp.textContent = `${ag.horas_disponibles} hs disponibles`;
+        if (ag.horas_disponibles <= 4) {
+            badgeDisp.className = "badge bg-warning text-dark fs-7";
+        } else {
+            badgeDisp.className = "badge bg-success fs-7";
+        }
+    } else {
+        panelSuplente.classList.add("d-none");
+    }
+
+    // 2. Información de la Cátedra a Suplantar
+    const panelCatedra = document.getElementById("panelPreviewCatedra");
+    let hsCatedraCubierta = 0;
+    let titularId = "";
+
+    if (desigId && METADATA_DESIGS[desigId]) {
+        const d = METADATA_DESIGS[desigId];
+        panelCatedra.classList.remove("d-none");
+        document.getElementById("previewMateriaNombre").textContent = `${d.materia_nombre} (${d.materia_codigo})`;
+        document.getElementById("previewCarreraNombre").textContent = `${d.carrera_nombre} · ${d.carrera_codigo}`;
+        document.getElementById("previewHorasTotales").textContent = `${d.total_horas} hs cátedra`;
+
+        document.getElementById("previewTitularNombre").textContent = d.titular_nombre;
+        document.getElementById("previewTitularDni").textContent = d.titular_dni;
+        document.getElementById("previewTitularRevista").textContent = d.titular_revista;
+
+        titularId = String(d.titular_id);
+        hsCatedraCubierta = d.total_horas;
+
+        // Renderizar franjas horarias
+        const listContainer = document.getElementById("previewHorariosList");
+        listContainer.innerHTML = "";
+        if (d.horarios_detalle && d.horarios_detalle.length > 0) {
+            d.horarios_detalle.forEach(hStr => {
+                const badge = document.createElement("div");
+                badge.className = "mb-1";
+                badge.innerHTML = `<span class="badge bg-light text-primary border"><i class="bi bi-clock me-1"></i>${hStr}</span>`;
+                listContainer.appendChild(badge);
+            });
+        } else {
+            listContainer.innerHTML = `<span class="text-muted fst-italic">${d.resumen_horarios || 'Sin franjas'}</span>`;
+        }
+    } else {
+        panelCatedra.classList.add("d-none");
+    }
+
+    // 3. Validación de Auto-Suplencia
+    let hayConflictoAuto = false;
+    if (suplenteId && titularId && suplenteId === titularId) {
+        hayConflictoAuto = true;
+        alertaAuto.classList.remove("d-none");
+        alertaAuto.classList.add("d-flex");
+    } else {
+        alertaAuto.classList.add("d-none");
+        alertaAuto.classList.remove("d-flex");
+    }
+
+    // 4. Validación de Impacto Horario
+    let superaTope = false;
+    if (suplenteId && desigId) {
+        const totalProyectado = hsActualesSuplente + hsCatedraCubierta;
+        document.getElementById("txtImpactoHoras").textContent = `${totalProyectado} hs`;
+
+        const badgeImpacto = document.getElementById("badgeEstadoImpacto");
+        if (totalProyectado > maxHsSuplente) {
+            superaTope = true;
+            badgeImpacto.className = "badge bg-danger";
+            badgeImpacto.textContent = `¡Supera el tope de ${maxHsSuplente} hs!`;
+        } else if (totalProyectado >= maxHsSuplente - 4) {
+            badgeImpacto.className = "badge bg-warning text-dark";
+            badgeImpacto.textContent = "Próximo al límite de 30 hs";
+        } else {
+            badgeImpacto.className = "badge bg-success";
+            badgeImpacto.textContent = "Dentro del tope legal";
+        }
+    }
+
+    // Bloquear botón si hay auto-suplencia o se supera el tope
+    if (hayConflictoAuto || superaTope) {
+        btnGuardar.disabled = true;
+    } else {
+        btnGuardar.disabled = false;
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    toggleFechaHasta();
+    actualizarPreviewSuplencia();
+});
+</script>
+{% endblock %}

@@ -1,24 +1,25 @@
 # ==============================================================================
-# SIGET - Requerimientos y Dependencias de Entorno
-# Sistema Integral de Gestión Educativa Terciaria (IESETyFP)
+# SIGET - Sistema de Gestión de Asistencia Docente (IESETyFP - Resistencia, Chaco)
+# Dependencias Oficiales Python & Django (Stack 100% Web)
+# Fecha de consolidación: 19/11/2026
 # ==============================================================================
 
-# Interfaz Gráfica de Usuario (GUI Moderna)
-customtkinter>=5.2.0
-pillow>=10.0.0
-darkdetect>=0.8.0
+# Framework Web Central
+Django==6.1.3
+asgiref==3.13.0
+sqlparse==0.6.1
+tzdata==2026.5
 
-# Capa de Persistencia y Base de Datos (ORM y Drivers LAN)
-sqlalchemy>=2.0.0
-pymysql>=1.1.0
-cryptography>=41.0.0
+# Procesamiento de Planillas y Exportación Ministerial (Cuadros IL-01 / IL-02)
+openpyxl==3.1.5
+et_xmlfile==2.0.0
+pandas==3.0.6
+numpy==2.5.4
+python-dateutil==2.9.0.post0
 
-# Seguridad y Hashing de Contraseñas
-bcrypt>=4.0.0
+# Manejo de Certificados y Archivos Digitales Adjuntos
+Pillow==13.0.0
 
-# Procesamiento de Datos y Reportes Oficiales en Excel (.xlsx)
-pandas>=2.0.0
-openpyxl>=3.1.0
-
-# Empaquetado y Generación de Ejecutable Standalone
-pyinstaller>=6.0.0
+# Soporte de Base de Datos y Criptografía
+cryptography==50.0.2
+PyMySQL==1.2.3
