@@ -64,7 +64,7 @@ siget/
 │   ├── forms.py                       # Formularios y validaciones (tope 30 hs, anti-auto-suplencia, CSV)
 │   ├── urls.py                        # Enrutador interno de rutas de negocio
 │   ├── views.py                       # Vistas controladoras web y respuestas JSON reactivas
-│   ├── tests.py                       # Suite de 20 pruebas unitarias y de integración
+│   ├── tests.py                       # Suite de 22 pruebas unitarias y de integración
 │   │
 │   ├── services/                      # Capa de Lógica de Negocio y Reglas de Dominio
 │   │   ├── __init__.py                # ProcesadorMensual, ExportadorExcel, ImportadorCSV,
@@ -158,7 +158,7 @@ python manage.py test
 Creating test database for alias 'default'...
 ....................
 ----------------------------------------------------------------------
-Ran 20 tests in ~60s
+Ran 22 tests in ~65s
 
 OK
 ```
