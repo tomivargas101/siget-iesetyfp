@@ -979,6 +979,113 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertContains(resp, "Por favor corrija los siguientes errores")
         self.assertContains(resp, f"Ya existe un docente registrado con el DNI {docente_existente.dni}")
 
+    def test_edicion_designacion_baja_logica_conserva_horarios_sin_error_fila_extra(self):
+        """
+        Verifica que al editar una designación existente para desactivarla (baja lógica activo=False):
+        1. En GET, el formset no renderiza filas extras vacías (extra=0 cuando ya tiene horarios).
+        2. Al enviar el POST desactivando la designación y manteniendo las franjas horarias existentes:
+           - No falle por validación de fila extra vacía (empty_permitted=True / has_changed).
+           - Se guarde correctamente en la base de datos con activo=False.
+           - Conserve sus franjas horarias intactas.
+           - Registre la auditoría (MODIFICACION_DESIGNACION).
+           - Emita mensaje de éxito y redirija a /designaciones/.
+        """
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(
+            dni="29999000",
+            legajo="LEG-299",
+            apellido="Suárez",
+            nombre="Claudio",
+            activo=True
+        )
+        desig = Designacion.objects.create(
+            agente=docente,
+            materia=self.materia1,
+            cargo_codigo="Cátedra",
+            situacion_revista="TIT",
+            activo=True
+        )
+        h1 = HorarioDesignacion.objects.create(
+            designacion=desig,
+            dia_semana="Martes",
+            hora_inicio=time(18, 30),
+            hora_fin=time(20, 0),
+            horas_catedra=2,
+            activo=True
+        )
+        h2 = HorarioDesignacion.objects.create(
+            designacion=desig,
+            dia_semana="Jueves",
+            hora_inicio=time(18, 30),
+            hora_fin=time(21, 30),
+            horas_catedra=4,
+            activo=True
+        )
+
+        # 1. GET: Debe renderizar exactamente las 2 franjas existentes sin fila extra vacía
+        resp_get = self.client.get(f"/designaciones/{desig.pk}/editar/")
+        self.assertEqual(resp_get.status_code, 200)
+        formset_get = resp_get.context["horario_formset"]
+        self.assertEqual(len(formset_get.forms), 2)
+
+        # 2. POST: Desactivar designación (sin switch 'activo') enviando las 2 franjas existentes
+        # más un formulario extra vacío para verificar que no sea obligatorio ni impida guardar
+        post_data = {
+            "agente": docente.pk,
+            "materia": self.materia1.pk,
+            "cargo_codigo": "Cátedra",
+            "situacion_revista": "TIT",
+            "instrumento_legal": "Res. 101/26",
+            "vigencia_desde": "SIN INICIO",
+            "vigencia_hasta": "SIN TERMINO",
+            # 'activo' omitido para pasar de activa a inactiva
+            "observaciones": "Baja lógica por adecuación de planta",
+            "horarios-TOTAL_FORMS": "3",
+            "horarios-INITIAL_FORMS": "2",
+            "horarios-MIN_NUM_FORMS": "0",
+            "horarios-MAX_NUM_FORMS": "1000",
+            "horarios-0-id": h1.id,
+            "horarios-0-dia_semana": h1.dia_semana,
+            "horarios-0-hora_inicio": "18:30",
+            "horarios-0-hora_fin": "20:00",
+            "horarios-0-horas_catedra": "2",
+            "horarios-0-activo": "on",
+            "horarios-1-id": h2.id,
+            "horarios-1-dia_semana": h2.dia_semana,
+            "horarios-1-hora_inicio": "18:30",
+            "horarios-1-hora_fin": "21:30",
+            "horarios-1-horas_catedra": "4",
+            "horarios-1-activo": "on",
+            # Fila extra vacía (no debe bloquear con 'Este campo es obligatorio')
+            "horarios-2-id": "",
+            "horarios-2-dia_semana": "",
+            "horarios-2-hora_inicio": "",
+            "horarios-2-hora_fin": "",
+            "horarios-2-horas_catedra": "",
+            "horarios-2-activo": "on",
+        }
+        resp_post = self.client.post(f"/designaciones/{desig.pk}/editar/", data=post_data, follow=True)
+        self.assertRedirects(resp_post, "/designaciones/")
+
+        # 3. Validar estado en base de datos
+        desig.refresh_from_db()
+        self.assertFalse(desig.activo)
+        self.assertEqual(desig.horarios.count(), 2)
+        dias_horarios = list(desig.horarios.values_list("dia_semana", flat=True))
+        self.assertIn("Martes", dias_horarios)
+        self.assertIn("Jueves", dias_horarios)
+
+        # 4. Validar mensaje de éxito
+        self.assertContains(resp_post, "actualizada con éxito")
+
+        # 5. Validar auditoría registrada
+        audit = Auditoria.objects.filter(
+            accion="MODIFICACION_DESIGNACION",
+            detalles__contains=f"Designación ID {desig.id}"
+        ).first()
+        self.assertIsNotNone(audit)
+
+
 
 
 
