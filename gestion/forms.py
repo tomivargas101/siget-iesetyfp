@@ -175,6 +175,13 @@ class HorarioDesignacionForm(forms.ModelForm):
             "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
+    def has_changed(self):
+        if self.empty_permitted:
+            dia = self.data.get(self.add_prefix("dia_semana"))
+            if not dia:
+                return False
+        return super().has_changed()
+
     def clean(self):
         cleaned_data = super().clean()
         hi = cleaned_data.get("hora_inicio")
@@ -191,6 +198,11 @@ class HorarioDesignacionForm(forms.ModelForm):
 
 
 class BaseHorarioFormSet(forms.BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.horarios.exists():
+            self.extra = 0
+
     def clean(self):
         super().clean()
         if any(self.errors):

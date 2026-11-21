@@ -728,24 +728,34 @@ def designacion_create_view(request):
             if not horarios_validos and desig.horas_catedra:
                 nuevas_horas = desig.horas_catedra
 
-            # 1. Validar tope semanal de horas institucional
-            valido_tope, msg_tope = HorarioService.validar_tope_semanal(
-                desig.agente,
-                nuevas_horas=nuevas_horas,
-                excluir_designacion_id=None
-            )
-            if not valido_tope:
-                form.add_error(None, msg_tope)
-
-            # 2. Validar superposición de horarios externa
-            if horarios_validos:
-                valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
-                    horarios_validos,
-                    docente=desig.agente,
+            if desig.activo:
+                # 1. Validar tope semanal de horas institucional
+                valido_tope, msg_tope = HorarioService.validar_tope_semanal(
+                    desig.agente,
+                    nuevas_horas=nuevas_horas,
                     excluir_designacion_id=None
                 )
-                if not valido_sup:
-                    form.add_error(None, msg_sup)
+                if not valido_tope:
+                    form.add_error(None, msg_tope)
+
+                # 2. Validar superposición de horarios externa
+                if horarios_validos:
+                    valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
+                        horarios_validos,
+                        docente=desig.agente,
+                        excluir_designacion_id=None
+                    )
+                    if not valido_sup:
+                        form.add_error(None, msg_sup)
+            else:
+                if horarios_validos:
+                    valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
+                        horarios_validos,
+                        docente=None,
+                        excluir_designacion_id=None
+                    )
+                    if not valido_sup:
+                        form.add_error(None, msg_sup)
 
             # 3. Validar bloque de suplencia si es SUP
             valido_supl = True
@@ -982,22 +992,32 @@ def designacion_edit_view(request, pk):
             if not horarios_validos and desig_temp.horas_catedra:
                 nuevas_horas = desig_temp.horas_catedra
 
-            valido_tope, msg_tope = HorarioService.validar_tope_semanal(
-                desig_temp.agente,
-                nuevas_horas=nuevas_horas,
-                excluir_designacion_id=desig.pk
-            )
-            if not valido_tope:
-                form.add_error(None, msg_tope)
-
-            if horarios_validos:
-                valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
-                    horarios_validos,
-                    docente=desig_temp.agente,
+            if desig_temp.activo:
+                valido_tope, msg_tope = HorarioService.validar_tope_semanal(
+                    desig_temp.agente,
+                    nuevas_horas=nuevas_horas,
                     excluir_designacion_id=desig.pk
                 )
-                if not valido_sup:
-                    form.add_error(None, msg_sup)
+                if not valido_tope:
+                    form.add_error(None, msg_tope)
+
+                if horarios_validos:
+                    valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
+                        horarios_validos,
+                        docente=desig_temp.agente,
+                        excluir_designacion_id=desig.pk
+                    )
+                    if not valido_sup:
+                        form.add_error(None, msg_sup)
+            else:
+                if horarios_validos:
+                    valido_sup, msg_sup = HorarioService.validar_superposicion_franjas(
+                        horarios_validos,
+                        docente=None,
+                        excluir_designacion_id=desig.pk
+                    )
+                    if not valido_sup:
+                        form.add_error(None, msg_sup)
 
             valido_supl = True
             if es_suplente:
