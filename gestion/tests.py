@@ -586,7 +586,7 @@ class ReglasNegocioSIGETTests(TestCase):
         # 1. GET /designaciones/suplencia/nueva/
         resp_get = self.client.get("/designaciones/suplencia/nueva/")
         self.assertEqual(resp_get.status_code, 200)
-        self.assertContains(resp_get, "Asignar Suplencia Institucional")
+        self.assertContains(resp_get, "Designar Suplencia Institucional")
         self.assertContains(resp_get, "Docente Suplente")
         self.assertContains(resp_get, "Cátedra y Docente Titular o Interino a Suplantar")
 

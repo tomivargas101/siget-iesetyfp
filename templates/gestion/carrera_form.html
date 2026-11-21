@@ -1,18 +1,18 @@
 {% extends 'base.html' %}
 
-{% block title %}Registrar Carrera - SIGET{% endblock %}
+{% block title %}{% if carrera %}Editar Carrera: {{ carrera.nombre }}{% else %}Registrar Carrera{% endif %} - SIGET{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-6">
+    <div class="col-lg-7">
         <div class="card p-3 mb-4 shadow-sm border-0 bg-white">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
-                        <i class="bi bi-mortarboard-fill"></i> Nueva Carrera
+                        <i class="bi bi-mortarboard-fill"></i> {% if carrera %}Editar Carrera: {{ carrera.nombre }}{% else %}Nueva Carrera Institucional{% endif %}
                     </h2>
                     <p class="text-muted mb-0 small">
-                        Incorporación de tecnicatura o plan de formación superior.
+                        {% if carrera %}Modificación de oferta académica y parámetros curriculares (RF-05).{% else %}Incorporación de tecnicatura o plan de formación superior (RF-05).{% endif %}
                     </p>
                 </div>
                 <a href="{% url 'carreras_list' %}" class="btn btn-outline-secondary btn-sm">
@@ -21,42 +21,74 @@
             </div>
         </div>
 
+        {% if form.errors %}
+        <div class="alert alert-danger shadow-sm border-danger mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <h6 class="alert-heading fw-bold mb-0">Por favor revise los errores en el formulario de Carrera:</h6>
+            </div>
+            <ul class="mb-0 small ps-3">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
         <div class="card shadow-sm border-0 bg-white">
             <div class="card-body p-4">
                 <form method="POST">
                     {% csrf_token %}
 
-                    <div class="mb-3">
-                        <label class="form-label text-dark small fw-bold">Código de Carrera *</label>
-                        {{ form.codigo }}
-                        <div class="form-text small">Ej: TEC-DS, TEC-REDES.</div>
-                        {% if form.codigo.errors %}
-                            <div class="text-danger small mt-1">{{ form.codigo.errors }}</div>
-                        {% endif %}
-                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Código de Carrera *</label>
+                            {{ form.codigo }}
+                            <div class="form-text small">Ej: TEC-DS, TEC-REDES.</div>
+                            {% if form.codigo.errors %}
+                                <div class="text-danger small mt-1">{{ form.codigo.errors }}</div>
+                            {% endif %}
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-dark small fw-bold">Nombre Completo de la Carrera *</label>
-                        {{ form.nombre }}
-                        {% if form.nombre.errors %}
-                            <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
-                        {% endif %}
-                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-dark small fw-bold">Duración en Años *</label>
+                            {{ form.duracion_anios }}
+                            <div class="form-text small">Años lectivos del plan (por defecto 3).</div>
+                            {% if form.duracion_anios.errors %}
+                                <div class="text-danger small mt-1">{{ form.duracion_anios.errors }}</div>
+                            {% endif %}
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-dark small fw-bold">Resolución Ministerial / Plan</label>
-                        {{ form.resolucion }}
-                        {% if form.resolucion.errors %}
-                            <div class="text-danger small mt-1">{{ form.resolucion.errors }}</div>
-                        {% endif %}
-                    </div>
+                        <div class="col-12">
+                            <label class="form-label text-dark small fw-bold">Nombre Completo de la Carrera *</label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
 
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            {{ form.activo }}
-                            <label class="form-check-label text-dark small" for="{{ form.activo.id_for_label }}">
-                                Carrera Activa y Vigente
-                            </label>
+                        <div class="col-12">
+                            <label class="form-label text-dark small fw-bold">Resolución Ministerial / Plan de Estudios</label>
+                            {{ form.resolucion }}
+                            <div class="form-text small">Referencia normativa textual (RF-16 / INC-01, ej: Res. MECCyT N° 1245/19).</div>
+                            {% if form.resolucion.errors %}
+                                <div class="text-danger small mt-1">{{ form.resolucion.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 border">
+                                {{ form.activo }}
+                                <label class="form-check-label text-dark small fw-semibold ms-2" for="{{ form.activo.id_for_label }}">
+                                    Carrera Activa y Vigente en Oferta Académica (RN-03)
+                                </label>
+                                <div class="form-text small ms-2">Si se desmarca, pasa a histórico sin eliminarse de la base de datos.</div>
+                            </div>
                         </div>
                     </div>
 
@@ -64,7 +96,9 @@
 
                     <div class="d-flex justify-content-end gap-2">
                         <a href="{% url 'carreras_list' %}" class="btn btn-outline-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-ies px-4">Guardar Carrera</button>
+                        <button type="submit" class="btn btn-ies px-4">
+                            <i class="bi bi-save me-1"></i> Guardar Carrera
+                        </button>
                     </div>
                 </form>
             </div>

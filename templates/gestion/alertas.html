@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Alertas y Límites Reglamentarios - SIGET{% endblock %}
+
+{% block content %}
+<!-- ENCABEZADO DE SECCIÓN -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-bell-fill text-warning"></i> Alertas y Monitoreo de Límites Reglamentarios
+            </h2>
+            <p class="text-muted mb-0 small">
+                Control preventivo de topes anuales de inasistencias injustificadas (máx. 10) y permisos particulares (máx. 6) según RF-18. Ciclo Lectivo: <strong class="text-dark">{{ anio_sel }}</strong>.
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <form method="GET" class="d-flex align-items-center gap-2 mb-0">
+                <label class="small text-muted fw-semibold">Año:</label>
+                <input type="number" name="anio" value="{{ anio_sel }}" min="2020" max="2030" class="form-control form-control-sm text-center fw-bold" style="width: 90px;" onchange="this.form.submit()">
+                {% if nivel_filtro %}
+                <input type="hidden" name="nivel" value="{{ nivel_filtro }}">
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- TARJETAS DE RESUMEN DE ESTADOS -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <a href="?anio={{ anio_sel }}" class="text-decoration-none">
+            <div class="card p-3 h-100 border-start border-4 border-primary shadow-sm hover-shadow {% if not nivel_filtro %}bg-light{% else %}bg-white{% endif %}">
+                <span class="text-muted small fw-semibold text-uppercase">Padrón Evaluado</span>
+                <h3 class="fw-bold my-1 text-primary">{{ total_docentes }}</h3>
+                <small class="text-muted">Docentes activos con novedades</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="?anio={{ anio_sel }}&nivel=CRITICO" class="text-decoration-none">
+            <div class="card p-3 h-100 border-start border-4 border-danger shadow-sm hover-shadow {% if nivel_filtro == 'CRITICO' %}bg-danger-subtle{% else %}bg-white{% endif %}">
+                <span class="text-danger small fw-semibold text-uppercase d-flex align-items-center gap-1">
+                    <i class="bi bi-exclamation-octagon-fill"></i> Nivel Crítico (≥80%)
+                </span>
+                <h3 class="fw-bold my-1 text-danger">{{ total_criticos }}</h3>
+                <small class="text-muted">Próximos a superar el límite</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="?anio={{ anio_sel }}&nivel=ADVERTENCIA" class="text-decoration-none">
+            <div class="card p-3 h-100 border-start border-4 border-warning shadow-sm hover-shadow {% if nivel_filtro == 'ADVERTENCIA' %}bg-warning-subtle{% else %}bg-white{% endif %}">
+                <span class="text-warning-emphasis small fw-semibold text-uppercase d-flex align-items-center gap-1">
+                    <i class="bi bi-exclamation-triangle-fill text-warning"></i> En Advertencia (≥50%)
+                </span>
+                <h3 class="fw-bold my-1 text-warning-emphasis">{{ total_advertencia }}</h3>
+                <small class="text-muted">Consumo moderado de cupo</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="?anio={{ anio_sel }}&nivel=NORMAL" class="text-decoration-none">
+            <div class="card p-3 h-100 border-start border-4 border-success shadow-sm hover-shadow {% if nivel_filtro == 'NORMAL' %}bg-success-subtle{% else %}bg-white{% endif %}">
+                <span class="text-success small fw-semibold text-uppercase d-flex align-items-center gap-1">
+                    <i class="bi bi-shield-check"></i> En Rango Normal
+                </span>
+                <h3 class="fw-bold my-1 text-success">{{ total_normal }}</h3>
+                <small class="text-muted">Sin riesgo reglamentario</small>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- TABLA PRINCIPAL DE ALERTAS DE INASISTENCIAS -->
+<div class="card shadow-sm border-0 bg-white">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="card-title fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-table"></i> Detalle de Consumo de Cupos por Agente Docente
+        </h5>
+        {% if nivel_filtro %}
+            <span class="badge bg-secondary">Filtrado por: {{ nivel_filtro }} (<a href="?anio={{ anio_sel }}" class="text-white text-decoration-none">Quitar filtro</a>)</span>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-ies align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Docente</th>
+                    <th class="text-center">Inasistencias (I) / Tope 10</th>
+                    <th class="text-center">Permisos (P) / Tope 6</th>
+                    <th class="text-center">Licencias (IL-01 / IL-02)</th>
+                    <th class="text-center">Nivel de Alerta</th>
+                    <th class="text-end pe-3">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for al in alertas %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="bg-light rounded-circle p-2 text-primary fw-bold" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div>
+                                <a href="{% url 'agente_detail' al.agente.pk %}" class="fw-bold text-dark text-decoration-none">
+                                    {{ al.agente.nombre_completo }}
+                                </a>
+                                <div class="text-muted small">
+                                    DNI: {{ al.agente.dni }} · Legajo: {{ al.agente.legajo|default:"S/L" }}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center" style="min-width: 170px;">
+                        <div class="d-flex justify-content-between small fw-bold mb-1">
+                            <span>{{ al.faltas }} de {{ al.tope_faltas }}</span>
+                            <span class="text-muted">{{ al.restantes_faltas }} rest.</span>
+                        </div>
+                        <div class="progress" style="height: 7px;">
+                            <div class="progress-bar {% if al.faltas >= 8 %}bg-danger{% elif al.faltas >= 5 %}bg-warning{% else %}bg-primary{% endif %}" role="progressbar" style="width: {{ al.porcentaje_faltas }}%;" aria-valuenow="{{ al.porcentaje_faltas }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </td>
+                    <td class="text-center" style="min-width: 170px;">
+                        <div class="d-flex justify-content-between small fw-bold mb-1">
+                            <span>{{ al.permisos }} de {{ al.tope_permisos }}</span>
+                            <span class="text-muted">{{ al.restantes_permisos }} rest.</span>
+                        </div>
+                        <div class="progress" style="height: 7px;">
+                            <div class="progress-bar {% if al.permisos >= 5 %}bg-danger{% elif al.permisos >= 3 %}bg-warning{% else %}bg-info{% endif %}" role="progressbar" style="width: {{ al.porcentaje_permisos }}%;" aria-valuenow="{{ al.porcentaje_permisos }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-dark border">
+                            IL-01: <strong>{{ al.cuadro_il01_count }}</strong>
+                        </span>
+                        <span class="badge bg-light text-dark border ms-1">
+                            IL-02: <strong>{{ al.cuadro_il02_count }}</strong>
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {% if al.nivel == 'CRITICO' %}
+                            <span class="badge bg-danger text-white py-2 px-3 fw-bold">
+                                <i class="bi bi-exclamation-octagon-fill me-1"></i> CRÍTICO
+                            </span>
+                        {% elif al.nivel == 'ADVERTENCIA' %}
+                            <span class="badge bg-warning text-dark py-2 px-3 fw-bold">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> ADVERTENCIA
+                            </span>
+                        {% else %}
+                            <span class="badge bg-success-subtle text-success border border-success py-1 px-3">
+                                <i class="bi bi-check-circle me-1"></i> NORMAL
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <div class="d-flex justify-content-end gap-1">
+                            <a href="{% url 'agente_detail' al.agente.pk %}" class="btn btn-sm btn-outline-primary" title="Ver Historial y Cátedras">
+                                <i class="bi bi-eye"></i> Ficha
+                            </a>
+                            <a href="{% url 'consultas' %}?dni={{ al.agente.dni }}" class="btn btn-sm btn-outline-secondary" title="Consultar Novedades">
+                                <i class="bi bi-search"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        <i class="bi bi-shield-check text-success fs-2 d-block mb-2"></i>
+                        No se registraron agentes bajo el criterio seleccionado para el ciclo lectivo {{ anio_sel }}.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

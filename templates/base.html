@@ -25,6 +25,9 @@
             --ies-border: #E2E8F0;        /* Bordes Sutiles */
             --ies-border-dark: #CBD5E1;   /* Bordes Medios */
             
+            /* Ancho del Sidebar */
+            --sidebar-width: 260px;
+            
             /* Estados Semánticos de Asistencia */
             --badge-pr-bg: #E8F5E9;
             --badge-pr-text: #1B5E20;
@@ -52,109 +55,229 @@
             color: var(--ies-text-main);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
         }
 
-        /* NAVEGACIÓN SUPERIOR INSTITUCIONAL (ESTILO IESETyFP) */
-        .navbar-ies {
-            background-color: var(--ies-primary);
-            border-bottom: 3px solid var(--ies-secondary);
-            box-shadow: 0 4px 12px rgba(15, 36, 62, 0.15);
-            padding: 0.65rem 1.5rem;
+        /* ESTRUCTURA GENERAL CON SIDEBAR LATERAL IZQUIERDO */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            width: 100vw;
+            position: relative;
         }
-        .navbar-brand-container {
+
+        /* BARRA LATERAL IZQUIERDA (SIDEBAR) */
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--ies-primary);
+            color: #E2E8F0;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 1040;
+            box-shadow: 3px 0 12px rgba(15, 36, 62, 0.2);
+            transition: transform 0.25s ease-in-out;
+            border-right: 2px solid var(--ies-secondary);
+        }
+
+        .sidebar-header {
+            padding: 1.1rem 1.25rem;
+            background-color: var(--ies-primary-dark);
+            border-bottom: 2px solid var(--ies-secondary);
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            text-decoration: none;
+            justify-content: space-between;
         }
         .brand-logo {
-            width: 42px;
-            height: 42px;
+            width: 38px;
+            height: 38px;
             object-fit: contain;
             border-radius: 6px;
             background: #FFFFFF;
             padding: 2px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .brand-title {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 800;
             color: #FFFFFF;
             line-height: 1.1;
             letter-spacing: 0.5px;
         }
         .brand-subtitle {
-            font-size: 0.72rem;
-            color: #E2E8F0;
+            font-size: 0.70rem;
+            color: #CBD5E1;
             font-weight: 500;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.6px;
         }
 
-        /* ENLACES NAVBAR */
-        .navbar-nav .nav-link {
+        /* NAVEGACIÓN Y ENLACES DEL SIDEBAR */
+        .sidebar-nav {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 0.85rem 0.65rem;
+        }
+        .sidebar-nav::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        .sidebar-link {
             color: #E2E8F0;
             font-weight: 600;
-            font-size: 0.92rem;
-            padding: 0.55rem 0.85rem;
-            border-radius: 6px;
-            transition: all 0.15s ease-in-out;
+            font-size: 0.88rem;
+            padding: 0.65rem 0.85rem;
+            border-radius: 7px;
             display: flex;
             align-items: center;
-            gap: 0.45rem;
+            gap: 0.65rem;
+            text-decoration: none;
+            transition: all 0.15s ease-in-out;
+            margin-bottom: 2px;
         }
-        .navbar-nav .nav-link:hover {
+        .sidebar-link:hover {
             color: #FFFFFF;
             background-color: rgba(255, 255, 255, 0.12);
         }
-        .navbar-nav .nav-link.active {
+        .sidebar-link.active {
             color: #FFFFFF !important;
             background-color: var(--ies-secondary);
-            box-shadow: inset 0 -2px 0 var(--ies-accent);
+            box-shadow: inset 3px 0 0 var(--ies-accent);
         }
-        .nav-link-asistencia {
+        .sidebar-link-destacado {
             background-color: rgba(40, 120, 165, 0.35);
-            color: #FFFFFF !important;
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .nav-link-asistencia:hover {
+        .sidebar-link-destacado:hover {
             background-color: var(--ies-secondary) !important;
-            color: #FFFFFF !important;
         }
 
-        /* DESPLEGABLES */
-        .dropdown-menu {
-            border: 1px solid var(--ies-border-dark);
-            border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            padding: 0.5rem;
-        }
-        .dropdown-item {
-            color: var(--ies-text-main);
+        /* TÍTULOS Y SUBMENÚS DEL SIDEBAR */
+        .sidebar-section-title {
+            color: #FFFFFF;
+            font-weight: 700;
             font-size: 0.88rem;
+            padding: 0.55rem 0.85rem 0.2rem 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            user-select: none;
+        }
+        .sub-menu {
+            list-style: none;
+            padding-left: 1.5rem;
+            margin: 0.15rem 0 0.4rem 0;
+        }
+        .sub-link {
+            color: #CBD5E1;
+            font-size: 0.82rem;
             font-weight: 500;
+            padding: 0.35rem 0.65rem;
             border-radius: 5px;
-            padding: 0.5rem 0.85rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            text-decoration: none;
+            transition: all 0.15s;
         }
-        .dropdown-item:hover {
-            background-color: #EBF3F8;
-            color: var(--ies-primary);
-        }
-        .dropdown-item.active, .dropdown-item:active {
-            background-color: var(--ies-primary);
+        .sub-link:hover {
             color: #FFFFFF;
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+        .sub-link.active {
+            color: var(--ies-accent) !important;
+            font-weight: 700;
+            background-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .sidebar-footer {
+            padding: 0.85rem 1rem;
+            background-color: var(--ies-primary-dark);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* ÁREA DE CONTENIDO PRINCIPAL */
+        .app-main {
+            flex: 1 1 auto;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            width: calc(100vw - var(--sidebar-width));
+            transition: margin-left 0.25s ease-in-out, width 0.25s ease-in-out;
+        }
+
+        /* ENCABEZADO SUPERIOR (TOPBAR) */
+        .app-topbar {
+            height: 60px;
+            background-color: #FFFFFF;
+            border-bottom: 1px solid var(--ies-border);
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .app-content {
+            flex: 1 0 auto;
+            padding: 1.5rem 1.5rem 2.5rem 1.5rem;
+        }
+
+        .app-footer {
+            background-color: #FFFFFF;
+            border-top: 1px solid var(--ies-border);
+            padding: 1rem 1.5rem;
+            font-size: 0.82rem;
+            color: var(--ies-text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: gap-2;
+        }
+
+        /* OVERLAY PARA MÓVILES */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 36, 62, 0.5);
+            z-index: 1030;
+        }
+
+        @media (max-width: 991.98px) {
+            .app-sidebar {
+                transform: translateX(-100%);
+            }
+            .app-sidebar.show-sidebar {
+                transform: translateX(0);
+            }
+            .sidebar-backdrop.show-backdrop {
+                display: block;
+            }
+            .app-main {
+                margin-left: 0 !important;
+                width: 100vw !important;
+            }
         }
 
         /* COMPONENTES Y TARJETAS */
-        .main-content {
-            flex: 1 0 auto;
-            width: 100%;
-        }
         .card {
             background-color: var(--ies-card-bg);
             border: 1px solid var(--ies-border);
@@ -239,183 +362,235 @@
             color: var(--badge-lt-text);
             border-color: var(--badge-lt-border);
         }
-
-        /* PIE INSTITUCIONAL */
-        .footer-ies {
-            background-color: var(--ies-primary-dark);
-            color: #E2E8F0;
-            border-top: 3px solid var(--ies-secondary);
-            padding: 1.25rem 0;
-            font-size: 0.85rem;
-        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-    <!-- BARRA SUPERIOR DE NAVEGACIÓN INSTITUCIONAL (IESETyFP) -->
-    <nav class="navbar navbar-expand-xl navbar-dark navbar-ies sticky-top">
-        <div class="container-fluid px-lg-4 px-md-3">
-            <!-- Identidad Institucional -->
-            <a class="navbar-brand navbar-brand-container" href="{% url 'dashboard' %}">
-                <img src="{% static 'img/logo_iesetyfp.jpg' %}" alt="Logo IESETyFP" class="brand-logo">
-                <div class="d-flex flex-column">
-                    <span class="brand-title">SIGET</span>
-                    <span class="brand-subtitle">IESETyFP · Nivel Terciario</span>
-                </div>
-            </a>
+    <div class="app-layout">
+        <!-- BACKDROP PARA MÓVILES -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
 
-            <!-- Botón Colapsable Móvil/Tablet -->
-            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSigetMenu" aria-controls="navbarSigetMenu" aria-expanded="false" aria-label="Navegación">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+        <!-- BARRA DE NAVEGACIÓN LATERAL IZQUIERDA (SIDEBAR INSTITUCIONAL) -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Encabezado con Logo e Identidad -->
+            <div class="sidebar-header">
+                <a class="d-flex align-items-center gap-2 text-decoration-none" href="{% url 'dashboard' %}">
+                    <img src="{% static 'img/logo_iesetyfp.jpg' %}" alt="Logo IESETyFP" class="brand-logo">
+                    <div class="d-flex flex-column">
+                        <span class="brand-title">SIGET</span>
+                        <span class="brand-subtitle">IESETyFP · Nivel Terciario</span>
+                    </div>
+                </a>
+                <button class="btn btn-sm text-white d-lg-none" type="button" onclick="toggleSidebar()">
+                    <i class="bi bi-x-lg fs-5"></i>
+                </button>
+            </div>
 
-            <!-- Menú Horizontal de Enlaces -->
-            <div class="collapse navbar-collapse" id="navbarSigetMenu">
-                <ul class="navbar-nav me-auto mb-2 mb-xl-0 ms-xl-3 gap-1">
-                    <!-- 1. Inicio -->
+            <!-- SECCIONES DE NAVEGACIÓN EN ORDEN ESTRICTO -->
+            <nav class="sidebar-nav">
+                <ul class="nav flex-column gap-1">
+                    <!-- Inicio (resumen/accesos rápidos) -->
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
-                            <i class="bi bi-house-door-fill"></i> Inicio
+                        <a class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                            <i class="bi bi-house-door-fill text-info"></i>
+                            <span>Inicio</span>
                         </a>
                     </li>
 
-                    <!-- 2. Asistencia Diaria (Prioridad Operativa para Bedelía) -->
+                    <!-- Personal (Docentes, Designaciones, Horarios) -->
                     <li class="nav-item">
-                        <a class="nav-link nav-link-asistencia {% if request.resolver_match.url_name == 'asistencia_diaria' %}active{% endif %}" href="{% url 'asistencia_diaria' %}">
-                            <i class="bi bi-calendar-check-fill text-warning"></i> Asistencia Diaria
-                        </a>
-                    </li>
-
-                    <!-- 3. Personal Docente (Desplegable) -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if 'agente' in request.resolver_match.url_name or 'designacion' in request.resolver_match.url_name or 'suplencia' in request.resolver_match.url_name %}active{% endif %}" href="#" id="personalDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-people-fill"></i> Personal
-                        </a>
-                        <ul class="dropdown-menu shadow" aria-labelledby="personalDropdown">
+                        <div class="sidebar-section-title">
+                            <i class="bi bi-people-fill text-warning"></i>
+                            <span>Personal</span>
+                        </div>
+                        <ul class="sub-menu">
                             <li>
-                                <a class="dropdown-item" href="{% url 'agentes_list' %}">
-                                    <i class="bi bi-person-lines-fill text-primary"></i> Padrón Docente
+                                <a class="sub-link {% if request.resolver_match.url_name == 'agentes_list' %}active{% endif %}" href="{% url 'agentes_list' %}">
+                                    <i class="bi bi-person-lines-fill"></i> Padrón Docente
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{% url 'designaciones_list' %}">
-                                    <i class="bi bi-journal-bookmark-fill text-info"></i> Cátedras y Horarios
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'agente_create' %}">
-                                    <i class="bi bi-person-plus-fill text-success"></i> Nuevo Docente
+                                <a class="sub-link {% if 'designacion' in request.resolver_match.url_name and request.resolver_match.url_name != 'designacion_create' and request.resolver_match.url_name != 'suplencia_create' %}active{% endif %}" href="{% url 'designaciones_list' %}">
+                                    <i class="bi bi-journal-bookmark-fill"></i> Designaciones y Horarios
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{% url 'designacion_create' %}">
-                                    <i class="bi bi-plus-circle-fill text-primary"></i> Asignar Cátedra (Tope 30 hs)
+                                <a class="sub-link {% if request.resolver_match.url_name == 'agente_create' %}active{% endif %}" href="{% url 'agente_create' %}">
+                                    <i class="bi bi-person-plus-fill"></i> Nuevo Docente
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{% url 'suplencia_create' %}">
-                                    <i class="bi bi-person-badge-fill text-warning"></i> Asignar Suplencia
+                                <a class="sub-link {% if request.resolver_match.url_name == 'designacion_create' %}active{% endif %}" href="{% url 'designacion_create' %}">
+                                    <i class="bi bi-plus-circle-fill"></i> Designar Cátedra (Tope 30 hs)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="sub-link {% if request.resolver_match.url_name == 'suplencia_create' %}active{% endif %}" href="{% url 'suplencia_create' %}">
+                                    <i class="bi bi-person-badge-fill"></i> Designar Suplencia
                                 </a>
                             </li>
                         </ul>
                     </li>
 
-                    <!-- 4. Licencias & Cuadros Mensuales (Desplegable) -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name == 'procesamiento_mensual' or 'licencia' in request.resolver_match.url_name %}active{% endif %}" href="#" id="licenciasDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-file-earmark-medical-fill"></i> Licencias & Cuadros
+                    <!-- Asistencia Diaria (selección de fecha, listado, P/I/LIC/LT/PR, novedades) -->
+                    <li class="nav-item">
+                        <a class="sidebar-link sidebar-link-destacado {% if request.resolver_match.url_name == 'asistencia_diaria' %}active{% endif %}" href="{% url 'asistencia_diaria' %}">
+                            <i class="bi bi-calendar-check-fill text-warning"></i>
+                            <span>Asistencia Diaria</span>
                         </a>
-                        <ul class="dropdown-menu shadow" aria-labelledby="licenciasDropdown">
+                    </li>
+
+                    <!-- Planillas Mensuales (IL-01, IL-02, procesamiento mensual, horas afectadas) -->
+                    <li class="nav-item">
+                        <a class="sidebar-link {% if request.resolver_match.url_name == 'procesamiento_mensual' %}active{% endif %}" href="{% url 'procesamiento_mensual' %}">
+                            <i class="bi bi-file-earmark-spreadsheet-fill text-success"></i>
+                            <span>Planillas Mensuales</span>
+                        </a>
+                    </li>
+
+                    <!-- Consultas (por docente, DNI, período, estado, materia, historial) -->
+                    <li class="nav-item">
+                        <a class="sidebar-link {% if request.resolver_match.url_name == 'consultas' %}active{% endif %}" href="{% url 'consultas' %}">
+                            <i class="bi bi-search text-info"></i>
+                            <span>Consultas</span>
+                        </a>
+                    </li>
+
+                    <!-- Alertas (docentes próximos al límite reglamentario según RF-18) -->
+                    <li class="nav-item">
+                        <a class="sidebar-link {% if request.resolver_match.url_name == 'alertas' %}active{% endif %}" href="{% url 'alertas' %}">
+                            <i class="bi bi-bell-fill text-warning"></i>
+                            <span>Alertas</span>
+                        </a>
+                    </li>
+
+                    <!-- Catálogos (ABMC de Carreras, Espacios curriculares, Licencias) -->
+                    <li class="nav-item">
+                        <div class="sidebar-section-title">
+                            <i class="bi bi-collection-fill text-secondary"></i>
+                            <span>Catálogos</span>
+                        </div>
+                        <ul class="sub-menu">
                             <li>
-                                <a class="dropdown-item" href="{% url 'procesamiento_mensual' %}">
-                                    <i class="bi bi-calculator-fill text-primary"></i> Cuadros IL-01 / IL-02 (Mensual)
+                                <a class="sub-link {% if 'carrera' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'carreras_list' %}">
+                                    <i class="bi bi-mortarboard-fill"></i> Carreras (RF-05)
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{% url 'licencias_list' %}">
-                                    <i class="bi bi-card-checklist text-success"></i> Nomenclador de Licencias (Hojas 1-6)
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'carreras_list' %}">
-                                    <i class="bi bi-mortarboard text-secondary"></i> Carreras y Tecnicaturas
+                                <a class="sub-link {% if 'materia' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'materias_list' %}">
+                                    <i class="bi bi-book-fill"></i> Espacios Curriculares
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{% url 'materias_list' %}">
-                                    <i class="bi bi-book text-secondary"></i> Espacios Curriculares
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'importar_csv' %}">
-                                    <i class="bi bi-file-earmark-spreadsheet text-info"></i> Carga Masiva CSV
+                                <a class="sub-link {% if 'licencia' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'licencias_list' %}">
+                                    <i class="bi bi-card-checklist"></i> Nomenclador Licencias
                                 </a>
                             </li>
                         </ul>
                     </li>
 
-                    <!-- 5. Consultas & Alertas -->
+                    <!-- Calendario (feriados, asuetos y días no laborables según RF-10) -->
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'consultas' %}active{% endif %}" href="{% url 'consultas' %}">
-                            <i class="bi bi-search"></i> Consultas & Alertas
+                        <a class="sidebar-link {% if request.resolver_match.url_name == 'calendario' %}active{% endif %}" href="{% url 'calendario' %}">
+                            <i class="bi bi-calendar-event-fill text-danger"></i>
+                            <span>Calendario</span>
                         </a>
                     </li>
 
-                    <!-- 6. Auditoría -->
+                    <!-- Administración (Usuarios, Importación CSV y Auditoría según RF-06, RF-19 y RF-20) -->
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'auditoria' %}active{% endif %}" href="{% url 'auditoria' %}">
-                            <i class="bi bi-shield-check"></i> Auditoría
-                        </a>
+                        <div class="sidebar-section-title">
+                            <i class="bi bi-gear-fill text-light"></i>
+                            <span>Administración</span>
+                        </div>
+                        <ul class="sub-menu">
+                            <li>
+                                <a class="sub-link" href="/admin/" target="_blank">
+                                    <i class="bi bi-shield-lock-fill"></i> Usuarios y Permisos (RF-19)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="sub-link {% if request.resolver_match.url_name == 'importar_csv' %}active{% endif %}" href="{% url 'importar_csv' %}">
+                                    <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar CSV (RF-06)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="sub-link {% if request.resolver_match.url_name == 'auditoria' %}active{% endif %}" href="{% url 'auditoria' %}">
+                                    <i class="bi bi-shield-check"></i> Auditoría (RF-20)
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 </ul>
+            </nav>
 
-                <!-- Estado de Sesión / Usuario (Derecha) -->
-                <div class="d-flex align-items-center gap-3 pt-2 pt-xl-0 border-top border-xl-0 border-light border-opacity-25">
+            <!-- Pie del Sidebar Institucional -->
+            <div class="sidebar-footer">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-building text-warning fs-5"></i>
+                    <div class="d-flex flex-column">
+                        <span class="text-white small fw-bold lh-1">Oficina 1452</span>
+                        <span class="text-white-50" style="font-size: 0.70rem;">Liquidaciones · 2026</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ÁREA PRINCIPAL DERECHA -->
+        <div class="app-main">
+            <!-- BARRA SUPERIOR (TOPBAR) -->
+            <header class="app-topbar">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-outline-secondary btn-sm d-lg-none" type="button" onclick="toggleSidebar()" aria-label="Abrir Menú">
+                        <i class="bi bi-list fs-5"></i>
+                    </button>
+                    <div class="d-none d-sm-block">
+                        <span class="fw-bold text-primary">SIGET</span>
+                        <span class="text-muted small">· Sistema Institucional de Gestión y Tiempos</span>
+                    </div>
+                </div>
+
+                <!-- Perfil y Cierre de Sesión -->
+                <div class="d-flex align-items-center gap-3">
                     <div class="d-flex align-items-center gap-2">
-                        <div class="bg-white rounded-circle p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 34px; height: 34px;">
-                            <i class="bi bi-person-fill text-primary fs-5"></i>
+                        <div class="bg-primary text-white rounded-circle p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 34px; height: 34px;">
+                            <i class="bi bi-person-fill fs-5"></i>
                         </div>
-                        <div class="d-flex flex-column text-end text-white d-none d-md-flex">
-                            <span class="fw-bold small lh-1">{{ request.user.get_full_name|default:request.user.username }}</span>
-                            <span class="text-white-50" style="font-size: 0.72rem;">{% if request.user.groups.first %}{{ request.user.groups.first.name }}{% elif request.user.is_superuser %}Administración{% else %}Bedelía / Secretaría{% endif %}</span>
+                        <div class="d-flex flex-column text-end d-none d-md-flex">
+                            <span class="fw-bold small text-dark lh-1">{{ request.user.get_full_name|default:request.user.username }}</span>
+                            <span class="text-muted" style="font-size: 0.72rem;">{% if request.user.groups.first %}{{ request.user.groups.first.name }}{% elif request.user.is_superuser %}Administración{% else %}Bedelía / Secretaría{% endif %}</span>
                         </div>
                     </div>
 
                     <form action="{% url 'logout' %}" method="post" class="d-inline mb-0">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-light d-flex align-items-center gap-1 py-1 px-2" title="Cerrar Sesión Segura">
+                        <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 py-1 px-2" title="Cerrar Sesión Segura">
                             <i class="bi bi-box-arrow-right"></i> <span class="d-none d-sm-inline">Salir</span>
                         </button>
                     </form>
                 </div>
-            </div>
-        </div>
-    </nav>
+            </header>
 
-    <!-- CONTENIDO PRINCIPAL FLUIDO Y RESPONSIVE -->
-    <main class="main-content">
-        <div class="container-fluid px-lg-4 px-md-3 py-4">
-            {% block content %}{% endblock %}
-        </div>
-    </main>
+            <!-- CONTENIDO DE LA VISTA -->
+            <main class="app-content">
+                {% block content %}{% endblock %}
+            </main>
 
-    <!-- PIE DE PÁGINA INSTITUCIONAL WEB -->
-    <footer class="footer-ies mt-auto">
-        <div class="container-fluid px-lg-4 px-md-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div>
-                <strong>IESETyFP</strong> — Instituto de Educación Superior de Educación Técnica y Formación Profesional
-                <span class="d-none d-md-inline text-white-50"> · Resistencia, Chaco</span>
-            </div>
-            <div class="d-flex align-items-center gap-3 text-white-50 small">
-                <span>Dirección de Liquidaciones: <strong class="text-warning">Oficina 1452</strong></span>
-                <span>Ciclo Lectivo: <strong class="text-white">2026</strong></span>
-                <span class="badge bg-light text-dark">SIGET Web v2.0</span>
-            </div>
+            <!-- PIE DE PÁGINA INSTITUCIONAL -->
+            <footer class="app-footer">
+                <div>
+                    <strong>IESETyFP</strong> — Instituto de Educación Superior de Educación Técnica y Formación Profesional
+                    <span class="d-none d-md-inline"> · Resistencia, Chaco</span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span>Oficina 1452 · Liquidaciones</span>
+                    <span>Ciclo 2026</span>
+                    <span class="badge bg-secondary text-white">v2.0 Django</span>
+                </div>
+            </footer>
         </div>
-    </footer>
+    </div>
 
     <!-- Toast Container Flotante de Notificaciones (Bottom-Right) -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1095;" id="contenedorToasts">
@@ -456,6 +631,16 @@
     <!-- Bootstrap 5.3 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Toggle Sidebar en pantallas pequeñas
+        function toggleSidebar() {
+            const sidebar = document.getElementById('appSidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (sidebar && backdrop) {
+                sidebar.classList.toggle('show-sidebar');
+                backdrop.classList.toggle('show-backdrop');
+            }
+        }
+
         // Inicialización automática y efímera de Toasts (4.5 segundos con auto-hide suave)
         document.addEventListener("DOMContentLoaded", function () {
             const toastElements = document.querySelectorAll("#contenedorToasts .toast");

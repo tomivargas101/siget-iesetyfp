@@ -55,16 +55,16 @@
             </p>
         </div>
 
-        <!-- SELECTOR DE FECHA DINÁMICO -->
+        <!-- SELECTOR DE FECHA DINÁMICO (BOTONES ANTERIOR Y SIGUIENTE SIEMPRE HABILITADOS RF-10) -->
         <div class="d-flex align-items-center gap-2 bg-light p-2 rounded-3 border">
-            <a href="?fecha={{ fecha_ayer|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary" title="Día Anterior">
-                <i class="bi bi-chevron-left"></i>
+            <a href="?fecha={{ fecha_ayer|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" title="Día Anterior">
+                <i class="bi bi-chevron-left"></i> <span class="d-none d-sm-inline">Anterior</span>
             </a>
             <form method="GET" class="d-inline mb-0">
                 <input type="date" name="fecha" value="{{ fecha_sel|date:'Y-m-d' }}" class="form-control form-control-sm fw-bold border-secondary text-primary" onchange="this.form.submit()">
             </form>
-            <a href="?fecha={{ fecha_manana|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary" title="Día Siguiente">
-                <i class="bi bi-chevron-right"></i>
+            <a href="?fecha={{ fecha_manana|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" title="Día Siguiente">
+                <span class="d-none d-sm-inline">Siguiente</span> <i class="bi bi-chevron-right"></i>
             </a>
             <a href="?fecha=" class="btn btn-sm btn-ies">Hoy</a>
             <span class="badge bg-primary text-white text-uppercase px-2 py-1 ms-1 fw-bold">
@@ -446,7 +446,7 @@
                 <div class="modal-footer bg-light py-2">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-ies px-4" id="btnGuardarModal">
-                        <i class="bi bi-check-circle-fill me-1"></i> Guardar y Asignar Formulario
+                        <i class="bi bi-check-circle-fill me-1"></i> Guardar y Aplicar Novedad
                     </button>
                 </div>
             </form>

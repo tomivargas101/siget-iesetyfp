@@ -43,9 +43,19 @@
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-white border-top text-end">
-                <a href="{% url 'materias_list' %}" class="btn btn-sm btn-outline-primary">
-                    Ver Asignaturas <i class="bi bi-arrow-right"></i>
+            <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center">
+                <div class="d-flex gap-1">
+                    <a href="{% url 'carrera_edit' c.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Carrera">
+                        <i class="bi bi-pencil-square me-1"></i> Editar
+                    </a>
+                    {% if c.activo %}
+                    <a href="{% url 'carrera_baja' c.pk %}" class="btn btn-sm btn-outline-secondary" title="Pase a Histórico (Baja Lógica RN-03)" onclick="return confirm('¿Confirma dar de baja lógica esta carrera? Pasará a histórico sin borrarse de la base.')">
+                        <i class="bi bi-archive"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <a href="{% url 'materias_list' %}" class="btn btn-sm btn-outline-dark">
+                    Asignaturas <i class="bi bi-arrow-right"></i>
                 </a>
             </div>
         </div>

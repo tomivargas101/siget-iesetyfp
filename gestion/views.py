@@ -1119,11 +1119,176 @@ def carrera_create_view(request):
         form = CarreraForm(request.POST)
         if form.is_valid():
             c = form.save()
-            messages.success(request, f"Carrera {c.nombre} creada.")
+            registrar_auditoria(
+                usuario=request.user,
+                accion="ALTA_CARRERA",
+                entidad="Carrera",
+                entidad_id=c.id,
+                detalle=f"Alta de carrera '{c.nombre}' (Código: {c.codigo}, Res: {c.resolucion or 'S/R'}) conforme a RF-05.",
+                ip=request.META.get("REMOTE_ADDR")
+            )
+            messages.success(request, f"Carrera '{c.nombre}' creada exitosamente.")
             return redirect("carreras_list")
+        else:
+            messages.error(request, "Por favor corrija los errores indicados en el formulario de Carrera.")
     else:
         form = CarreraForm()
     return render(request, "gestion/carrera_form.html", {"form": form})
+
+
+@login_required
+def carrera_edit_view(request, pk):
+    carrera = get_object_or_404(Carrera, pk=pk)
+    if request.method == "POST":
+        form = CarreraForm(request.POST, instance=carrera)
+        if form.is_valid():
+            c = form.save()
+            registrar_auditoria(
+                usuario=request.user,
+                accion="MODIFICACION_CARRERA",
+                entidad="Carrera",
+                entidad_id=c.id,
+                detalle=f"Modificación de carrera '{c.nombre}' (Código: {c.codigo}, Res: {c.resolucion or 'S/R'}) conforme a RF-05.",
+                ip=request.META.get("REMOTE_ADDR")
+            )
+            messages.success(request, f"Carrera '{c.nombre}' actualizada exitosamente.")
+            return redirect("carreras_list")
+        else:
+            messages.error(request, "Por favor corrija los errores indicados en el formulario de Carrera.")
+    else:
+        form = CarreraForm(instance=carrera)
+    return render(request, "gestion/carrera_form.html", {"form": form, "carrera": carrera})
+
+
+@login_required
+def carrera_baja_view(request, pk):
+    carrera = get_object_or_404(Carrera, pk=pk)
+    carrera.activo = False
+    carrera.save()
+    registrar_auditoria(
+        usuario=request.user,
+        accion="BAJA_LOGICA_CARRERA",
+        entidad="Carrera",
+        entidad_id=carrera.id,
+        detalle=f"Baja lógica de carrera '{carrera.nombre}' (Código: {carrera.codigo}) conforme a RF-05 y RN-03.",
+        ip=request.META.get("REMOTE_ADDR")
+    )
+    messages.warning(request, f"Se ha registrado la baja lógica (pase a histórico) de la carrera '{carrera.nombre}'.")
+    return redirect("carreras_list")
+
+
+@login_required
+def alertas_view(request):
+    anio_str = request.GET.get("anio")
+    hoy = date.today()
+    try:
+        anio = int(anio_str) if anio_str else hoy.year
+    except ValueError:
+        anio = hoy.year
+
+    alertas = CalculadorAlertasService.obtener_alertas_docentes(anio=anio)
+
+    # Filtro opcional por nivel
+    nivel_filtro = request.GET.get("nivel", "").upper()
+    if nivel_filtro in ["CRITICO", "ADVERTENCIA", "NORMAL"]:
+        alertas_filtradas = [a for a in alertas if a["nivel"] == nivel_filtro]
+    else:
+        alertas_filtradas = alertas
+
+    # Conteo general
+    total_docentes = len(alertas)
+    total_criticos = sum(1 for a in alertas if a["nivel"] == "CRITICO")
+    total_advertencia = sum(1 for a in alertas if a["nivel"] == "ADVERTENCIA")
+    total_normal = sum(1 for a in alertas if a["nivel"] == "NORMAL")
+
+    return render(request, "gestion/alertas.html", {
+        "alertas": alertas_filtradas,
+        "anio_sel": anio,
+        "nivel_filtro": nivel_filtro,
+        "total_docentes": total_docentes,
+        "total_criticos": total_criticos,
+        "total_advertencia": total_advertencia,
+        "total_normal": total_normal,
+    })
+
+
+@login_required
+def calendario_view(request):
+    hoy = date.today()
+    try:
+        mes = int(request.GET.get("mes", hoy.month))
+        anio = int(request.GET.get("anio", hoy.year))
+    except (ValueError, TypeError):
+        mes = hoy.month
+        anio = hoy.year
+
+    if mes < 1:
+        mes = 12
+        anio -= 1
+    elif mes > 12:
+        mes = 1
+        anio += 1
+
+    # Cálculo navegación de mes (siempre habilitada hacia adelante y atrás)
+    if mes == 1:
+        mes_anterior = 12
+        anio_anterior = anio - 1
+    else:
+        mes_anterior = mes - 1
+        anio_anterior = anio
+
+    if mes == 12:
+        mes_siguiente = 1
+        anio_siguiente = anio + 1
+    else:
+        mes_siguiente = mes + 1
+        anio_siguiente = anio
+
+    # Alta opcional de feriado/día inhábil
+    if request.method == "POST":
+        fecha_str = request.POST.get("fecha")
+        descripcion = request.POST.get("descripcion", "").strip()
+        tipo = request.POST.get("tipo", "FERIADO")
+        if fecha_str and descripcion:
+            try:
+                f_date = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                feriado, created = Feriado.objects.update_or_create(
+                    fecha=f_date,
+                    defaults={"descripcion": descripcion, "tipo": tipo}
+                )
+                registrar_auditoria(
+                    usuario=request.user,
+                    accion="ALTA_FERIADO" if created else "MODIFICACION_FERIADO",
+                    entidad="Feriado",
+                    entidad_id=feriado.id,
+                    detalle=f"Registro en Calendario Escolar (RF-10): {f_date.strftime('%d/%m/%Y')} - {descripcion} ({tipo})",
+                    ip=request.META.get("REMOTE_ADDR")
+                )
+                messages.success(request, f"Fecha {f_date.strftime('%d/%m/%Y')} registrada en el calendario escolar exitosamente.")
+                return redirect(f"{request.path}?mes={f_date.month}&anio={f_date.year}")
+            except Exception as e:
+                messages.error(request, f"Error al registrar la fecha: {e}")
+
+    feriados_mes = Feriado.objects.filter(fecha__year=anio, fecha__month=mes).order_by("fecha")
+    feriados_anio = Feriado.objects.filter(fecha__year=anio).order_by("fecha")
+
+    nombres_meses = [
+        "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+
+    return render(request, "gestion/calendario.html", {
+        "mes_sel": mes,
+        "anio_sel": anio,
+        "nombre_mes": nombres_meses[mes],
+        "mes_anterior": mes_anterior,
+        "anio_anterior": anio_anterior,
+        "mes_siguiente": mes_siguiente,
+        "anio_siguiente": anio_siguiente,
+        "feriados_mes": feriados_mes,
+        "feriados_anio": feriados_anio,
+        "hoy": hoy,
+    })
 
 
 @login_required

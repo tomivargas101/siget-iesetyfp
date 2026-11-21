@@ -18,7 +18,7 @@
                 <i class="bi bi-arrow-left me-1"></i>Padrón
             </a>
             <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="btn btn-success btn-sm">
-                <i class="bi bi-journal-plus me-1"></i>Asignar Cátedra
+                <i class="bi bi-journal-plus me-1"></i>Designar Cátedra
             </a>
             <a href="{% url 'agente_edit' pk=agente.id %}" class="btn btn-ies btn-sm">
                 <i class="bi bi-pencil me-1"></i>Modificar
@@ -135,7 +135,7 @@
                         {% empty %}
                         <tr>
                             <td colspan="6" class="text-center py-4 text-muted">
-                                No posee cátedras activas actualmente. <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="text-primary fw-semibold">Asignar cátedra ahora</a>.
+                                No posee cátedras activas actualmente. <a href="{% url 'designacion_create' %}?agente_id={{ agente.id }}" class="text-primary fw-semibold">Designar cátedra ahora</a>.
                             </td>
                         </tr>
                         {% endfor %}

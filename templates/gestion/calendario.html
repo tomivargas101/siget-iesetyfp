@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendario Escolar e Inhábiles - SIGET{% endblock %}
+
+{% block content %}
+<!-- ENCABEZADO Y NAVEGACIÓN DE FECHAS (RF-10) -->
+<div class="card p-3 mb-4 shadow-sm border-0 bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h2 class="h4 fw-bold mb-1 text-primary d-flex align-items-center gap-2">
+                <i class="bi bi-calendar-event-fill text-primary"></i> Calendario Escolar e Inhábiles (RF-10)
+            </h2>
+            <p class="text-muted mb-0 small">
+                Registro de feriados nacionales/provinciales, asuetos institucionales, jornadas y mesas de examen.
+            </p>
+        </div>
+
+        <!-- SELECTOR DE NAVEGACIÓN TEMPORAL (BOTONES ANTERIOR Y SIGUIENTE SIEMPRE HABILITADOS) -->
+        <div class="d-flex align-items-center gap-2 bg-light p-2 rounded-3 border">
+            <a href="?mes={{ mes_anterior }}&anio={{ anio_anterior }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" title="Mes Anterior">
+                <i class="bi bi-chevron-left"></i> <span>Anterior</span>
+            </a>
+            <span class="px-2 fw-bold text-primary text-uppercase">
+                {{ nombre_mes }} {{ anio_sel }}
+            </span>
+            <a href="?mes={{ mes_siguiente }}&anio={{ anio_siguiente }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" title="Mes Siguiente">
+                <span>Siguiente</span> <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="?mes={{ hoy.month }}&anio={{ hoy.year }}" class="btn btn-sm btn-ies ms-1">
+                Mes Actual
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- AVISO NORMATIVO INSTITUCIONAL -->
+<div class="alert alert-info border-info d-flex align-items-center gap-3 mb-4 shadow-sm" role="alert">
+    <i class="bi bi-info-circle-fill fs-3 text-info"></i>
+    <div class="small">
+        <strong>Pauta Operativa RF-10:</strong> La indicación de feriados, asuetos o jornadas es de carácter visual e institucional. Las fechas futuras pueden consultarse y planificarse libremente; no alteran automáticamente el cómputo de novedades o liquidaciones sin los respaldos de Secretaría correspondientes.
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- LISTADO DE FECHAS DEL MES SELECCIONADO -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 bg-white h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-calendar3"></i> Inhábiles en {{ nombre_mes }} {{ anio_sel }}
+                </h5>
+                <span class="badge bg-primary">{{ feriados_mes.count }} registrados</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-ies align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Descripción / Conmemoración</th>
+                            <th class="text-center">Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in feriados_mes %}
+                        <tr>
+                            <td class="fw-bold text-dark text-nowrap">
+                                <i class="bi bi-calendar2-day text-primary me-1"></i>
+                                {{ f.fecha|date:"d/m/Y (l)"|capfirst }}
+                            </td>
+                            <td>{{ f.descripcion }}</td>
+                            <td class="text-center">
+                                {% if f.tipo == 'FERIADO' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger">Feriado</span>
+                                {% elif f.tipo == 'ASUETO' %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">Asueto</span>
+                                {% elif f.tipo == 'JORNADA' %}
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info">Jornada</span>
+                                {% else %}
+                                    <span class="badge bg-secondary text-white">{{ f.get_tipo_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">
+                                <i class="bi bi-calendar-check text-muted fs-3 d-block mb-1"></i>
+                                No hay feriados ni asuetos registrados en {{ nombre_mes }} {{ anio_sel }}.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMULARIO DE ALTA DE DÍA INHÁBIL -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 bg-white">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-plus-circle-fill text-success"></i> Incorporar Fecha al Calendario
+                </h5>
+            </div>
+            <div class="card-body p-3">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label text-dark small fw-bold">Fecha Inhábil *</label>
+                        <input type="date" name="fecha" class="form-control" required value="{{ anio_sel }}-{{ mes_sel|stringformat:'02d' }}-01">
+                        <div class="form-text small">Día a señalar en el calendario institucional.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark small fw-bold">Descripción / Motivo *</label>
+                        <input type="text" name="descripcion" class="form-control" placeholder="Ej: Feriado Nacional, Asueto Administrativo" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark small fw-bold">Tipo de Día *</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="FERIADO">Feriado Nacional / Provincial</option>
+                            <option value="ASUETO">Asueto Institucional</option>
+                            <option value="JORNADA">Jornada Pedagógica / Institucional</option>
+                            <option value="MESA">Mesa de Exámenes</option>
+                        </select>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-ies">
+                            <i class="bi bi-calendar-plus me-1"></i> Guardar en Calendario
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- RESUMEN ANUAL RÁPIDO -->
+        <div class="card shadow-sm border-0 bg-white mt-3">
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold text-muted text-uppercase">Total Anual {{ anio_sel }}</span>
+                <span class="badge bg-secondary">{{ feriados_anio.count }} fechas</span>
+            </div>
+            <div class="card-body p-2 small" style="max-height: 200px; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                    {% for f in feriados_anio %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-2 py-1">
+                        <span>{{ f.fecha|date:"d/m" }} - {{ f.descripcion|truncatechars:28 }}</span>
+                        <span class="badge bg-light text-dark border">{{ f.get_tipo_display|truncatechars:10 }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-muted text-center py-2">Sin registros para {{ anio_sel }}.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

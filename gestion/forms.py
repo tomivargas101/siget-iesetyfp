@@ -48,12 +48,28 @@ class AgenteForm(forms.ModelForm):
         dni = str(self.cleaned_data.get("dni", "")).strip().replace(".", "").replace(" ", "")
         if not dni:
             raise ValidationError("El DNI es obligatorio y no puede quedar vacío.")
+        if len(dni) > 8:
+            raise ValidationError("El DNI no puede superar los 8 caracteres numéricos (RF-01).")
         qs = Agente.objects.filter(dni=dni)
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise ValidationError(f"Ya existe un docente registrado con el DNI {dni}.")
         return dni
+
+    def clean_cuil(self):
+        cuil = str(self.cleaned_data.get("cuil", "") or "").strip()
+        if cuil:
+            if not (11 <= len(cuil) <= 13):
+                raise ValidationError("El CUIL debe contener entre 11 y 13 caracteres (ej: 20-xxxxxxxx-x o 11 dígitos numéricos).")
+        return cuil
+
+    def clean_telefono(self):
+        tel = str(self.cleaned_data.get("telefono", "") or "").strip()
+        if tel:
+            if not (10 <= len(tel) <= 14):
+                raise ValidationError("El teléfono debe contener entre 10 y 14 caracteres (ej: 3624-xxxxxx).")
+        return tel
 
     def clean_legajo(self):
         legajo = str(self.cleaned_data.get("legajo", "")).strip()
@@ -380,10 +396,29 @@ class CarreraForm(forms.ModelForm):
         widgets = {
             "codigo": forms.TextInput(attrs={"class": "form-control", "placeholder": "TEC-DS"}),
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
-            "resolucion": forms.TextInput(attrs={"class": "form-control"}),
-            "duracion_anios": forms.NumberInput(attrs={"class": "form-control"}),
+            "resolucion": forms.TextInput(attrs={"class": "form-control", "placeholder": "Res. Ministerial N° ..."}),
+            "duracion_anios": forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 10}),
             "activo": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["duracion_anios"].required = False
+        if not self.is_bound and (not self.instance or not self.instance.pk):
+            self.initial.setdefault("duracion_anios", 3)
+            self.initial.setdefault("activo", True)
+
+    def clean_duracion_anios(self):
+        val = self.cleaned_data.get("duracion_anios")
+        if val is None or val == "":
+            return 3
+        try:
+            num = int(val)
+            if num <= 0:
+                raise ValidationError("La duración en años debe ser un número positivo.")
+            return num
+        except (ValueError, TypeError):
+            raise ValidationError("La duración en años debe ser un número entero.")
 
 
 class MateriaForm(forms.ModelForm):
