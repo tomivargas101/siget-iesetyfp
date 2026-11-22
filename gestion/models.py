@@ -183,6 +183,18 @@ class Designacion(models.Model):
         return ", ".join(f"{h.dia_semana} {h.hora_inicio.strftime('%H:%M') if hasattr(h.hora_inicio, 'strftime') else h.hora_inicio}-{h.hora_fin.strftime('%H:%M') if hasattr(h.hora_fin, 'strftime') else h.hora_fin} ({h.horas_catedra}hs)" for h in horarios)
 
     @property
+    def carrera(self):
+        """Retorna la Carrera asociada al espacio curricular de la designación (RF-03, RF-05)."""
+        return self.materia.carrera if self.materia_id else None
+
+    @property
+    def plan_estudio(self):
+        """Retorna la Resolución Ministerial o Plan de Estudio vinculado a la carrera (RF-05, RN-02)."""
+        if self.materia_id and self.materia.carrera:
+            return self.materia.carrera.resolucion
+        return None
+
+    @property
     def suplencia_activa(self):
         """Retorna la cobertura activa en la cual esta designación actúa como suplente."""
         if not self.pk:
@@ -546,6 +558,11 @@ class Disposicion(models.Model):
         ordering = ["anio", "numero"]
 
     def __str__(self):
+        return self.numero_formateado
+
+    @property
+    def numero_formato(self):
+        """Compatibilidad con plantillas y reportes (RF-16)."""
         return self.numero_formateado
 
 

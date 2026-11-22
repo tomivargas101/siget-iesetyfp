@@ -1085,6 +1085,133 @@ class ReglasNegocioSIGETTests(TestCase):
         ).first()
         self.assertIsNotNone(audit)
 
+    def test_asociacion_designacion_carrera_plan_estudio_rf03_rf05_rn02(self):
+        """Verifica la asociación directa de designaciones a su Carrera, Plan de estudio y Situación de revista (RF-03, RF-05, RN-02)."""
+        self.carrera.resolucion = "Res. 1045/18 MECCyT"
+        self.carrera.save()
+        docente = Agente.objects.create(dni="25999111", legajo="LEG-259", apellido="Sosa", nombre="Mariana")
+        desig = Designacion.objects.create(
+            agente=docente,
+            materia=self.materia1,
+            situacion_revista="INT",
+            activo=True
+        )
+        self.assertEqual(desig.carrera, self.carrera)
+        self.assertEqual(desig.plan_estudio, "Res. 1045/18 MECCyT")
+        self.assertEqual(desig.situacion_revista, "INT")
+
+        # Verificar formulario DesignacionForm
+        from gestion.forms import DesignacionForm
+        form = DesignacionForm()
+        label = form.fields["materia"].label_from_instance(self.materia1)
+        self.assertIn(self.materia1.nombre, label)
+        self.assertIn(self.carrera.codigo, label)
+        self.assertIn("Res. 1045/18 MECCyT", label)
+
+    def test_asignacion_automatica_disposicion_mensual_rn11_rf16(self):
+        """Verifica que el procesamiento mensual asigne disposiciones correlativas agrupadas alfabéticamente
+        y que todas las materias/días del mismo formulario compartan la misma Disposición (RN-11, RF-16)."""
+        docente_b = Agente.objects.create(dni="22111222", legajo="LEG-221", apellido="Barrios", nombre="Carlos")
+        docente_z = Agente.objects.create(dni="22333444", legajo="LEG-223", apellido="Zárate", nombre="Ana")
+
+        # Materias con horarios en viernes y lunes
+        desig_b1 = Designacion.objects.create(agente=docente_b, materia=self.materia1, situacion_revista="TIT", activo=True)
+        HorarioDesignacion.objects.create(designacion=desig_b1, dia_semana="Viernes", hora_inicio=time(18, 30), hora_fin=time(21, 30), horas_catedra=4, activo=True)
+        HorarioDesignacion.objects.create(designacion=desig_b1, dia_semana="Lunes", hora_inicio=time(18, 30), hora_fin=time(21, 30), horas_catedra=4, activo=True)
+
+        desig_z1 = Designacion.objects.create(agente=docente_z, materia=self.materia2, situacion_revista="TIT", activo=True)
+        HorarioDesignacion.objects.create(designacion=desig_z1, dia_semana="Lunes", hora_inicio=time(18, 30), hora_fin=time(21, 30), horas_catedra=4, activo=True)
+
+        # Licencia que cruza fin de semana (Viernes 06/11/2026 y Lunes 09/11/2026) con el mismo formulario
+        NovedadAsistencia.objects.create(
+            agente=docente_b, fecha=date(2026, 11, 6), estado="LIC",
+            formulario_numero="F-777/2026", tipo_licencia=self.lic_medica
+        )
+        NovedadAsistencia.objects.create(
+            agente=docente_b, fecha=date(2026, 11, 9), estado="LIC",
+            formulario_numero="F-777/2026", tipo_licencia=self.lic_medica
+        )
+
+        # Inasistencia para Zárate (Lunes 09/11/2026)
+        NovedadAsistencia.objects.create(
+            agente=docente_z, fecha=date(2026, 11, 9), estado="I"
+        )
+
+        # Procesar mes
+        res = ProcesadorMensualService.procesar_mes(mes=11, anio=2026, usuario_responsable=self.user)
+        self.assertTrue(res["success"])
+
+        # Verificar renglones de Barrios: viernes y lunes deben compartir la misma disposición (RN-11)
+        renglones_b = RenglonMensual.objects.filter(agente=docente_b, mes=11, anio=2026)
+        self.assertEqual(renglones_b.count(), 2)
+        disp_ids = {r.disposicion_id for r in renglones_b}
+        self.assertEqual(len(disp_ids), 1)  # Exactamente 1 disposición compartida
+
+        # Barrios (B) debe tener número menor que Zárate (Z) por orden alfabético de apellido (RF-16)
+        disp_b = renglones_b.first().disposicion
+        renglones_z = RenglonMensual.objects.filter(agente=docente_z, mes=11, anio=2026)
+        disp_z = renglones_z.first().disposicion
+        self.assertLess(disp_b.numero, disp_z.numero)
+
+        # Re-procesar mes: no debe dejar disposiciones huérfanas ni inflar números
+        ProcesadorMensualService.procesar_mes(mes=11, anio=2026, usuario_responsable=self.user)
+        self.assertEqual(Disposicion.objects.filter(anio=2026, renglones__isnull=True).count(), 0)
+
+    def test_asistencia_diaria_flujo_rf07_rf08_rf09_rf11_rf18(self):
+        """Verifica la carga ágil por planilla, transición I -> LIC, alerta preventiva y limpieza al volver a PR (RF-07, RF-08, RF-09, RF-11, RF-18)."""
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(dni="29111333", legajo="LEG-291", apellido="Méndez", nombre="Lucas")
+        fecha_test = date(2026, 11, 10)
+
+        # 1. Carga inicial: Inasistencia (I) (RF-07, RF-08)
+        resp = self.client.post("/asistencia/", data={
+            "agente_id": docente.pk,
+            "estado": "I",
+            "dias": "1",
+            "fecha": fecha_test.strftime("%Y-%m-%d")
+        }, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertEqual(resp.status_code, 200)
+
+        nov = NovedadAsistencia.objects.get(agente=docente, fecha=fecha_test)
+        self.assertEqual(nov.estado, "I")
+        self.assertIsNone(nov.formulario_numero)
+
+        # 2. Transición a LIC con formulario físico (RF-09, RF-11)
+        res_justif = JustificacionService.aplicar_justificacion(
+            agente=docente,
+            fecha_desde=fecha_test,
+            fecha_hasta=fecha_test,
+            formulario_numero="F-888/2026",
+            estado="LIC",
+            tipo_licencia=self.lic_medica,
+            usuario=self.user
+        )
+        self.assertTrue(res_justif["success"])
+        nov.refresh_from_db()
+        self.assertEqual(nov.estado, "LIC")
+        self.assertEqual(nov.formulario_numero, "F-888/2026")
+
+        # 3. Consultar planilla diaria: verificar advertencia preventiva disponible (RF-18)
+        resp_get = self.client.get(f"/asistencia/?fecha={fecha_test.strftime('%Y-%m-%d')}")
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "Licencia Activa")
+
+        # 4. Corrección manual a Presente (PR): debe limpiar formulario_numero y tipo_licencia
+        resp_pr = self.client.post("/asistencia/", data={
+            "agente_id": docente.pk,
+            "estado": "PR",
+            "dias": "1",
+            "fecha": fecha_test.strftime("%Y-%m-%d")
+        }, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertEqual(resp_pr.status_code, 200)
+
+        nov.refresh_from_db()
+        self.assertEqual(nov.estado, "PR")
+        self.assertIsNone(nov.formulario_numero)
+        self.assertIsNone(nov.tipo_licencia)
+        self.assertIsNone(nov.suplente)
+
+
 
 
 

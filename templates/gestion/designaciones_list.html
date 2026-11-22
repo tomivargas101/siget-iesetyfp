@@ -78,7 +78,12 @@
                     <td>
                         <strong class="text-dark">{{ d.materia.nombre }}</strong>
                         <div class="text-muted" style="font-size: 0.75rem;">
-                            {{ d.materia.carrera.codigo }} - {{ d.materia.carrera.nombre }} (Año {{ d.materia.anio_cursada }})
+                            {{ d.carrera.codigo }} - {{ d.carrera.nombre }} (Año {{ d.materia.anio_cursada }})
+                            {% if d.plan_estudio %}
+                                <span class="badge bg-light text-secondary border ms-1" title="Plan de Estudio / Resolución">
+                                    <i class="bi bi-file-earmark-ruled me-1"></i>{{ d.plan_estudio }}
+                                </span>
+                            {% endif %}
                         </div>
                     </td>
 

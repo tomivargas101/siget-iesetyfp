@@ -90,7 +90,16 @@
             </div>
             <div class="card-body p-3 small">
                 <h6 class="fw-bold text-dark mb-1">{{ desig.materia.nombre }}</h6>
-                <div class="text-muted mb-3">{{ desig.materia.carrera.codigo }} - {{ desig.materia.carrera.nombre }}</div>
+                <div class="text-muted mb-2">{{ desig.carrera.codigo }} - {{ desig.carrera.nombre }}</div>
+                {% if desig.plan_estudio %}
+                    <div class="mb-3">
+                        <span class="badge bg-info-subtle text-dark border border-info-subtle" title="Plan de Estudio / Resolución Ministerial">
+                            <i class="bi bi-file-earmark-ruled me-1"></i>Plan: {{ desig.plan_estudio }}
+                        </span>
+                    </div>
+                {% else %}
+                    <div class="mb-3"></div>
+                {% endif %}
 
                 <table class="table table-sm table-borderless mb-0">
                     <tr>

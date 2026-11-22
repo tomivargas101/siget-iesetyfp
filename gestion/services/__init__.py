@@ -37,6 +37,8 @@ class ProcesadorMensualService:
     @transaction.atomic
     def procesar_mes(cls, mes: int, anio: int, usuario_responsable=None) -> dict:
         RenglonMensual.objects.filter(mes=mes, anio=anio).delete()
+        # Limpieza de disposiciones previas huérfanas sin renglones para evitar saltos correlativos (RF-16)
+        Disposicion.objects.filter(anio=anio, renglones__isnull=True).delete()
 
         novedades = NovedadAsistencia.objects.filter(
             fecha__year=anio,
@@ -92,8 +94,13 @@ class ProcesadorMensualService:
                 else:
                     ultimo = bloque_actual[-1]
                     es_consecutivo = (nov.fecha - ultimo.fecha).days == 1
+                    # Si comparten número de formulario físico no vacío, pertenecen al mismo bloque de justificación (RN-11)
+                    mismo_form = bool(
+                        nov.formulario_numero and ultimo.formulario_numero and
+                        nov.formulario_numero.strip().upper() == ultimo.formulario_numero.strip().upper()
+                    )
                     mismo_tipo = (nov.estado == ultimo.estado and nov.formulario_numero == ultimo.formulario_numero)
-                    if es_consecutivo and mismo_tipo:
+                    if (es_consecutivo and mismo_tipo) or (mismo_form and nov.estado == ultimo.estado):
                         bloque_actual.append(nov)
                     else:
                         bloques.append(bloque_actual)

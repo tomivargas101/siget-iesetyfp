@@ -70,6 +70,17 @@
                 <form method="POST" enctype="multipart/form-data" id="formularioRecepcion">
                     {% csrf_token %}
 
+                    {% if tiene_licencia_activa %}
+                    <div class="alert alert-warning border border-warning shadow-sm d-flex align-items-center mb-3">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-5 me-2"></i>
+                        <div class="small">
+                            <strong>Aviso Preventivo (RF-18):</strong> El docente ya cuenta con una licencia activa registrada para esta fecha
+                            ({% if licencia_activa_info.tipo_licencia %}{{ licencia_activa_info.tipo_licencia.articulo }} - {{ licencia_activa_info.tipo_licencia.nombre }}{% else %}{{ licencia_activa_info.estado }}{% endif %}).
+                            Esta acción regularizará o consolidará los datos del formulario físico sin bloquear el flujo operativo (RF-09/RF-11).
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {% if form.non_field_errors %}
                     <div class="alert alert-danger">
                         {% for err in form.non_field_errors %}
