@@ -149,6 +149,14 @@ class DesignacionForm(forms.ModelForm):
             "observaciones": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "materia" in self.fields:
+            self.fields["materia"].label_from_instance = lambda obj: (
+                f"{obj.nombre} [{obj.carrera.codigo} - {obj.carrera.nombre}]"
+                + (f" (Plan: {obj.carrera.resolucion})" if obj.carrera and obj.carrera.resolucion else "")
+            )
+
     def clean(self):
         cleaned_data = super().clean()
         agente = cleaned_data.get("agente")

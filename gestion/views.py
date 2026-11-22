@@ -210,6 +210,10 @@ def asistencia_diaria_view(request):
                         defaults={"estado": nuevo_estado, "registrado_por": request.user}
                     )
                     nov.estado = nuevo_estado
+                    if nuevo_estado == "PR":
+                        nov.formulario_numero = None
+                        nov.tipo_licencia = None
+                        nov.suplente = None
                     nov.registrado_por = request.user
                     nov.save()
                     detalles_auditoria = (
@@ -350,6 +354,14 @@ def asistencia_diaria_view(request):
                 fecha_desde_periodo = fecha_sel
                 fecha_hasta_periodo = fecha_sel + timedelta(days=dias_periodo - 1)
 
+        tiene_lic_activa = (nov is not None and nov.estado in ["LIC", "LT"])
+        lic_info_str = ""
+        if tiene_lic_activa:
+            if nov.tipo_licencia:
+                lic_info_str = f"{nov.tipo_licencia.articulo} ({nov.tipo_licencia.codigo}) - {nov.tipo_licencia.nombre}"
+            else:
+                lic_info_str = f"Licencia {nov.estado}"
+
         filas.append({
             "agente": ag,
             "novedad": nov,
@@ -360,6 +372,8 @@ def asistencia_diaria_view(request):
             "tiene_catedra_hoy": len(desigs_hoy) > 0,
             "desigs_hoy": desigs_hoy,
             "horas_hoy": total_hs_hoy,
+            "tiene_licencia_activa": tiene_lic_activa,
+            "licencia_activa_info": lic_info_str,
         })
 
     resumen_dia = {
@@ -448,6 +462,8 @@ def recepcion_formulario_view(request, agente_id, fecha):
         "fecha": fecha_obj,
         "catedras_hoy": catedras_hoy,
         "form": form,
+        "tiene_licencia_activa": (nov is not None and nov.estado in ["LIC", "LT"]),
+        "licencia_activa_info": nov,
     }
     return render(request, "gestion/recepcion_formulario.html", context)
 

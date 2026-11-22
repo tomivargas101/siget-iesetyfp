@@ -170,6 +170,11 @@
                         <a href="{% url 'agente_detail' pk=fila.agente.pk %}" class="fw-bold text-dark text-decoration-none">
                             {{ fila.agente.apellido }}, {{ fila.agente.nombre }}
                         </a>
+                        {% if fila.tiene_licencia_activa %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning ms-1" title="Posee licencia activa registrada en esta fecha: {{ fila.licencia_activa_info }}">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Licencia Activa
+                            </span>
+                        {% endif %}
                         <div class="text-muted" style="font-size: 0.75rem;">
                             Legajo: <strong class="text-secondary">{{ fila.agente.legajo|default:"S/L" }}</strong> | 
                             Revista: <span class="badge bg-secondary-subtle text-dark border">{{ fila.agente.situacion_revista_defecto }}</span>
@@ -286,6 +291,8 @@
                                 data-tipo-licencia="{{ fila.novedad.tipo_licencia_id|default:'' }}"
                                 data-suplente="{{ fila.novedad.suplente_id|default:'' }}"
                                 data-observaciones="{{ fila.novedad.observaciones|default:'' }}"
+                                data-tiene-licencia-activa="{% if fila.tiene_licencia_activa %}1{% else %}0{% endif %}"
+                                data-licencia-activa-info="{{ fila.licencia_activa_info }}"
                                 onclick="cargarDatosModal(this)"
                                 title="Cargar número de formulario físico, certificado y suplencia">
                             <i class="bi bi-file-earmark-medical"></i>
@@ -347,6 +354,12 @@
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- AVISO PREVENTIVO DE LICENCIA ACTIVA (RF-18 / RF-09) -->
+                    <div class="alert alert-warning py-2 px-3 small d-none" id="alertaLicenciaActiva">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Aviso Preventivo (RF-18):</strong> El docente ya posee una licencia activa registrada en esta fecha (<span id="textoLicenciaActiva"></span>). Puede guardar para actualizar o regularizar el formulario oficial sin interrupciones (RF-09/RF-11).
                     </div>
 
                     <!-- CAMPOS DEL FORMULARIO -->
@@ -611,6 +624,20 @@ function cargarDatosModal(btn) {
     document.getElementById("modalFechaDesdeOriginal").value = fechaDesde;
     document.getElementById("modalFechaHastaOriginal").value = fechaHasta;
     document.getElementById("modalObservaciones").value = obs || "";
+
+    // Aviso preventivo de licencia activa (RF-18)
+    const tieneLicActiva = btn.getAttribute("data-tiene-licencia-activa") === "1";
+    const infoLicActiva = btn.getAttribute("data-licencia-activa-info") || "";
+    const alertaLic = document.getElementById("alertaLicenciaActiva");
+    const textoLic = document.getElementById("textoLicenciaActiva");
+    if (alertaLic) {
+        if (tieneLicActiva) {
+            if (textoLic) textoLic.textContent = infoLicActiva || "Licencia médica o especial registrada";
+            alertaLic.classList.remove("d-none");
+        } else {
+            alertaLic.classList.add("d-none");
+        }
+    }
 
     actualizarBadgeDiasModal();
 
