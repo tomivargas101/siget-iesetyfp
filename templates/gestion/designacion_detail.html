@@ -28,6 +28,11 @@
             <a href="{% url 'designacion_edit' pk=desig.pk %}" class="btn btn-ies btn-sm">
                 <i class="bi bi-pencil-fill me-1"></i>Editar Designación
             </a>
+            {% if desig.activo %}
+            <a href="{% url 'designacion_baja' pk=desig.pk %}?next={% url 'designacion_detail' pk=desig.pk %}" class="btn btn-outline-danger btn-sm" title="Dar de baja (Baja lógica RN-03)" onclick="return confirm('¿Confirma dar de baja lógica esta designación? Pasará a estado histórico sin eliminarse de la base de datos (RN-03).')">
+                <i class="bi bi-trash me-1"></i>Dar de Baja
+            </a>
+            {% endif %}
         </div>
     </div>
 </div>

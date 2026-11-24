@@ -22,7 +22,9 @@ DIAS_MAP = {
     6: "Domingo"
 }
 
-def registrar_auditoria(usuario, accion, detalles="", ip=None):
+def registrar_auditoria(usuario, accion, detalles="", ip=None, **kwargs):
+    if not detalles and "detalle" in kwargs:
+        detalles = kwargs["detalle"]
     nombre = usuario.username if (usuario and hasattr(usuario, "username") and usuario.is_authenticated) else "Sistema / Anónimo"
     Auditoria.objects.create(
         usuario=usuario if (usuario and hasattr(usuario, "is_authenticated") and usuario.is_authenticated) else None,

@@ -251,6 +251,20 @@ class Designacion(models.Model):
         if self.situacion_revista != "SUP":
             self.suplencias_como_suplente.filter(activo=True).update(activo=False)
 
+    def delete(self, *args, **kwargs):
+        """
+        Regla de negocio obligatoria (RF-04 / RN-03):
+        Prohíbe el borrado físico de designaciones para preservar la integridad
+        referencial de las planillas mensuales pasadas (RenglonMensual).
+        Aplica baja lógica marcando activo=False y finalizando la vigencia.
+        """
+        self.activo = False
+        self.vigencia_hasta = date.today().strftime("%d/%m/%Y")
+        super().save(*args, **kwargs)
+        self.horarios.update(activo=False)
+        self.suplencias_como_suplente.filter(activo=True).update(activo=False)
+        self.suplencias_recibidas.filter(activo=True).update(activo=False)
+
     def clean(self):
         if self.activo and self.agente_id:
             valido, msg = self.agente.validar_tope_horas(self.total_horas_semanales, excluir_designacion_id=self.id)
