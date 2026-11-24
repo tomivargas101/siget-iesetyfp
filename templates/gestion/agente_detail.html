@@ -127,9 +127,17 @@
                             <td class="text-center fw-bold text-dark">{{ d.total_horas_semanales }} hs</td>
                             <td class="text-center"><span class="badge bg-secondary-subtle text-dark border">{{ d.situacion_revista|default:agente.situacion_revista_defecto }}</span></td>
                             <td class="text-end">
-                                <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'designacion_detail' pk=d.pk %}" class="btn btn-outline-primary btn-sm" title="Ver detalle">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'designacion_baja' pk=d.pk %}?next={% url 'agente_detail' pk=agente.pk %}" class="btn btn-outline-danger btn-sm" title="Dar de baja (Baja lógica RN-03)" onclick="return confirm('¿Confirma dar de baja lógica esta designación? Pasará a histórico sin borrarse de la base.')">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}

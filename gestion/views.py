@@ -1125,21 +1125,18 @@ def designacion_detail_view(request, pk):
 @login_required
 def designacion_baja_view(request, pk):
     desig = get_object_or_404(Designacion, pk=pk)
-    desig.activo = False
-    desig.vigencia_hasta = date.today().strftime("%d/%m/%Y")
-    desig.save()
-
-    # Desactivar también sus horarios y suplencias como histórico
-    desig.horarios.update(activo=False)
-    desig.suplencias_como_suplente.filter(activo=True).update(activo=False)
+    desig.delete()
 
     registrar_auditoria(
         usuario=request.user,
         accion="BAJA_LOGICA_DESIGNACION",
-        detalles=f"Baja lógica de designación ID {desig.id} ({desig.materia.nombre}) para {desig.agente.nombre_completo}.",
+        detalles=f"Baja lógica de designación ID {desig.id} ({desig.materia.nombre}) para {desig.agente.nombre_completo} conforme a RN-03.",
         ip=request.META.get("REMOTE_ADDR")
     )
-    messages.warning(request, f"Se ha registrado la baja lógica (pase a histórico) de la cátedra de {desig.agente.nombre_completo}.")
+    messages.warning(request, f"Se ha registrado la baja lógica (pase a histórico) de la cátedra de {desig.agente.nombre_completo} conforme a RN-03.")
+    next_url = request.POST.get("next") or request.GET.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect("designaciones_list")
 
 
@@ -1158,9 +1155,7 @@ def carrera_create_view(request):
             registrar_auditoria(
                 usuario=request.user,
                 accion="ALTA_CARRERA",
-                entidad="Carrera",
-                entidad_id=c.id,
-                detalle=f"Alta de carrera '{c.nombre}' (Código: {c.codigo}, Res: {c.resolucion or 'S/R'}) conforme a RF-05.",
+                detalles=f"Alta de carrera '{c.nombre}' (Código: {c.codigo}, Res: {c.resolucion or 'S/R'}) conforme a RF-05.",
                 ip=request.META.get("REMOTE_ADDR")
             )
             messages.success(request, f"Carrera '{c.nombre}' creada exitosamente.")
@@ -1182,9 +1177,7 @@ def carrera_edit_view(request, pk):
             registrar_auditoria(
                 usuario=request.user,
                 accion="MODIFICACION_CARRERA",
-                entidad="Carrera",
-                entidad_id=c.id,
-                detalle=f"Modificación de carrera '{c.nombre}' (Código: {c.codigo}, Res: {c.resolucion or 'S/R'}) conforme a RF-05.",
+                detalles=f"Modificación de carrera '{c.nombre}' (Código: {c.codigo}, Res: {c.resolucion or 'S/R'}) conforme a RF-05.",
                 ip=request.META.get("REMOTE_ADDR")
             )
             messages.success(request, f"Carrera '{c.nombre}' actualizada exitosamente.")
@@ -1204,9 +1197,7 @@ def carrera_baja_view(request, pk):
     registrar_auditoria(
         usuario=request.user,
         accion="BAJA_LOGICA_CARRERA",
-        entidad="Carrera",
-        entidad_id=carrera.id,
-        detalle=f"Baja lógica de carrera '{carrera.nombre}' (Código: {carrera.codigo}) conforme a RF-05 y RN-03.",
+        detalles=f"Baja lógica de carrera '{carrera.nombre}' (Código: {carrera.codigo}) conforme a RF-05 y RN-03.",
         ip=request.META.get("REMOTE_ADDR")
     )
     messages.warning(request, f"Se ha registrado la baja lógica (pase a histórico) de la carrera '{carrera.nombre}'.")
@@ -1295,9 +1286,7 @@ def calendario_view(request):
                 registrar_auditoria(
                     usuario=request.user,
                     accion="ALTA_FERIADO" if created else "MODIFICACION_FERIADO",
-                    entidad="Feriado",
-                    entidad_id=feriado.id,
-                    detalle=f"Registro en Calendario Escolar (RF-10): {f_date.strftime('%d/%m/%Y')} - {descripcion} ({tipo})",
+                    detalles=f"Registro en Calendario Escolar (RF-10): {f_date.strftime('%d/%m/%Y')} - {descripcion} ({tipo})",
                     ip=request.META.get("REMOTE_ADDR")
                 )
                 messages.success(request, f"Fecha {f_date.strftime('%d/%m/%Y')} registrada en el calendario escolar exitosamente.")
@@ -1339,6 +1328,12 @@ def materia_create_view(request):
         form = MateriaForm(request.POST)
         if form.is_valid():
             m = form.save()
+            registrar_auditoria(
+                usuario=request.user,
+                accion="ALTA_MATERIA",
+                detalles=f"Alta del espacio curricular '{m.nombre}' (Código: {m.codigo}) en carrera '{m.carrera.nombre}'.",
+                ip=request.META.get("REMOTE_ADDR")
+            )
             messages.success(request, f"Materia {m.nombre} agregada.")
             return redirect("materias_list")
     else:

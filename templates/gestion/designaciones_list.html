@@ -193,6 +193,11 @@
                             <a href="{% url 'designacion_edit' pk=d.pk %}" class="btn btn-outline-secondary" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% if d.activo %}
+                            <a href="{% url 'designacion_baja' pk=d.pk %}" class="btn btn-outline-danger" title="Dar de baja (Baja lógica RN-03)" onclick="return confirm('¿Confirma dar de baja lógica esta designación? Pasará a histórico sin borrarse de la base de datos (RN-03).')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

@@ -1211,6 +1211,122 @@ class ReglasNegocioSIGETTests(TestCase):
         self.assertIsNone(nov.tipo_licencia)
         self.assertIsNone(nov.suplente)
 
+    def test_carrera_create_edit_baja_auditoria_sin_typeerror(self):
+        """Verifica que el alta, edición y baja lógica de Carrera funcionen sin TypeError en registrar_auditoria (RF-05, RN-03)."""
+        self.client.login(username="testadmin", password="password123")
+
+        # 1. Alta de Carrera
+        resp_alta = self.client.post("/carreras/nueva/", data={
+            "codigo": "TEC-RED",
+            "nombre": "Tecnicatura Superior en Redes",
+            "resolucion": "Res. 555/20 MECCyT",
+            "duracion_anios": 3,
+            "activo": "on",
+        }, follow=True)
+        self.assertEqual(resp_alta.status_code, 200)
+        carrera = Carrera.objects.filter(codigo="TEC-RED").first()
+        self.assertIsNotNone(carrera)
+        self.assertEqual(carrera.nombre, "Tecnicatura Superior en Redes")
+
+        # Validar auditoría de alta
+        audit_alta = Auditoria.objects.filter(accion="ALTA_CARRERA", detalles__contains="TEC-RED").first()
+        self.assertIsNotNone(audit_alta)
+
+        # 2. Edición de Carrera
+        resp_edit = self.client.post(f"/carreras/{carrera.pk}/editar/", data={
+            "codigo": "TEC-RED",
+            "nombre": "Tecnicatura Superior en Redes e Infraestructura",
+            "resolucion": "Res. 555/20 MECCyT",
+            "duracion_anios": 3,
+            "activo": "on",
+        }, follow=True)
+        self.assertEqual(resp_edit.status_code, 200)
+        carrera.refresh_from_db()
+        self.assertEqual(carrera.nombre, "Tecnicatura Superior en Redes e Infraestructura")
+
+        # Validar auditoría de modificación
+        audit_edit = Auditoria.objects.filter(accion="MODIFICACION_CARRERA", detalles__contains="TEC-RED").first()
+        self.assertIsNotNone(audit_edit)
+
+        # 3. Baja Lógica de Carrera
+        resp_baja = self.client.get(f"/carreras/{carrera.pk}/baja/", follow=True)
+        self.assertEqual(resp_baja.status_code, 200)
+        carrera.refresh_from_db()
+        self.assertFalse(carrera.activo)
+
+        # Validar auditoría de baja
+        audit_baja = Auditoria.objects.filter(accion="BAJA_LOGICA_CARRERA", detalles__contains="TEC-RED").first()
+        self.assertIsNotNone(audit_baja)
+
+    def test_designacion_baja_logica_rf04_rn03(self):
+        """Verifica que la baja de designaciones sea estrictamente lógica, preservando el registro y sus planillas históricas (RF-04, RN-03)."""
+        self.client.login(username="testadmin", password="password123")
+        docente = Agente.objects.create(dni="27444333", legajo="LEG-274", apellido="Flores", nombre="Gonzalo")
+        desig = Designacion.objects.create(
+            agente=docente,
+            materia=self.materia1,
+            situacion_revista="TIT",
+            activo=True
+        )
+        HorarioDesignacion.objects.create(
+            designacion=desig,
+            dia_semana="Miércoles",
+            hora_inicio=time(18, 30),
+            hora_fin=time(21, 30),
+            horas_catedra=4,
+            activo=True
+        )
+
+        # Asociar un renglón mensual histórico que no debe eliminarse jamás
+        renglon = RenglonMensual.objects.create(
+            mes=10,
+            anio=2026,
+            cuadro="IL-01",
+            agente=docente,
+            designacion=desig,
+            materia_nombre=desig.materia.nombre,
+            carrera_nombre=desig.materia.carrera.nombre,
+            situacion_revista=desig.situacion_revista,
+            horas_afectadas=4,
+            desde=date(2026, 10, 5),
+            hasta=date(2026, 10, 5),
+            tipo_licencia=self.lic_medica,
+            articulo=self.lic_medica.articulo,
+            codigo_licencia=self.lic_medica.codigo
+        )
+
+        # 1. Ejecutar baja lógica desde la vista /designaciones/<pk>/baja/
+        resp = self.client.get(f"/designaciones/{desig.pk}/baja/", follow=True)
+        self.assertEqual(resp.status_code, 200)
+
+        # 2. La designación DEBE seguir existiendo en la base de datos (RN-03: no borrado físico)
+        self.assertTrue(Designacion.objects.filter(pk=desig.pk).exists())
+        desig.refresh_from_db()
+        self.assertFalse(desig.activo)
+        self.assertNotEqual(desig.vigencia_hasta, "SIN TERMINO")
+
+        # 3. Los horarios deben pasar a inactivos
+        self.assertEqual(desig.horarios.filter(activo=True).count(), 0)
+
+        # 4. El renglón mensual histórico de la planilla NO debe haberse borrado
+        self.assertTrue(RenglonMensual.objects.filter(pk=renglon.pk).exists())
+
+        # 5. Auditoría registrada
+        audit = Auditoria.objects.filter(
+            accion="BAJA_LOGICA_DESIGNACION",
+            detalles__contains=f"Designación ID {desig.id}"
+        ).first()
+        self.assertIsNotNone(audit)
+
+        # 6. Método desig.delete() directo también ejecuta baja lógica sin borrar fila
+        desig.activo = True
+        desig.save()
+        desig.delete()
+        self.assertTrue(Designacion.objects.filter(pk=desig.pk).exists())
+        desig.refresh_from_db()
+        self.assertFalse(desig.activo)
+
+
 
 
 
